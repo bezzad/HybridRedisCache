@@ -1,3 +1,4 @@
+using StackExchange.Redis;
 using System;
 using System.Threading.Tasks;
 using Xunit;
@@ -10,7 +11,7 @@ namespace HybricCache.Test
         private const string InstanceName = "myapp";
 
         [Fact]
-        public void SetAndGet_CacheEntryExists_ReturnsCachedValue()
+        public void ShouldCacheAndRetrieveData()
         {
             // Arrange
             var cache = new HybridCache(RedisConnectionString, InstanceName);
@@ -30,7 +31,7 @@ namespace HybricCache.Test
         {
             // Arrange
             var cache = new HybridCache(RedisConnectionString, InstanceName);
-            var key = "mykey";
+            var key = "nonexistentkey";
 
             // Act
             var result = cache.Get<string>(key);
@@ -40,16 +41,16 @@ namespace HybricCache.Test
         }
 
         [Fact]
-        public void Set_CacheEntryIsRemoved_AfterExpiration()
+        public async Task Set_CacheEntryIsRemoved_AfterExpiration()
         {
             // Arrange
-            var cache = new HybridCache(RedisConnectionString, InstanceName, TimeSpan.FromSeconds(1));
+            var cache = new HybridCache(RedisConnectionString, InstanceName);
             var key = "mykey";
             var value = "myvalue";
 
             // Act
-            cache.Set(key, value);
-            Task.Delay(TimeSpan.FromSeconds(2)).Wait();
+            cache.Set(key, value, TimeSpan.FromMilliseconds(100));
+            await Task.Delay(TimeSpan.FromSeconds(2));
             var result = cache.Get<string>(key);
 
             // Assert
@@ -107,12 +108,12 @@ namespace HybricCache.Test
         public async Task SetAsync_CacheEntryIsRemoved_AfterExpiration()
         {
             // Arrange
-            var cache = new HybridCache(RedisConnectionString, InstanceName, TimeSpan.FromSeconds(1));
+            var cache = new HybridCache(RedisConnectionString, InstanceName);
             var key = "mykey";
             var value = "myvalue";
 
             // Act
-            await cache.SetAsync(key, value);
+            await cache.SetAsync(key, value, TimeSpan.FromSeconds(1));
             await Task.Delay(TimeSpan.FromSeconds(2));
             var result = await cache.GetAsync<string>(key);
 
@@ -136,5 +137,22 @@ namespace HybricCache.Test
             // Assert
             Assert.Null(result);
         }
+
+        [Fact]
+        public void ShouldSerializeAndDeserializeComplexObject()
+        {
+            // Arrange
+            var cache = new HybridCache("localhost:6379", "myapp");
+            var obj = new { Name = "John", Age = 30 };
+
+            // Act
+            cache.Set("mykey", obj, TimeSpan.FromMinutes(1));
+            var value = cache.Get<dynamic>("mykey");
+
+            // Assert
+            Assert.Equal(obj.Name, value.Name);
+            Assert.Equal(obj.Age, value.Age);
+        }
+
     }
 }

@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Primitives;
 using StackExchange.Redis;
 using System.Text;
 using System.Text.Json;
@@ -12,14 +13,14 @@ public class HybridCache : IHybridCache, IDisposable
     private readonly string _instanceName;
     private readonly ISubscriber _redisSubscriber;
 
-    public HybridCache(string redisConnectionString, string instanceName, TimeSpan? defaultExpiration = null)
+    public HybridCache(string redisConnectionString, string instanceName, TimeSpan? defaultExpiryTime = null)
     {
         _memoryCache = new MemoryCache(new MemoryCacheOptions());
         _redisConnection = ConnectionMultiplexer.Connect(redisConnectionString);
         _redisDb = _redisConnection.GetDatabase();
         _redisSubscriber = _redisConnection.GetSubscriber();
         _instanceName = instanceName;
-        _defaultExpiration = defaultExpiration ?? TimeSpan.FromMinutes(30);
+        _defaultExpiration = defaultExpiryTime ?? TimeSpan.FromDays(30);
 
         // Subscribe to Redis key-space events to invalidate cache entries on all instances
         _redisSubscriber.Subscribe(GetInvalidationChannel(), (channel, message) =>
