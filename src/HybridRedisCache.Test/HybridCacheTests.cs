@@ -7,7 +7,7 @@ namespace HybridRedisCache.Test
     public class HybridCacheTests
     {
         private const string RedisConnectionString = "localhost:6379";
-        private const string InstanceName = "myapp";
+        private const string InstanceName = "my-test-app";
 
         [Fact]
         public void ShouldCacheAndRetrieveData()
@@ -151,6 +151,35 @@ namespace HybridRedisCache.Test
             // Assert
             Assert.Equal(obj.Name, value.Name);
             Assert.Equal(obj.Age, value.Age);
+        }
+
+        [Fact]
+        public async Task TestSharedCache()
+        {
+            // create two instances of HybridCache that share the same Redis cache
+            var instance1 = new HybridCache(RedisConnectionString, "shared-instance");
+            var instance2 = new HybridCache(RedisConnectionString, "shared-instance");
+
+            // set a value in the shared cache using instance1
+            instance1.Set("mykey", "myvalue", fireAndForget: false);
+
+            // retrieve the value from the shared cache using instance2
+            var value = instance2.Get<string>("mykey");
+            Assert.Equal("myvalue", value);
+
+            // update the value in the shared cache using instance2
+            instance2.Set("mykey", "newvalue", fireAndForget: false);
+
+            // wait for cache invalidation message to be received
+            await Task.Delay(1000);
+
+            // retrieve the updated value from the shared cache using instance1
+            value = instance1.Get<string>("mykey");
+            Assert.Equal("newvalue", value);
+
+            // clean up
+            instance1.Dispose();
+            instance2.Dispose();
         }
     }
 }

@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.Caching.Memory;
 using StackExchange.Redis;
+using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 
@@ -16,6 +17,7 @@ public class HybridCache : IHybridCache, IDisposable
     private readonly ConnectionMultiplexer _redisConnection;
     private readonly TimeSpan _defaultExpiration;
     private readonly string _instanceName;
+    private readonly string _instanceId;
     private readonly ISubscriber _redisSubscriber;
     private string InvalidationChannel => _instanceName + ":invalidate";
 
@@ -32,8 +34,14 @@ public class HybridCache : IHybridCache, IDisposable
         _redisConnection = ConnectionMultiplexer.Connect(redisConnectionString);
         _redisDb = _redisConnection.GetDatabase();
         _redisSubscriber = _redisConnection.GetSubscriber();
+        _instanceId = GenerateInstanceId();
         _instanceName = instanceName;
         _defaultExpiration = defaultExpiryTime ?? TimeSpan.FromDays(30);
+
+        if (string.IsNullOrEmpty(_instanceName))
+        {
+            _instanceName = GenerateInstanceId();
+        }
 
         // Subscribe to Redis key-space events to invalidate cache entries on all instances
         _redisSubscriber.Subscribe(InvalidationChannel, OnRedisValuesChanged);
@@ -41,8 +49,16 @@ public class HybridCache : IHybridCache, IDisposable
 
     private void OnRedisValuesChanged(RedisChannel channel, RedisValue message)
     {
-        var cacheKey = message.ToString();
-        _memoryCache.Remove(cacheKey);
+        // With this implementation, when a key is updated or removed in Redis,
+        // all instances of HybridCache that are subscribed to the pub/sub channel will receive a message
+        // and invalidate the corresponding key in their local MemoryCache.
+
+        var cacheInvalidationMessage = Deserialize<CacheInvalidationMessage>(message.ToString());
+        if (cacheInvalidationMessage.InstanceId != _instanceId) // filter out messages from the current instance
+        {
+            var cacheKey = cacheInvalidationMessage.CacheKey;
+            _memoryCache.Remove(cacheKey);
+        }
     }
 
     /// <summary>
@@ -59,6 +75,10 @@ public class HybridCache : IHybridCache, IDisposable
         _memoryCache.Set(cacheKey, value, expiration ?? _defaultExpiration);
         _redisDb.StringSet(cacheKey, Serialize(value), expiration ?? _defaultExpiration,
             flags: fireAndForget ? CommandFlags.FireAndForget : CommandFlags.None);
+
+        // include the instance ID in the pub/sub message payload to update another instances
+        var message = new CacheInvalidationMessage(cacheKey, _instanceId);
+        _redisDb.Publish(InvalidationChannel, Serialize(message));
     }
 
     /// <summary>
@@ -113,6 +133,10 @@ public class HybridCache : IHybridCache, IDisposable
         _memoryCache.Set(cacheKey, value, expiration ?? _defaultExpiration);
         await _redisDb.StringSetAsync(cacheKey, Serialize(value), expiration ?? _defaultExpiration,
             flags: fireAndForget ? CommandFlags.FireAndForget : CommandFlags.None);
+
+        // include the instance ID in the pub/sub message payload to update another instances
+        var message = new CacheInvalidationMessage(cacheKey, _instanceId);
+        await _redisDb.PublishAsync(InvalidationChannel, Serialize(message));
     }
 
     /// <summary>
@@ -156,26 +180,32 @@ public class HybridCache : IHybridCache, IDisposable
     private string GetCacheKey(string key) => $"{_instanceName}:{key}";
 
 
-    private byte[] Serialize<T>(T value)
+    private static string Serialize<T>(T value)
     {
         if (value == null)
         {
             return null;
         }
 
-        var json = JsonSerializer.Serialize(value);
-        return Encoding.UTF8.GetBytes(json);
+        return JsonSerializer.Serialize(value);
     }
 
-    private T Deserialize<T>(byte[] bytes)
+    private static T Deserialize<T>(string value)
     {
-        if (bytes == null)
+        if (string.IsNullOrWhiteSpace(value))
         {
             return default;
         }
 
-        var json = Encoding.UTF8.GetString(bytes);
-        return JsonSerializer.Deserialize<T>(json);
+        return JsonSerializer.Deserialize<T>(value);
+    }
+
+    private static string GenerateInstanceId()
+    {
+        var machineName = Environment.MachineName;
+        var processId = Process.GetCurrentProcess().Id;
+        var randomValue = Guid.NewGuid().ToString("N").Substring(0, 8);
+        return $"{machineName}:{processId}:{randomValue}";
     }
 
     public void Dispose()
