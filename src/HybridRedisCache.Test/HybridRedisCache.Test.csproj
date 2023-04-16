@@ -22,6 +22,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\HybridCache\HybridRedisCache.csproj" />
+    <ProjectReference Include="..\HybridRedisCache\HybridRedisCache.csproj" />
   </ItemGroup>
 
 </Project>
