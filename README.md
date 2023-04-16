@@ -7,11 +7,11 @@ It provides a way to cache frequently accessed data in memory for fast access an
 
 You can install the `HybridRedisCache` package using NuGet:
 
-PM> Install-Package HybridRedisCache
+> `PM> Install-Package HybridRedisCache`
 
 ## Usage
 
-To use `HybridRedisCache`, you can create an instance of the `HybridRedisCache` class and then call its `Set` and `Get` methods to cache and retrieve data, respectively.
+To use `HybridCache`, you can create an instance of the `HybridCache` class and then call its `Set` and `Get` methods to cache and retrieve data, respectively.
 Here's an example:
 
 ```csharp
