@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Xunit;
@@ -223,6 +224,100 @@ namespace HybridRedisCache.Test
 
             // wait for the threads to complete
             threads.ForEach(t => t.Join());
+
+            // clean up
+            cache.Dispose();
+        }
+
+        [Fact]
+        public void CacheSerializationTest()
+        {
+            // create a HybridRedisCache instance
+            var cache = new HybridCache(RedisConnectionString);
+
+            // create a complex object to store in the cache
+            var complexObject = new ComplexObject
+            {
+                Name = "John",
+                Age = 30,
+                Address = new Address
+                {
+                    Street = "123 Main St",
+                    City = "Anytown",
+                    State = "CA",
+                    Zip = "12345"
+                },
+                PhoneNumbers = new List<string> { "555-1234", "555-5678" }
+            };
+
+            // store the object in the cache
+            cache.Set("complexObject", complexObject);
+
+            // retrieve the object from the cache
+            var retrievedObject = cache.Get<ComplexObject>("complexObject");
+
+            // verify that the retrieved object is equal to the original object
+            Assert.Equal(complexObject.Name, retrievedObject.Name);
+            Assert.Equal(complexObject.Age, retrievedObject.Age);
+            Assert.Equal(complexObject.Address.Street, retrievedObject.Address.Street);
+            Assert.Equal(complexObject.Address.City, retrievedObject.Address.City);
+            Assert.Equal(complexObject.Address.State, retrievedObject.Address.State);
+            Assert.Equal(complexObject.Address.Zip, retrievedObject.Address.Zip);
+            Assert.Equal(complexObject.PhoneNumbers, retrievedObject.PhoneNumbers);
+
+            // clean up
+            cache.Dispose();
+        }
+
+        [Fact]
+        public void CacheConcurrencyTest()
+        {
+            // create a HybridRedisCache instance
+            var cache = new HybridCache(RedisConnectionString);
+
+            // create a shared key and a list of values to store in the cache
+            var key = "sharedKey";
+            var values = new List<string> { "foo", "bar", "baz", "qux" };
+
+            // create multiple threads, each of which performs cache operations
+            var threads = new List<Thread>();
+            for (int i = 0; i < values.Count; i++)
+            {
+                var value = values[i];
+                var thread = new Thread(() =>
+                {
+                    // wait for the initial value to be set by another thread
+                    lock (values)
+                    {
+                        // perform cache operations on the cache instance
+                        var currentValue = cache.Get<string>(key);
+                        if (currentValue == null)
+                        {
+                            cache.Set(key, value, fireAndForget: false);
+                        }
+                        else
+                        {
+                            cache.Set(key, currentValue + value, fireAndForget: false);
+                        }
+                    }
+                });
+
+                threads.Add(thread);
+            }
+
+            // start the threads and wait for them to complete
+            threads.ForEach(t => t.Start());
+
+            // set the initial value in the cache
+            cache.Set(key, values[0], fireAndForget: false);
+
+            // waits for a brief period of time before verifying the final value in the cache
+            // to ensure that all write operations have completed.
+            Thread.Sleep(1000);
+
+            // verify that the final value in the cache is correct
+            var actualValue = cache.Get<string>(key);
+            Assert.True(values.All(val=> actualValue.Contains(val)), $"value was:{actualValue}");
 
             // clean up
             cache.Dispose();
