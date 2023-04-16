@@ -3,7 +3,33 @@
   <PropertyGroup>
     <TargetFramework>net6.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
+    <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
+    <Title>HybridRedisCache</Title>
+    <Company>bezzad</Company>
+    <Authors>bezzad</Authors>
+    <Description>A simple in-memory and Redis hybrid caching solution for .NET applications. 
+It provides a way to cache frequently accessed data in memory for fast access and automatically falls back to using Redis as a persistent cache when memory cache capacity is exceeded.</Description>
+    <Copyright>2022</Copyright>
+    <PackageProjectUrl>https://www.nuget.org/packages/Downloader/</PackageProjectUrl>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <RepositoryUrl>https://github.com/bezzad/HybridRedisCache</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageTags>redis; cache; in-memory; memcache; RedisMemoryCache; HybridCachePlus; InRedisCache; MemRedisCache; RedisFusionCache; RedisMemCache; RedisInMemoryCache; MemHybridCache; RedisHybridStore; HybridRedisCache</PackageTags>
+    <PackageReleaseNotes>First version of Hybrid Redis Cache package</PackageReleaseNotes>
+    <IncludeSymbols>True</IncludeSymbols>
+    <PackageLicenseFile>LICENSE</PackageLicenseFile>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\..\LICENSE">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+    <None Include="..\..\README.md">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="7.0.0" />
