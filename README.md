@@ -19,7 +19,7 @@ using HybridRedisCache;
 
 ...
 
-// Create a new instance of HybridRedisCache with Redis connection string and instance name
+// Create a new instance of HybridCache with Redis connection string and instance name
 var cache = new HybridCache("localhost:6379", "myapp");
 
 // Cache a string value with key "mykey" for 1 minute
