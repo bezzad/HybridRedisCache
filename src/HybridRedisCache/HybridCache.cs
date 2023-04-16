@@ -28,7 +28,7 @@ public class HybridCache : IHybridCache, IDisposable
     /// <param name="redisConnectionString">Redis connection string</param>
     /// <param name="instanceName">Application unique name for redis indexes</param>
     /// <param name="defaultExpiryTime">default caching expiry time</param>
-    public HybridCache(string redisConnectionString, string instanceName, TimeSpan? defaultExpiryTime = null)
+    public HybridCache(string redisConnectionString, string instanceName = null, TimeSpan? defaultExpiryTime = null)
     {
         _memoryCache = new MemoryCache(new MemoryCacheOptions());
         _redisConnection = ConnectionMultiplexer.Connect(redisConnectionString);

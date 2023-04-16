@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using Xunit;
 
@@ -180,6 +182,50 @@ namespace HybridRedisCache.Test
             // clean up
             instance1.Dispose();
             instance2.Dispose();
+        }
+
+        [Fact]
+        public void TestMultiThreadedCacheOperations()
+        {
+            // create a HybridCache instance
+            var cache = new HybridCache(RedisConnectionString);
+
+            // create a list of values to store in the cache
+            var values = new List<string> { "foo", "bar", "baz", "qux" };
+
+            // create multiple threads, each of which performs cache operations
+            var threads = new List<Thread>();
+            for (int i = 0; i < values.Count; i++)
+            {
+                var thread = new Thread((state) =>
+                {
+                    // retrieve the key and value variables from the state object
+                    var tuple = (Tuple<string, string>)state;
+                    var threadKey = tuple.Item1;
+                    var threadValue = tuple.Item2;
+
+                    // perform cache operations on the cache instance
+                    cache.Set(threadKey, threadValue);
+                    var retrievedValue = cache.Get<string>(threadKey);
+                    Assert.Equal(threadValue, retrievedValue);
+                    cache.Remove(threadKey);
+                });
+
+                // create a local copy of the i variable to avoid race conditions
+                var localI = i;
+
+                // start the thread and pass the key and value variables as a state object
+                thread.Start(Tuple.Create($"key{i}", values[i]));
+
+                // add the thread to the list
+                threads.Add(thread);
+            }
+
+            // wait for the threads to complete
+            threads.ForEach(t => t.Join());
+
+            // clean up
+            cache.Dispose();
         }
     }
 }
