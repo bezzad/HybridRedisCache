@@ -1,4 +1,3 @@
-[![Build Status](https://ci.appveyor.com/api/projects/status/github/bezzad/HybridRedisCache?branch=master&svg=true)](https://ci.appveyor.com/project/bezzad/HybridRedisCache)
 [![NuGet](https://img.shields.io/nuget/dt/HybridRedisCache.svg)](https://www.nuget.org/packages/HybridRedisCache)
 [![NuGet](https://img.shields.io/nuget/vpre/HybridRedisCache.svg)](https://www.nuget.org/packages/HybridRedisCache)
 [![Generic badge](https://img.shields.io/badge/support-.Net_Core-blue.svg)](https://github.com/bezzad/HybridRedisCache)
