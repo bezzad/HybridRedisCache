@@ -42,4 +42,4 @@ If you'd like to contribute to HybridCache, please follow these steps:
 
 ## License
 
-`HybridCache` is licensed under the Apache License, Version 2.0. See the [LICENSE](https://raw.githubusercontent.com/bezzad/HybridCache/dev/LICENSE) file for more information.
+`HybridCache` is licensed under the Apache License, Version 2.0. See the [LICENSE](https://raw.githubusercontent.com/bezzad/HybridRedisCache/dev/LICENSE) file for more information.

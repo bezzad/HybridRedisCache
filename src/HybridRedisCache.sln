@@ -5,8 +5,7 @@ VisualStudioVersion = 17.5.33424.131
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution", "Solution", "{BA7EE154-0208-43F9-84A0-3E28E8244988}"
 	ProjectSection(SolutionItems) = preProject
-		..\..\LICENSE = ..\..\LICENSE
-		..\..\README.md = ..\..\README.md
+		..\README.md = ..\README.md
 	EndProjectSection
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "HybridRedisCache", "HybridRedisCache\HybridRedisCache.csproj", "{432284F0-2372-4450-BC53-3E937F0A791E}"
