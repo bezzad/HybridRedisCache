@@ -13,6 +13,7 @@ public class HybridCache : IHybridCache, IDisposable
     private readonly TimeSpan _defaultExpiration;
     private readonly string _instanceName;
     private readonly ISubscriber _redisSubscriber;
+    private string InvalidationChannel => _instanceName + ":invalidate";
 
     public HybridCache(string redisConnectionString, string instanceName, TimeSpan? defaultExpiryTime = null)
     {
@@ -24,18 +25,21 @@ public class HybridCache : IHybridCache, IDisposable
         _defaultExpiration = defaultExpiryTime ?? TimeSpan.FromDays(30);
 
         // Subscribe to Redis key-space events to invalidate cache entries on all instances
-        _redisSubscriber.Subscribe(GetInvalidationChannel(), (channel, message) =>
-        {
-            var cacheKey = message.ToString();
-            _memoryCache.Remove(cacheKey);
-        });
+        _redisSubscriber.Subscribe(InvalidationChannel, OnRedisValuesChanged);
     }
 
-    public void Set<T>(string key, T value, TimeSpan? expiration = null)
+    private void OnRedisValuesChanged(RedisChannel channel, RedisValue message)
+    {
+        var cacheKey = message.ToString();
+        _memoryCache.Remove(cacheKey);
+    }
+
+    public void Set<T>(string key, T value, TimeSpan? expiration = null, bool fireAndForget = true)
     {
         var cacheKey = GetCacheKey(key);
         _memoryCache.Set(cacheKey, value, expiration ?? _defaultExpiration);
-        _redisDb.StringSet(cacheKey, Serialize(value), expiration ?? _defaultExpiration);
+        _redisDb.StringSet(cacheKey, Serialize(value), expiration ?? _defaultExpiration,
+            flags: fireAndForget ? CommandFlags.FireAndForget : CommandFlags.None);
     }
 
     public T Get<T>(string key)
@@ -62,14 +66,15 @@ public class HybridCache : IHybridCache, IDisposable
         var cacheKey = GetCacheKey(key);
         _memoryCache.Remove(cacheKey);
         _redisDb.KeyDelete(cacheKey);
-        _redisDb.Publish(GetInvalidationChannel(), cacheKey);
+        _redisDb.Publish(InvalidationChannel, cacheKey);
     }
 
-    public async Task SetAsync<T>(string key, T value, TimeSpan? expiration = null)
+    public async Task SetAsync<T>(string key, T value, TimeSpan? expiration = null, bool fireAndForget = true)
     {
         var cacheKey = GetCacheKey(key);
         _memoryCache.Set(cacheKey, value, expiration ?? _defaultExpiration);
-        await _redisDb.StringSetAsync(cacheKey, Serialize(value), expiration ?? _defaultExpiration);
+        await _redisDb.StringSetAsync(cacheKey, Serialize(value), expiration ?? _defaultExpiration,
+             flags: fireAndForget ? CommandFlags.FireAndForget : CommandFlags.None);
     }
 
     public async Task<T> GetAsync<T>(string key)
@@ -96,7 +101,7 @@ public class HybridCache : IHybridCache, IDisposable
         var cacheKey = GetCacheKey(key);
         _memoryCache.Remove(cacheKey);
         await _redisDb.KeyDeleteAsync(cacheKey);
-        await _redisDb.PublishAsync(GetInvalidationChannel(), cacheKey);
+        await _redisDb.PublishAsync(InvalidationChannel, cacheKey);
     }
 
     private string GetCacheKey(string key)
@@ -104,10 +109,6 @@ public class HybridCache : IHybridCache, IDisposable
         return $"{_instanceName}:{key}";
     }
 
-    private string GetInvalidationChannel()
-    {
-        return $"{_instanceName}:invalidate";
-    }
 
     private byte[] Serialize<T>(T value)
     {
@@ -133,6 +134,7 @@ public class HybridCache : IHybridCache, IDisposable
 
     public void Dispose()
     {
+        _redisSubscriber.UnsubscribeAll();
         _redisConnection.Dispose();
         _memoryCache.Dispose();
     }
