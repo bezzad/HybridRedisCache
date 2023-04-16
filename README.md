@@ -29,27 +29,6 @@ cache.Set("mykey", "myvalue", TimeSpan.FromMinutes(1));
 var value = cache.Get<string>("mykey");
 ```
 
-By default, `HybridCache` uses an `in-memory` cache with a capacity of 10,000 entries and `Redis` as a fallback cache. 
-You can customize the `in-memory` cache capacity and `Redis` configuration by passing in optional parameters to the constructor:
-
-```csharp
-
-
-using HybridCache;
-
-...
-
-// Create a new instance of HybridCache with custom cache capacity and Redis configuration
-var cache = new HybridCache(
-    "localhost:6379", 
-    "myapp", 
-    new HybridCacheOptions
-    {
-        MemoryCacheCapacity = 1000,
-        RedisConfiguration = ConfigurationOptions.Parse("localhost:6379,password=123456")
-    });
-```
-
 ## Contributing
 
 Contributions are welcome! If you find a bug or have a feature request, please open an issue or submit a pull request.

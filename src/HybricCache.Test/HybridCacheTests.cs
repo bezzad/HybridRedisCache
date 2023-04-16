@@ -1,4 +1,3 @@
-using StackExchange.Redis;
 using System;
 using System.Threading.Tasks;
 using Xunit;
@@ -153,6 +152,5 @@ namespace HybricCache.Test
             Assert.Equal(obj.Name, value.Name);
             Assert.Equal(obj.Age, value.Age);
         }
-
     }
 }
