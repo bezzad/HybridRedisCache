@@ -32,7 +32,7 @@ var value = cache.Get<string>("mykey");
 ## Contributing
 
 Contributions are welcome! If you find a bug or have a feature request, please open an issue or submit a pull request.
-If you'd like to contribute to HybridCache, please follow these steps:
+If you'd like to contribute to `HybridRedisCache`, please follow these steps:
 
 1. Fork the repository.
 2. Create a new branch for your changes.
@@ -42,4 +42,4 @@ If you'd like to contribute to HybridCache, please follow these steps:
 
 ## License
 
-`HybridCache` is licensed under the Apache License, Version 2.0. See the [LICENSE](https://raw.githubusercontent.com/bezzad/HybridRedisCache/dev/LICENSE) file for more information.
+`HybridRedisCache` is licensed under the Apache License, Version 2.0. See the [LICENSE](https://raw.githubusercontent.com/bezzad/HybridRedisCache/dev/LICENSE) file for more information.
