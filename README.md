@@ -29,6 +29,29 @@ cache.Set("mykey", "myvalue", TimeSpan.FromMinutes(1));
 var value = cache.Get<string>("mykey");
 ```
 
+## Features
+`HybridCache` is a caching library that provides a number of advantages over traditional `in-memory` caching solutions. 
+One of its key features is the ability to persist caches between instances and sync data for all instances.
+
+With `HybridCache`, you can create multiple instances of the cache that share the same `Redis` cache, 
+allowing you to scale out your application and distribute caching across multiple instances. 
+This ensures that all instances of your application have access to the same cached data, 
+regardless of which instance originally created the cache.
+
+When a value is set in the cache using one instance, the cache invalidation message is sent to all other instances, 
+ensuring that the cached data is synchronized across all instances. 
+This allows you to take advantage of the benefits of caching, 
+such as reduced latency and **improved performance**, while ensuring that the cached data is consistent across all instances.
+
+Other features of HybridCache include:
+
+* Support for multiple cache layers, including in-memory and Redis caching layers
+* **Automatic expiration** of cached data based on time-to-live (TTL) or sliding expiration policies
+* Support for fire-and-forget caching, which allows you to quickly set a value in the cache without waiting for a response
+* Support for asynchronous caching operations, which allows you to perform cache operations asynchronously and improve the responsiveness of your application
+
+Overall, `HybridCache` provides a powerful and flexible caching solution that can help you improve the performance and scalability of your applications, while ensuring that the cached data is consistent across all instances.
+
 ## Contributing
 
 Contributions are welcome! If you find a bug or have a feature request, please open an issue or submit a pull request.
