@@ -21,7 +21,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\HybridCache\HybridCache.csproj" />
+    <ProjectReference Include="..\HybridCache\HybridRedisCache.csproj" />
   </ItemGroup>
 
 </Project>

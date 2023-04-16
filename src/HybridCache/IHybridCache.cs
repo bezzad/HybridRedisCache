@@ -1,4 +1,6 @@
-﻿public interface IHybridCache
+﻿namespace HybridRedisCache;
+
+public interface IHybridCache
 {
     void Set<T>(string key, T value, TimeSpan? expiration = null);
     T Get<T>(string key);

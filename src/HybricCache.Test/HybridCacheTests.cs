@@ -2,7 +2,7 @@ using System;
 using System.Threading.Tasks;
 using Xunit;
 
-namespace HybricCache.Test
+namespace HybridRedisCache.Test
 {
     public class HybridCacheTests
     {

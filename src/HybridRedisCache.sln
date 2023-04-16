@@ -3,9 +3,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.5.33424.131
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HybridCache", "HybridCache\HybridCache.csproj", "{66537A9E-2AA3-4ECA-8BF6-0230D484C5CD}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "HybridRedisCache", "HybridCache\HybridRedisCache.csproj", "{66537A9E-2AA3-4ECA-8BF6-0230D484C5CD}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HybricCache.Test", "HybricCache.Test\HybricCache.Test.csproj", "{373750CA-9BF3-44A4-B8B4-F25E417DE32B}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "HybridRedisCache.Test", "HybricCache.Test\HybridRedisCache.Test.csproj", "{373750CA-9BF3-44A4-B8B4-F25E417DE32B}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution", "Solution", "{BA7EE154-0208-43F9-84A0-3E28E8244988}"
 	ProjectSection(SolutionItems) = preProject

@@ -1,8 +1,9 @@
 ﻿using Microsoft.Extensions.Caching.Memory;
-using Microsoft.Extensions.Primitives;
 using StackExchange.Redis;
 using System.Text;
 using System.Text.Json;
+
+namespace HybridRedisCache;
 
 public class HybridCache : IHybridCache, IDisposable
 {

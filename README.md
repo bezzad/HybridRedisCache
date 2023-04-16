@@ -1,25 +1,25 @@
-# HybridCache
+# HybridRedisCache
 
-`HybridCache` is a simple in-memory and Redis hybrid caching solution for .NET applications. 
+`HybridRedisCache` is a simple in-memory and Redis hybrid caching solution for .NET applications. 
 It provides a way to cache frequently accessed data in memory for fast access and automatically falls back to using Redis as a persistent cache when memory cache capacity is exceeded.
 
 ## Installation
 
-You can install the `HybridCache` package using NuGet:
+You can install the `HybridRedisCache` package using NuGet:
 
-PM> Install-Package HybridCache
+PM> Install-Package HybridRedisCache
 
 ## Usage
 
-To use `HybridCache`, you can create an instance of the `HybridCache` class and then call its `Set` and `Get` methods to cache and retrieve data, respectively.
+To use `HybridRedisCache`, you can create an instance of the `HybridRedisCache` class and then call its `Set` and `Get` methods to cache and retrieve data, respectively.
 Here's an example:
 
 ```csharp
-using HybridCache;
+using HybridRedisCache;
 
 ...
 
-// Create a new instance of HybridCache with Redis connection string and instance name
+// Create a new instance of HybridRedisCache with Redis connection string and instance name
 var cache = new HybridCache("localhost:6379", "myapp");
 
 // Cache a string value with key "mykey" for 1 minute
