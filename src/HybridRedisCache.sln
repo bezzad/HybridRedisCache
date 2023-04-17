@@ -12,6 +12,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "HybridRedisCache", "HybridR
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "HybridRedisCache.Test", "HybridRedisCache.Test\HybridRedisCache.Test.csproj", "{4CD0A0E3-3525-41C8-A41E-F1BEC45DA34E}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HybridRedisCache.Sample", "HybridRedisCache.Sample\HybridRedisCache.Sample.csproj", "{0ED2EAAA-44D8-436F-94E8-DFC9956834E2}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -26,6 +28,10 @@ Global
 		{4CD0A0E3-3525-41C8-A41E-F1BEC45DA34E}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{4CD0A0E3-3525-41C8-A41E-F1BEC45DA34E}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{4CD0A0E3-3525-41C8-A41E-F1BEC45DA34E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0ED2EAAA-44D8-436F-94E8-DFC9956834E2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0ED2EAAA-44D8-436F-94E8-DFC9956834E2}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0ED2EAAA-44D8-436F-94E8-DFC9956834E2}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0ED2EAAA-44D8-436F-94E8-DFC9956834E2}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
