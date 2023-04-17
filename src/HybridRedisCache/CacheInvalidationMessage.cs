@@ -2,13 +2,13 @@
 {
     internal class CacheInvalidationMessage
     {
-        public string CacheKey { get; set; }
+        public string[] CacheKeys { get; set; }
         public string InstanceId { get; set; }
 
-        public CacheInvalidationMessage(string cacheKey, string instanceId)
+        public CacheInvalidationMessage(string instanceId, params string[] cacheKeys)
         {
-            CacheKey = cacheKey;
             InstanceId = instanceId;
+            CacheKeys = cacheKeys;
         }
     }
 }

@@ -44,20 +44,22 @@ public class HybridCache : IHybridCache, IDisposable
         }
 
         // Subscribe to Redis key-space events to invalidate cache entries on all instances
-        _redisSubscriber.Subscribe(InvalidationChannel, OnRedisValuesChanged);
+        _redisSubscriber.Subscribe(InvalidationChannel, OnMessage, CommandFlags.FireAndForget);
     }
 
-    private void OnRedisValuesChanged(RedisChannel channel, RedisValue message)
+    private void OnMessage(RedisChannel channel, RedisValue value)
     {
         // With this implementation, when a key is updated or removed in Redis,
         // all instances of HybridCache that are subscribed to the pub/sub channel will receive a message
         // and invalidate the corresponding key in their local MemoryCache.
 
-        var cacheInvalidationMessage = Deserialize<CacheInvalidationMessage>(message.ToString());
-        if (cacheInvalidationMessage.InstanceId != _instanceId) // filter out messages from the current instance
+        var message = Deserialize<CacheInvalidationMessage>(value.ToString());
+        if (message.InstanceId != _instanceId) // filter out messages from the current instance
         {
-            var cacheKey = cacheInvalidationMessage.CacheKey;
-            _memoryCache.Remove(cacheKey);
+            foreach (var key in message.CacheKeys)
+            {
+                _memoryCache.Remove(key);
+            }
         }
     }
 
@@ -76,9 +78,7 @@ public class HybridCache : IHybridCache, IDisposable
         _redisDb.StringSet(cacheKey, Serialize(value), expiration ?? _defaultExpiration,
             flags: fireAndForget ? CommandFlags.FireAndForget : CommandFlags.None);
 
-        // include the instance ID in the pub/sub message payload to update another instances
-        var message = new CacheInvalidationMessage(cacheKey, _instanceId);
-        _redisDb.Publish(InvalidationChannel, Serialize(message));
+        PublishBus(cacheKey);
     }
 
     /// <summary>
@@ -115,7 +115,7 @@ public class HybridCache : IHybridCache, IDisposable
         var cacheKey = GetCacheKey(key);
         _memoryCache.Remove(cacheKey);
         _redisDb.KeyDelete(cacheKey);
-        _redisDb.Publish(InvalidationChannel, cacheKey);
+        PublishBus(cacheKey);
     }
 
     /// <summary>
@@ -134,9 +134,7 @@ public class HybridCache : IHybridCache, IDisposable
         await _redisDb.StringSetAsync(cacheKey, Serialize(value), expiration ?? _defaultExpiration,
             flags: fireAndForget ? CommandFlags.FireAndForget : CommandFlags.None);
 
-        // include the instance ID in the pub/sub message payload to update another instances
-        var message = new CacheInvalidationMessage(cacheKey, _instanceId);
-        await _redisDb.PublishAsync(InvalidationChannel, Serialize(message));
+        await PublishBusAsync(cacheKey);
     }
 
     /// <summary>
@@ -179,6 +177,18 @@ public class HybridCache : IHybridCache, IDisposable
 
     private string GetCacheKey(string key) => $"{_instanceName}:{key}";
 
+    private async Task PublishBusAsync(params string[] cacheKeys)
+    {
+        // include the instance ID in the pub/sub message payload to update another instances
+        var message = new CacheInvalidationMessage(_instanceId, cacheKeys);
+        await _redisDb.PublishAsync(InvalidationChannel, Serialize(message));
+    }
+    private void PublishBus(params string[] cacheKeys)
+    {
+        // include the instance ID in the pub/sub message payload to update another instances
+        var message = new CacheInvalidationMessage(_instanceId, cacheKeys);
+        _redisDb.Publish(InvalidationChannel, Serialize(message));
+    }
 
     private static string Serialize<T>(T value)
     {
