@@ -78,6 +78,25 @@ public class HybridCache : IHybridCache, IDisposable
     }
 
     /// <summary>
+    /// Asynchronously sets a value in the cache with the specified key.
+    /// </summary>
+    /// <typeparam name="T">The type of the value to cache.</typeparam>
+    /// <param name="key">The cache key.</param>
+    /// <param name="value">The value to cache.</param>
+    /// <param name="expiration">The expiration time for the cache entry. If not specified, the default expiration time is used.</param>
+    /// <param name="fireAndForget">Whether to cache the value in Redis without waiting for the operation to complete.</param>
+    /// <returns>A task that represents the asynchronous operation.</returns>
+    public async Task SetAsync<T>(string key, T value, TimeSpan? expiration = null, bool fireAndForget = true)
+    {
+        var cacheKey = GetCacheKey(key);
+        _memoryCache.Set(cacheKey, value, expiration ?? _option.DefaultExpirationTime);
+        await _redisDb.StringSetAsync(cacheKey, Serialize(value), expiration ?? _option.DefaultExpirationTime,
+            flags: fireAndForget ? CommandFlags.FireAndForget : CommandFlags.None).ConfigureAwait(false);
+
+        await PublishBusAsync(cacheKey).ConfigureAwait(false);
+    }
+
+    /// <summary>
     /// Gets a cached value with the specified key.
     /// </summary>
     /// <typeparam name="T">The type of the cached value.</typeparam>
@@ -101,38 +120,7 @@ public class HybridCache : IHybridCache, IDisposable
 
         return value;
     }
-
-    /// <summary>
-    /// Removes a cached value with the specified key.
-    /// </summary>
-    /// <param name="key">The cache key.</param>
-    public void Remove(string key)
-    {
-        var cacheKey = GetCacheKey(key);
-        _memoryCache.Remove(cacheKey);
-        _redisDb.KeyDelete(cacheKey);
-        PublishBus(cacheKey);
-    }
-
-    /// <summary>
-    /// Asynchronously sets a value in the cache with the specified key.
-    /// </summary>
-    /// <typeparam name="T">The type of the value to cache.</typeparam>
-    /// <param name="key">The cache key.</param>
-    /// <param name="value">The value to cache.</param>
-    /// <param name="expiration">The expiration time for the cache entry. If not specified, the default expiration time is used.</param>
-    /// <param name="fireAndForget">Whether to cache the value in Redis without waiting for the operation to complete.</param>
-    /// <returns>A task that represents the asynchronous operation.</returns>
-    public async Task SetAsync<T>(string key, T value, TimeSpan? expiration = null, bool fireAndForget = true)
-    {
-        var cacheKey = GetCacheKey(key);
-        _memoryCache.Set(cacheKey, value, expiration ?? _option.DefaultExpirationTime);
-        await _redisDb.StringSetAsync(cacheKey, Serialize(value), expiration ?? _option.DefaultExpirationTime,
-            flags: fireAndForget ? CommandFlags.FireAndForget : CommandFlags.None).ConfigureAwait(false);
-
-        await PublishBusAsync(cacheKey).ConfigureAwait(false);
-    }
-
+        
     /// <summary>
     /// Asynchronously gets a cached value with the specified key.
     /// </summary>
@@ -156,6 +144,18 @@ public class HybridCache : IHybridCache, IDisposable
         }
 
         return value;
+    }
+
+    /// <summary>
+    /// Removes a cached value with the specified key.
+    /// </summary>
+    /// <param name="key">The cache key.</param>
+    public void Remove(string key)
+    {
+        var cacheKey = GetCacheKey(key);
+        _memoryCache.Remove(cacheKey);
+        _redisDb.KeyDelete(cacheKey);
+        PublishBus(cacheKey);
     }
 
     /// <summary>
