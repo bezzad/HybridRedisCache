@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Caching.Memory;
+﻿using Microsoft.Extensions.Caching.Distributed;
+using Microsoft.Extensions.Caching.Memory;
 using StackExchange.Redis;
 using System.Text.Json;
 
@@ -111,16 +112,29 @@ public class HybridCache : IHybridCache, IDisposable
             return value;
         }
 
-        var redisValue = _redisDb.StringGet(cacheKey);
-        if (redisValue.HasValue)
+        try
         {
-            value = Deserialize<T>(redisValue);
-            _memoryCache.Set(cacheKey, value, _option.DefaultExpirationTime);
+            var redisValue = _redisDb.StringGet(cacheKey);
+            if (redisValue.HasValue)
+            {
+                value = Deserialize<T>(redisValue);
+            }
+        }
+        catch
+        {
+            if (_option.ThrowIfDistributedCacheError)
+                throw;
+        }
+
+        if (value != null)
+        {
+            var expiry = GetExpiration(cacheKey);
+            _memoryCache.Set(cacheKey, value, expiry);
         }
 
         return value;
     }
-        
+
     /// <summary>
     /// Asynchronously gets a cached value with the specified key.
     /// </summary>
@@ -136,11 +150,24 @@ public class HybridCache : IHybridCache, IDisposable
             return value;
         }
 
-        var redisValue = await _redisDb.StringGetAsync(cacheKey).ConfigureAwait(false);
-        if (redisValue.HasValue)
+        try
         {
-            value = Deserialize<T>(redisValue);
-            _memoryCache.Set(cacheKey, value, _option.DefaultExpirationTime);
+            var redisValue = await _redisDb.StringGetAsync(cacheKey).ConfigureAwait(false);
+            if (redisValue.HasValue)
+            {
+                value = Deserialize<T>(redisValue);
+            }
+        }
+        catch
+        {
+            if (_option.ThrowIfDistributedCacheError)
+                throw;
+        }
+
+        if (value != null)
+        {
+            var expiry = await GetExpirationAsync(cacheKey);
+            _memoryCache.Set(cacheKey, value, expiry);
         }
 
         return value;
@@ -184,6 +211,49 @@ public class HybridCache : IHybridCache, IDisposable
         // include the instance ID in the pub/sub message payload to update another instances
         var message = new CacheInvalidationMessage(_instanceId, cacheKeys);
         _redisDb.Publish(InvalidationChannel, Serialize(message));
+    }
+
+    private TimeSpan GetExpiration(string cacheKey)
+    {
+        try
+        {
+            var time = _redisDb.KeyExpireTime(cacheKey);
+            return ToTimeSpan(time);
+        }
+        catch
+        {
+            return _option.DefaultExpirationTime;
+        }
+    }
+
+    private async Task<TimeSpan> GetExpirationAsync(string cacheKey)
+    {
+        try
+        {
+            var time = await _redisDb.KeyExpireTimeAsync(cacheKey);
+            return ToTimeSpan(time);
+        }
+        catch
+        {
+            return _option.DefaultExpirationTime;
+        }
+    }
+
+    private TimeSpan ToTimeSpan(DateTime? time)
+    {
+        TimeSpan duration = TimeSpan.Zero;
+
+        if (time.HasValue)
+        {
+            duration = time.Value.Subtract(DateTime.Now);
+        }
+
+        if (duration <= TimeSpan.Zero)
+        {
+            duration = _option.DefaultExpirationTime;
+        }
+
+        return duration;
     }
 
     private static string Serialize<T>(T value)
