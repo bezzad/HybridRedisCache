@@ -15,9 +15,9 @@ public class HybridCache : IHybridCache, IDisposable
     private readonly IDatabase _redisDb;
     private readonly ConnectionMultiplexer _redisConnection;
     private readonly string _instanceId;
-    private readonly HybridCachingOptions _option;
+    private readonly HybridCachingOptions _options;
     private readonly ISubscriber _redisSubscriber;
-    private string InvalidationChannel => _option.InstanceName + ":invalidate";
+    private string InvalidationChannel => _options.InstanceName + ":invalidate";
 
     /// <summary>
     /// This method initializes the HybridCache instance and subscribes to Redis key-space events 
@@ -29,7 +29,7 @@ public class HybridCache : IHybridCache, IDisposable
     public HybridCache(HybridCachingOptions option)
     {
         _instanceId = Guid.NewGuid().ToString("N");
-        _option = option;
+        _options = option;
         _memoryCache = new MemoryCache(new MemoryCacheOptions());
         _redisConnection = ConnectionMultiplexer.Connect(option.RedisCacheConnectString);
         _redisDb = _redisConnection.GetDatabase();
@@ -37,7 +37,7 @@ public class HybridCache : IHybridCache, IDisposable
 
         if (string.IsNullOrWhiteSpace(option.InstanceName))
         {
-            _option.InstanceName = _instanceId;
+            _options.InstanceName = _instanceId;
         }
 
         // Subscribe to Redis key-space events to invalidate cache entries on all instances
@@ -71,9 +71,20 @@ public class HybridCache : IHybridCache, IDisposable
     public void Set<T>(string key, T value, TimeSpan? expiration = null, bool fireAndForget = true)
     {
         var cacheKey = GetCacheKey(key);
-        _memoryCache.Set(cacheKey, value, expiration ?? _option.DefaultExpirationTime);
-        _redisDb.StringSet(cacheKey, Serialize(value), expiration ?? _option.DefaultExpirationTime,
-            flags: fireAndForget ? CommandFlags.FireAndForget : CommandFlags.None);
+        _memoryCache.Set(cacheKey, value, expiration ?? _options.DefaultExpirationTime);
+
+        try
+        {
+            _redisDb.StringSet(cacheKey, Serialize(value), expiration ?? _options.DefaultExpirationTime,
+                    flags: fireAndForget ? CommandFlags.FireAndForget : CommandFlags.None);
+        }
+        catch
+        {
+            if (_options.ThrowIfDistributedCacheError)
+            {
+                throw;
+            }
+        }
 
         PublishBus(cacheKey);
     }
@@ -90,9 +101,20 @@ public class HybridCache : IHybridCache, IDisposable
     public async Task SetAsync<T>(string key, T value, TimeSpan? expiration = null, bool fireAndForget = true)
     {
         var cacheKey = GetCacheKey(key);
-        _memoryCache.Set(cacheKey, value, expiration ?? _option.DefaultExpirationTime);
-        await _redisDb.StringSetAsync(cacheKey, Serialize(value), expiration ?? _option.DefaultExpirationTime,
-            flags: fireAndForget ? CommandFlags.FireAndForget : CommandFlags.None).ConfigureAwait(false);
+        _memoryCache.Set(cacheKey, value, expiration ?? _options.DefaultExpirationTime);
+
+        try
+        {
+            await _redisDb.StringSetAsync(cacheKey, Serialize(value), expiration ?? _options.DefaultExpirationTime,
+                    flags: fireAndForget ? CommandFlags.FireAndForget : CommandFlags.None).ConfigureAwait(false);
+        }
+        catch
+        {
+            if (_options.ThrowIfDistributedCacheError)
+            {
+                throw;
+            }
+        }
 
         await PublishBusAsync(cacheKey).ConfigureAwait(false);
     }
@@ -122,7 +144,7 @@ public class HybridCache : IHybridCache, IDisposable
         }
         catch
         {
-            if (_option.ThrowIfDistributedCacheError)
+            if (_options.ThrowIfDistributedCacheError)
                 throw;
         }
 
@@ -160,7 +182,7 @@ public class HybridCache : IHybridCache, IDisposable
         }
         catch
         {
-            if (_option.ThrowIfDistributedCacheError)
+            if (_options.ThrowIfDistributedCacheError)
                 throw;
         }
 
@@ -181,7 +203,19 @@ public class HybridCache : IHybridCache, IDisposable
     {
         var cacheKey = GetCacheKey(key);
         _memoryCache.Remove(cacheKey);
-        _redisDb.KeyDelete(cacheKey);
+
+        try
+        {
+            _redisDb.KeyDelete(cacheKey);
+        }
+        catch
+        {
+            if (_options.ThrowIfDistributedCacheError)
+            {
+                throw;
+            }
+        }
+
         PublishBus(cacheKey);
     }
 
@@ -194,23 +228,51 @@ public class HybridCache : IHybridCache, IDisposable
     {
         var cacheKey = GetCacheKey(key);
         _memoryCache.Remove(cacheKey);
-        await _redisDb.KeyDeleteAsync(cacheKey).ConfigureAwait(false);
-        await _redisDb.PublishAsync(InvalidationChannel, cacheKey).ConfigureAwait(false);
+
+        try
+        {
+            await _redisDb.KeyDeleteAsync(cacheKey).ConfigureAwait(false);
+        }
+        catch
+        {
+            if (_options.ThrowIfDistributedCacheError)
+            {
+                throw;
+            }
+        }
+
+        await PublishBusAsync(cacheKey).ConfigureAwait(false);
     }
 
-    private string GetCacheKey(string key) => $"{_option.InstanceName}:{key}";
+    private string GetCacheKey(string key) => $"{_options.InstanceName}:{key}";
 
     private async Task PublishBusAsync(params string[] cacheKeys)
     {
-        // include the instance ID in the pub/sub message payload to update another instances
-        var message = new CacheInvalidationMessage(_instanceId, cacheKeys);
-        await _redisDb.PublishAsync(InvalidationChannel, Serialize(message)).ConfigureAwait(false);
+        try
+        {
+            // include the instance ID in the pub/sub message payload to update another instances
+            var message = new CacheInvalidationMessage(_instanceId, cacheKeys);
+            await _redisDb.PublishAsync(InvalidationChannel, Serialize(message)).ConfigureAwait(false);
+        }
+        catch
+        {
+            if (_options.ThrowIfDistributedCacheError)
+                throw;
+        }
     }
     private void PublishBus(params string[] cacheKeys)
     {
-        // include the instance ID in the pub/sub message payload to update another instances
-        var message = new CacheInvalidationMessage(_instanceId, cacheKeys);
-        _redisDb.Publish(InvalidationChannel, Serialize(message));
+        try
+        {
+            // include the instance ID in the pub/sub message payload to update another instances
+            var message = new CacheInvalidationMessage(_instanceId, cacheKeys);
+            _redisDb.Publish(InvalidationChannel, Serialize(message));
+        }
+        catch
+        {
+            if (_options.ThrowIfDistributedCacheError)
+                throw;
+        }
     }
 
     private TimeSpan GetExpiration(string cacheKey)
@@ -222,7 +284,7 @@ public class HybridCache : IHybridCache, IDisposable
         }
         catch
         {
-            return _option.DefaultExpirationTime;
+            return _options.DefaultExpirationTime;
         }
     }
 
@@ -235,7 +297,7 @@ public class HybridCache : IHybridCache, IDisposable
         }
         catch
         {
-            return _option.DefaultExpirationTime;
+            return _options.DefaultExpirationTime;
         }
     }
 
@@ -250,7 +312,7 @@ public class HybridCache : IHybridCache, IDisposable
 
         if (duration <= TimeSpan.Zero)
         {
-            duration = _option.DefaultExpirationTime;
+            duration = _options.DefaultExpirationTime;
         }
 
         return duration;
