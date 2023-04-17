@@ -326,5 +326,37 @@ namespace HybridRedisCache.Test
             // clean up
             cache.Dispose();
         }
+
+        [Fact]
+        public void ShouldCacheAndExistData()
+        {
+            // Arrange
+            var cache = new HybridCache(Option);
+            var key = "mykey";
+            var value = "myvalue";
+
+            // Act
+            cache.Set(key, value);
+            var result = cache.Exists(key);
+
+            // Assert
+            Assert.True(result);
+        }
+
+        [Fact]
+        public async Task ShouldCacheAndExistDataAsync()
+        {
+            // Arrange
+            var cache = new HybridCache(Option);
+            var key = "mykey";
+            var value = "myvalue";
+
+            // Act
+            cache.Set(key, value);
+            var result = await cache.ExistsAsync(key);
+
+            // Assert
+            Assert.True(result);
+        }
     }
 }

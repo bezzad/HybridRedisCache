@@ -61,6 +61,59 @@ public class HybridCache : IHybridCache, IDisposable
     }
 
     /// <summary>
+    /// Exists the specified Key in cache
+    /// </summary>
+    /// <returns>The exists</returns>
+    /// <param name="cacheKey">Cache key</param>
+    public bool Exists(string key)
+    {
+        var cacheKey = GetCacheKey(key);
+
+        // Circuit Breaker may be more better
+        try
+        {
+            if(_redisDb.KeyExists(cacheKey))
+                return true;
+        }
+        catch
+        {
+            if (_options.ThrowIfDistributedCacheError)
+            {
+                throw;
+            }
+        }
+
+        return _memoryCache.TryGetValue(cacheKey, out var _);
+    }
+
+    /// <summary>
+    /// Exists the specified cacheKey async.
+    /// </summary>
+    /// <returns>The async.</returns>
+    /// <param name="cacheKey">Cache key.</param>
+    /// <param name="cancellationToken">CancellationToken</param>
+    public async Task<bool> ExistsAsync(string key)
+    {
+        var cacheKey = GetCacheKey(key);
+
+        // Circuit Breaker may be more better
+        try
+        {
+            if (await _redisDb.KeyExistsAsync(cacheKey))
+                return true;
+        }
+        catch
+        {
+            if (_options.ThrowIfDistributedCacheError)
+            {
+                throw;
+            }
+        }
+
+        return _memoryCache.TryGetValue(cacheKey, out var _);
+    }
+
+    /// <summary>
     /// Sets a value in the cache with the specified key.
     /// </summary>
     /// <typeparam name="T">The type of the value to cache.</typeparam>
