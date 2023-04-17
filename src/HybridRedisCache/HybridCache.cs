@@ -1,7 +1,5 @@
 ﻿using Microsoft.Extensions.Caching.Memory;
 using StackExchange.Redis;
-using System.Diagnostics;
-using System.Text;
 using System.Text.Json;
 
 namespace HybridRedisCache;
@@ -38,7 +36,7 @@ public class HybridCache : IHybridCache, IDisposable
 
         if (string.IsNullOrWhiteSpace(option.InstanceName))
         {
-            option.InstanceName = _instanceId;
+            _option.InstanceName = _instanceId;
         }
 
         // Subscribe to Redis key-space events to invalidate cache entries on all instances
@@ -130,9 +128,9 @@ public class HybridCache : IHybridCache, IDisposable
         var cacheKey = GetCacheKey(key);
         _memoryCache.Set(cacheKey, value, expiration ?? _option.DefaultExpirationTime);
         await _redisDb.StringSetAsync(cacheKey, Serialize(value), expiration ?? _option.DefaultExpirationTime,
-            flags: fireAndForget ? CommandFlags.FireAndForget : CommandFlags.None);
+            flags: fireAndForget ? CommandFlags.FireAndForget : CommandFlags.None).ConfigureAwait(false);
 
-        await PublishBusAsync(cacheKey);
+        await PublishBusAsync(cacheKey).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -150,7 +148,7 @@ public class HybridCache : IHybridCache, IDisposable
             return value;
         }
 
-        var redisValue = await _redisDb.StringGetAsync(cacheKey);
+        var redisValue = await _redisDb.StringGetAsync(cacheKey).ConfigureAwait(false);
         if (redisValue.HasValue)
         {
             value = Deserialize<T>(redisValue);
@@ -169,8 +167,8 @@ public class HybridCache : IHybridCache, IDisposable
     {
         var cacheKey = GetCacheKey(key);
         _memoryCache.Remove(cacheKey);
-        await _redisDb.KeyDeleteAsync(cacheKey);
-        await _redisDb.PublishAsync(InvalidationChannel, cacheKey);
+        await _redisDb.KeyDeleteAsync(cacheKey).ConfigureAwait(false);
+        await _redisDb.PublishAsync(InvalidationChannel, cacheKey).ConfigureAwait(false);
     }
 
     private string GetCacheKey(string key) => $"{_option.InstanceName}:{key}";
@@ -179,7 +177,7 @@ public class HybridCache : IHybridCache, IDisposable
     {
         // include the instance ID in the pub/sub message payload to update another instances
         var message = new CacheInvalidationMessage(_instanceId, cacheKeys);
-        await _redisDb.PublishAsync(InvalidationChannel, Serialize(message));
+        await _redisDb.PublishAsync(InvalidationChannel, Serialize(message)).ConfigureAwait(false);
     }
     private void PublishBus(params string[] cacheKeys)
     {
