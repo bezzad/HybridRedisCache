@@ -9,14 +9,18 @@ namespace HybridRedisCache.Test
 {
     public class HybridCacheTests
     {
-        private const string RedisConnectionString = "localhost:6379";
-        private const string InstanceName = "my-test-app";
+        private HybridCachingOptions Option = new HybridCachingOptions()
+        {
+            InstanceName = "my-test-app",
+            RedisCacheConnectString = "localhost:6379",
+            ThrowIfDistributedCacheError = true
+        };
 
         [Fact]
         public void ShouldCacheAndRetrieveData()
         {
             // Arrange
-            var cache = new HybridCache(RedisConnectionString, InstanceName);
+            var cache = new HybridCache(Option);
             var key = "mykey";
             var value = "myvalue";
 
@@ -32,7 +36,7 @@ namespace HybridRedisCache.Test
         public void SetAndGet_CacheEntryDoesNotExist_ReturnsNull()
         {
             // Arrange
-            var cache = new HybridCache(RedisConnectionString, InstanceName);
+            var cache = new HybridCache(Option);
             var key = "nonexistentkey";
 
             // Act
@@ -46,7 +50,7 @@ namespace HybridRedisCache.Test
         public async Task Set_CacheEntryIsRemoved_AfterExpiration()
         {
             // Arrange
-            var cache = new HybridCache(RedisConnectionString, InstanceName);
+            var cache = new HybridCache(Option);
             var key = "mykey";
             var value = "myvalue";
 
@@ -63,7 +67,7 @@ namespace HybridRedisCache.Test
         public void Remove_CacheEntryIsRemoved()
         {
             // Arrange
-            var cache = new HybridCache(RedisConnectionString, InstanceName);
+            var cache = new HybridCache(Option);
             var key = "mykey";
             var value = "myvalue";
 
@@ -80,7 +84,7 @@ namespace HybridRedisCache.Test
         public async Task SetAndGetAsync_CacheEntryExists_ReturnsCachedValue()
         {
             // Arrange
-            var cache = new HybridCache(RedisConnectionString, InstanceName);
+            var cache = new HybridCache(Option);
             var key = "mykey";
             var value = "myvalue";
 
@@ -96,7 +100,7 @@ namespace HybridRedisCache.Test
         public async Task SetAndGetAsync_CacheEntryDoesNotExist_ReturnsNull()
         {
             // Arrange
-            var cache = new HybridCache(RedisConnectionString, InstanceName);
+            var cache = new HybridCache(Option);
             var key = "nonexistentkey";
 
             // Act
@@ -110,7 +114,7 @@ namespace HybridRedisCache.Test
         public async Task SetAsync_CacheEntryIsRemoved_AfterExpiration()
         {
             // Arrange
-            var cache = new HybridCache(RedisConnectionString, InstanceName);
+            var cache = new HybridCache(Option);
             var key = "mykey";
             var value = "myvalue";
 
@@ -127,7 +131,7 @@ namespace HybridRedisCache.Test
         public async Task RemoveAsync_CacheEntryIsRemoved()
         {
             // Arrange
-            var cache = new HybridCache(RedisConnectionString, InstanceName);
+            var cache = new HybridCache(Option);
             var key = "mykey";
             var value = "myvalue";
 
@@ -144,7 +148,7 @@ namespace HybridRedisCache.Test
         public void ShouldSerializeAndDeserializeComplexObject()
         {
             // Arrange
-            var cache = new HybridCache("localhost:6379", "myapp");
+            var cache = new HybridCache(Option);
             var obj = new { Name = "John", Age = 30 };
 
             // Act
@@ -160,8 +164,8 @@ namespace HybridRedisCache.Test
         public async Task TestSharedCache()
         {
             // create two instances of HybridCache that share the same Redis cache
-            var instance1 = new HybridCache(RedisConnectionString, "shared-instance");
-            var instance2 = new HybridCache(RedisConnectionString, "shared-instance");
+            var instance1 = new HybridCache(Option);
+            var instance2 = new HybridCache(Option);
 
             // set a value in the shared cache using instance1
             instance1.Set("mykey", "myvalue", fireAndForget: false);
@@ -189,7 +193,7 @@ namespace HybridRedisCache.Test
         public void TestMultiThreadedCacheOperations()
         {
             // create a HybridCache instance
-            var cache = new HybridCache(RedisConnectionString);
+            var cache = new HybridCache(Option);
 
             // create a list of values to store in the cache
             var values = new List<string> { "foo", "bar", "baz", "qux" };
@@ -233,7 +237,7 @@ namespace HybridRedisCache.Test
         public void CacheSerializationTest()
         {
             // create a HybridRedisCache instance
-            var cache = new HybridCache(RedisConnectionString);
+            var cache = new HybridCache(Option);
 
             // create a complex object to store in the cache
             var complexObject = new ComplexObject
@@ -273,7 +277,7 @@ namespace HybridRedisCache.Test
         public void CacheConcurrencyTest()
         {
             // create a HybridRedisCache instance
-            var cache = new HybridCache(RedisConnectionString);
+            var cache = new HybridCache(Option);
 
             // create a shared key and a list of values to store in the cache
             var key = "sharedKey";
@@ -317,7 +321,7 @@ namespace HybridRedisCache.Test
 
             // verify that the final value in the cache is correct
             var actualValue = cache.Get<string>(key);
-            Assert.True(values.All(val=> actualValue.Contains(val)), $"value was:{actualValue}");
+            Assert.True(values.All(val => actualValue.Contains(val)), $"value was:{actualValue}");
 
             // clean up
             cache.Dispose();

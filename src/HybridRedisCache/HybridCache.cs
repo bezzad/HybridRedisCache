@@ -15,11 +15,10 @@ public class HybridCache : IHybridCache, IDisposable
     private readonly IMemoryCache _memoryCache;
     private readonly IDatabase _redisDb;
     private readonly ConnectionMultiplexer _redisConnection;
-    private readonly TimeSpan _defaultExpiration;
-    private readonly string _instanceName;
     private readonly string _instanceId;
+    private readonly HybridCachingOptions _option;
     private readonly ISubscriber _redisSubscriber;
-    private string InvalidationChannel => _instanceName + ":invalidate";
+    private string InvalidationChannel => _option.InstanceName + ":invalidate";
 
     /// <summary>
     /// This method initializes the HybridCache instance and subscribes to Redis key-space events 
@@ -28,19 +27,18 @@ public class HybridCache : IHybridCache, IDisposable
     /// <param name="redisConnectionString">Redis connection string</param>
     /// <param name="instanceName">Application unique name for redis indexes</param>
     /// <param name="defaultExpiryTime">default caching expiry time</param>
-    public HybridCache(string redisConnectionString, string instanceName = null, TimeSpan? defaultExpiryTime = null)
+    public HybridCache(HybridCachingOptions option)
     {
+        _instanceId = Guid.NewGuid().ToString("N");
+        _option = option;
         _memoryCache = new MemoryCache(new MemoryCacheOptions());
-        _redisConnection = ConnectionMultiplexer.Connect(redisConnectionString);
+        _redisConnection = ConnectionMultiplexer.Connect(option.RedisCacheConnectString);
         _redisDb = _redisConnection.GetDatabase();
         _redisSubscriber = _redisConnection.GetSubscriber();
-        _instanceId = Guid.NewGuid().ToString("N");
-        _instanceName = instanceName;
-        _defaultExpiration = defaultExpiryTime ?? TimeSpan.FromDays(30);
 
-        if (string.IsNullOrEmpty(_instanceName))
+        if (string.IsNullOrWhiteSpace(option.InstanceName))
         {
-            _instanceName = _instanceId;
+            option.InstanceName = _instanceId;
         }
 
         // Subscribe to Redis key-space events to invalidate cache entries on all instances
@@ -74,8 +72,8 @@ public class HybridCache : IHybridCache, IDisposable
     public void Set<T>(string key, T value, TimeSpan? expiration = null, bool fireAndForget = true)
     {
         var cacheKey = GetCacheKey(key);
-        _memoryCache.Set(cacheKey, value, expiration ?? _defaultExpiration);
-        _redisDb.StringSet(cacheKey, Serialize(value), expiration ?? _defaultExpiration,
+        _memoryCache.Set(cacheKey, value, expiration ?? _option.DefaultExpirationTime);
+        _redisDb.StringSet(cacheKey, Serialize(value), expiration ?? _option.DefaultExpirationTime,
             flags: fireAndForget ? CommandFlags.FireAndForget : CommandFlags.None);
 
         PublishBus(cacheKey);
@@ -100,7 +98,7 @@ public class HybridCache : IHybridCache, IDisposable
         if (redisValue.HasValue)
         {
             value = Deserialize<T>(redisValue);
-            _memoryCache.Set(cacheKey, value, _defaultExpiration);
+            _memoryCache.Set(cacheKey, value, _option.DefaultExpirationTime);
         }
 
         return value;
@@ -130,8 +128,8 @@ public class HybridCache : IHybridCache, IDisposable
     public async Task SetAsync<T>(string key, T value, TimeSpan? expiration = null, bool fireAndForget = true)
     {
         var cacheKey = GetCacheKey(key);
-        _memoryCache.Set(cacheKey, value, expiration ?? _defaultExpiration);
-        await _redisDb.StringSetAsync(cacheKey, Serialize(value), expiration ?? _defaultExpiration,
+        _memoryCache.Set(cacheKey, value, expiration ?? _option.DefaultExpirationTime);
+        await _redisDb.StringSetAsync(cacheKey, Serialize(value), expiration ?? _option.DefaultExpirationTime,
             flags: fireAndForget ? CommandFlags.FireAndForget : CommandFlags.None);
 
         await PublishBusAsync(cacheKey);
@@ -156,7 +154,7 @@ public class HybridCache : IHybridCache, IDisposable
         if (redisValue.HasValue)
         {
             value = Deserialize<T>(redisValue);
-            _memoryCache.Set(cacheKey, value, _defaultExpiration);
+            _memoryCache.Set(cacheKey, value, _option.DefaultExpirationTime);
         }
 
         return value;
@@ -175,7 +173,7 @@ public class HybridCache : IHybridCache, IDisposable
         await _redisDb.PublishAsync(InvalidationChannel, cacheKey);
     }
 
-    private string GetCacheKey(string key) => $"{_instanceName}:{key}";
+    private string GetCacheKey(string key) => $"{_option.InstanceName}:{key}";
 
     private async Task PublishBusAsync(params string[] cacheKeys)
     {
