@@ -19,7 +19,7 @@ It provides a way to cache frequently accessed data in memory for fast access an
     <PackageReleaseNotes>First version of Hybrid Redis Cache package</PackageReleaseNotes>
     <IncludeSymbols>True</IncludeSymbols>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
-    <Version>1.0.1</Version>
+    <Version>1.0.2</Version>
   </PropertyGroup>
 
   <ItemGroup>
