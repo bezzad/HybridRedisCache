@@ -24,8 +24,15 @@ using HybridRedisCache;
 
 ...
 
-// Create a new instance of HybridCache with Redis connection string and instance name
-var cache = new HybridCache("localhost:6379", "myapp");
+// Create a new instance of HybridCache with cache options
+var options = new HybridCachingOptions()
+{
+    DefaultExpirationTime = TimeSpan.FromSeconds(1),
+    InstanceName = "SampleApp",
+    ThrowIfDistributedCacheError = true,
+    RedisCacheConnectString = "localhost:6379"
+};
+var cache = new HybridCache(options);
 
 // Cache a string value with key "mykey" for 1 minute
 cache.Set("mykey", "myvalue", TimeSpan.FromMinutes(1));
