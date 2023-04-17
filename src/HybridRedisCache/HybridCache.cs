@@ -34,13 +34,13 @@ public class HybridCache : IHybridCache, IDisposable
         _redisConnection = ConnectionMultiplexer.Connect(redisConnectionString);
         _redisDb = _redisConnection.GetDatabase();
         _redisSubscriber = _redisConnection.GetSubscriber();
-        _instanceId = GenerateInstanceId();
+        _instanceId = Guid.NewGuid().ToString("N");
         _instanceName = instanceName;
         _defaultExpiration = defaultExpiryTime ?? TimeSpan.FromDays(30);
 
         if (string.IsNullOrEmpty(_instanceName))
         {
-            _instanceName = GenerateInstanceId();
+            _instanceName = _instanceId;
         }
 
         // Subscribe to Redis key-space events to invalidate cache entries on all instances
@@ -198,14 +198,6 @@ public class HybridCache : IHybridCache, IDisposable
         }
 
         return JsonSerializer.Deserialize<T>(value);
-    }
-
-    private static string GenerateInstanceId()
-    {
-        var machineName = Environment.MachineName;
-        var processId = Process.GetCurrentProcess().Id;
-        var randomValue = Guid.NewGuid().ToString("N").Substring(0, 8);
-        return $"{machineName}:{processId}:{randomValue}";
     }
 
     public void Dispose()
