@@ -18,6 +18,8 @@ public class HybridCache : IHybridCache, IDisposable
     private readonly HybridCachingOptions _options;
     private readonly ISubscriber _redisSubscriber;
     private string InvalidationChannel => _options.InstanceName + ":invalidate";
+    private int retryPublishCounter = 0;
+    private int retryDelayMiliseconds = 100;
 
     /// <summary>
     /// This method initializes the HybridCache instance and subscribes to Redis key-space events 
@@ -72,7 +74,7 @@ public class HybridCache : IHybridCache, IDisposable
         // Circuit Breaker may be more better
         try
         {
-            if(_redisDb.KeyExists(cacheKey))
+            if (_redisDb.KeyExists(cacheKey))
                 return true;
         }
         catch
@@ -139,6 +141,7 @@ public class HybridCache : IHybridCache, IDisposable
             }
         }
 
+        // When create/update cache, send message to bus so that other clients can remove it.
         PublishBus(cacheKey);
     }
 
@@ -169,6 +172,7 @@ public class HybridCache : IHybridCache, IDisposable
             }
         }
 
+        // When create/update cache, send message to bus so that other clients can remove it.
         await PublishBusAsync(cacheKey).ConfigureAwait(false);
     }
 
@@ -309,8 +313,12 @@ public class HybridCache : IHybridCache, IDisposable
         }
         catch
         {
-            if (_options.ThrowIfDistributedCacheError)
-                throw;
+            // Retry to publish message
+            if (retryPublishCounter++ < _options.BusRetryCount)
+            {
+                await Task.Delay(retryDelayMiliseconds * retryPublishCounter).ConfigureAwait(false);
+                await PublishBusAsync(cacheKeys).ConfigureAwait(false);
+            }
         }
     }
     private void PublishBus(params string[] cacheKeys)
@@ -323,8 +331,12 @@ public class HybridCache : IHybridCache, IDisposable
         }
         catch
         {
-            if (_options.ThrowIfDistributedCacheError)
-                throw;
+            // Retry to publish message
+            if (retryPublishCounter++ < _options.BusRetryCount)
+            {
+                Thread.Sleep(retryDelayMiliseconds * retryPublishCounter);
+                PublishBus(cacheKeys);
+            }
         }
     }
 
