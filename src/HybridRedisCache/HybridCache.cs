@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
 using System.Text.Json;
 
@@ -17,6 +18,8 @@ public class HybridCache : IHybridCache, IDisposable
     private readonly string _instanceId;
     private readonly HybridCachingOptions _options;
     private readonly ISubscriber _redisSubscriber;
+    private readonly ILogger _logger;
+
     private string InvalidationChannel => _options.InstanceName + ":invalidate";
     private int retryPublishCounter = 0;
     private int retryDelayMiliseconds = 100;
@@ -28,7 +31,7 @@ public class HybridCache : IHybridCache, IDisposable
     /// <param name="redisConnectionString">Redis connection string</param>
     /// <param name="instanceName">Application unique name for redis indexes</param>
     /// <param name="defaultExpiryTime">default caching expiry time</param>
-    public HybridCache(HybridCachingOptions option)
+    public HybridCache(HybridCachingOptions option, ILoggerFactory loggerFactory = null)
     {
         _instanceId = Guid.NewGuid().ToString("N");
         _options = option;
@@ -36,6 +39,7 @@ public class HybridCache : IHybridCache, IDisposable
         _redisConnection = ConnectionMultiplexer.Connect(option.RedisCacheConnectString);
         _redisDb = _redisConnection.GetDatabase();
         _redisSubscriber = _redisConnection.GetSubscriber();
+        _logger = loggerFactory?.CreateLogger<HybridCache>();
 
         if (string.IsNullOrWhiteSpace(option.InstanceName))
         {
@@ -58,6 +62,7 @@ public class HybridCache : IHybridCache, IDisposable
             foreach (var key in message.CacheKeys)
             {
                 _memoryCache.Remove(key);
+                LogMessage($"remove local cache that cache key is {key}");
             }
         }
     }
@@ -77,8 +82,9 @@ public class HybridCache : IHybridCache, IDisposable
             if (_redisDb.KeyExists(cacheKey))
                 return true;
         }
-        catch
+        catch (Exception ex)
         {
+            LogMessage($"Check cache key exists error [{cacheKey}] ", ex);
             if (_options.ThrowIfDistributedCacheError)
             {
                 throw;
@@ -104,8 +110,9 @@ public class HybridCache : IHybridCache, IDisposable
             if (await _redisDb.KeyExistsAsync(cacheKey))
                 return true;
         }
-        catch
+        catch (Exception ex)
         {
+            LogMessage($"Check cache key [{cacheKey}] exists error", ex);
             if (_options.ThrowIfDistributedCacheError)
             {
                 throw;
@@ -133,8 +140,10 @@ public class HybridCache : IHybridCache, IDisposable
             _redisDb.StringSet(cacheKey, Serialize(value), expiration ?? _options.DefaultExpirationTime,
                     flags: fireAndForget ? CommandFlags.FireAndForget : CommandFlags.None);
         }
-        catch
+        catch (Exception ex)
         {
+            LogMessage($"set cache key [{cacheKey}] error", ex);
+
             if (_options.ThrowIfDistributedCacheError)
             {
                 throw;
@@ -164,8 +173,10 @@ public class HybridCache : IHybridCache, IDisposable
             await _redisDb.StringSetAsync(cacheKey, Serialize(value), expiration ?? _options.DefaultExpirationTime,
                     flags: fireAndForget ? CommandFlags.FireAndForget : CommandFlags.None).ConfigureAwait(false);
         }
-        catch
+        catch (Exception ex)
         {
+            LogMessage($"set cache key [{cacheKey}] error", ex);
+
             if (_options.ThrowIfDistributedCacheError)
             {
                 throw;
@@ -191,6 +202,8 @@ public class HybridCache : IHybridCache, IDisposable
             return value;
         }
 
+        LogMessage($"local cache can not get the value of {cacheKey}");
+
         try
         {
             var redisValue = _redisDb.StringGet(cacheKey);
@@ -199,8 +212,9 @@ public class HybridCache : IHybridCache, IDisposable
                 value = Deserialize<T>(redisValue);
             }
         }
-        catch
+        catch (Exception ex)
         {
+            LogMessage($"Redis cache get error, [{cacheKey}]", ex);
             if (_options.ThrowIfDistributedCacheError)
                 throw;
         }
@@ -209,8 +223,10 @@ public class HybridCache : IHybridCache, IDisposable
         {
             var expiry = GetExpiration(cacheKey);
             _memoryCache.Set(cacheKey, value, expiry);
+            return value;
         }
 
+        LogMessage($"distributed cache can not get the value of {cacheKey}");
         return value;
     }
 
@@ -229,6 +245,8 @@ public class HybridCache : IHybridCache, IDisposable
             return value;
         }
 
+        LogMessage($"local cache can not get the value of {cacheKey}");
+
         try
         {
             var redisValue = await _redisDb.StringGetAsync(cacheKey).ConfigureAwait(false);
@@ -237,8 +255,9 @@ public class HybridCache : IHybridCache, IDisposable
                 value = Deserialize<T>(redisValue);
             }
         }
-        catch
+        catch (Exception ex)
         {
+            LogMessage($"Redis cache get error, [{cacheKey}]", ex);
             if (_options.ThrowIfDistributedCacheError)
                 throw;
         }
@@ -247,8 +266,10 @@ public class HybridCache : IHybridCache, IDisposable
         {
             var expiry = await GetExpirationAsync(cacheKey);
             _memoryCache.Set(cacheKey, value, expiry);
+            return value;
         }
 
+        LogMessage($"distributed cache can not get the value of {cacheKey}");
         return value;
     }
 
@@ -259,20 +280,25 @@ public class HybridCache : IHybridCache, IDisposable
     public void Remove(string key)
     {
         var cacheKey = GetCacheKey(key);
-        _memoryCache.Remove(cacheKey);
 
         try
         {
+            // distributed cache at first
             _redisDb.KeyDelete(cacheKey);
         }
-        catch
+        catch (Exception ex)
         {
+            LogMessage($"remove cache key [{cacheKey}] error", ex);
+
             if (_options.ThrowIfDistributedCacheError)
             {
                 throw;
             }
         }
 
+        _memoryCache.Remove(cacheKey);
+
+        // send message to bus 
         PublishBus(cacheKey);
     }
 
@@ -284,20 +310,25 @@ public class HybridCache : IHybridCache, IDisposable
     public async Task RemoveAsync(string key)
     {
         var cacheKey = GetCacheKey(key);
-        _memoryCache.Remove(cacheKey);
 
         try
         {
+            // distributed cache at first
             await _redisDb.KeyDeleteAsync(cacheKey).ConfigureAwait(false);
         }
-        catch
+        catch (Exception ex)
         {
+            LogMessage($"remove cache key [{cacheKey}] error", ex);
+
             if (_options.ThrowIfDistributedCacheError)
             {
                 throw;
             }
         }
 
+        _memoryCache.Remove(cacheKey);
+
+        // send message to bus 
         await PublishBusAsync(cacheKey).ConfigureAwait(false);
     }
 
@@ -350,6 +381,26 @@ public class HybridCache : IHybridCache, IDisposable
         catch
         {
             return _options.DefaultExpirationTime;
+        }
+    }
+
+    /// <summary>
+    /// Logs the message.
+    /// </summary>
+    /// <param name="message">Message.</param>
+    /// <param name="ex">Ex.</param>
+    private void LogMessage(string message, Exception ex = null)
+    {
+        if (_options.EnableLogging && _logger is not null)
+        {
+            if (ex is null)
+            {
+                _logger.LogDebug(message);
+            }
+            else
+            {
+                _logger.LogError(ex, message);
+            }
         }
     }
 
