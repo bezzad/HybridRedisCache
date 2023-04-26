@@ -13,7 +13,6 @@ namespace HybridRedisCache;
 public class HybridCache : IHybridCache, IDisposable
 {
     private readonly IDatabase _redisDb;
-    private readonly ConnectionMultiplexer _redisConnection;
     private readonly string _instanceId;
     private readonly HybridCachingOptions _options;
     private readonly ISubscriber _redisSubscriber;
@@ -36,11 +35,11 @@ public class HybridCache : IHybridCache, IDisposable
         _instanceId = Guid.NewGuid().ToString("N");
         _options = option;
         CreateLocalCache();
-        _redisConnection = ConnectionMultiplexer.Connect(option.RedisCacheConnectString);
-        _redisDb = _redisConnection.GetDatabase();
-        _redisSubscriber = _redisConnection.GetSubscriber();
+        var redis = ConnectionMultiplexer.Connect(option.RedisCacheConnectString);
+        _redisDb = redis.GetDatabase();
+        _redisSubscriber = redis.GetSubscriber();
         _logger = loggerFactory?.CreateLogger(nameof(HybridCache));
-        
+
         if (string.IsNullOrWhiteSpace(option.InstanceName))
         {
             _options.InstanceName = _instanceId;
@@ -48,7 +47,7 @@ public class HybridCache : IHybridCache, IDisposable
 
         // Subscribe to Redis key-space events to invalidate cache entries on all instances
         _redisSubscriber.Subscribe(InvalidationChannel, OnMessage, CommandFlags.FireAndForget);
-        _redisConnection.ConnectionRestored += OnReconnect;
+        redis.ConnectionRestored += OnReconnect;
     }
 
     private void CreateLocalCache()
@@ -83,7 +82,7 @@ public class HybridCache : IHybridCache, IDisposable
             LogMessage("Flushing local cache due to bus reconnection");
             _memoryCache.Dispose();
             CreateLocalCache();
-        }        
+        }
     }
 
     /// <summary>
@@ -370,18 +369,17 @@ public class HybridCache : IHybridCache, IDisposable
     /// Removes a cached value with the specified key.
     /// </summary>
     /// <param name="key">The cache key.</param>
-    public void Remove(string key)
+    public void Remove(params string[] keys)
     {
-        var cacheKey = GetCacheKey(key);
-
+        var cacheKeys = Array.ConvertAll(keys, GetCacheKey);
         try
         {
             // distributed cache at first
-            _redisDb.KeyDelete(cacheKey);
+            _redisDb.KeyDelete(Array.ConvertAll(cacheKeys, x => (RedisKey)x));
         }
         catch (Exception ex)
         {
-            LogMessage($"remove cache key [{cacheKey}] error", ex);
+            LogMessage($"remove cache key [{string.Join(" | ", keys)}] error", ex);
 
             if (_options.ThrowIfDistributedCacheError)
             {
@@ -389,29 +387,28 @@ public class HybridCache : IHybridCache, IDisposable
             }
         }
 
-        _memoryCache.Remove(cacheKey);
+        Array.ForEach(cacheKeys, _memoryCache.Remove);
 
         // send message to bus 
-        PublishBus(cacheKey);
+        PublishBus(cacheKeys);
     }
 
     /// <summary>
     /// Asynchronously removes a cached value with the specified key.
     /// </summary>
-    /// <param name="key">The cache key.</param>
+    /// <param name="keys">The cache key.</param>
     /// <returns>A task that represents the asynchronous operation.</returns>
-    public async Task RemoveAsync(string key)
+    public async Task RemoveAsync(params string[] keys)
     {
-        var cacheKey = GetCacheKey(key);
-
+        var cacheKeys = Array.ConvertAll(keys, GetCacheKey);
         try
         {
             // distributed cache at first
-            await _redisDb.KeyDeleteAsync(cacheKey).ConfigureAwait(false);
+            await _redisDb.KeyDeleteAsync(Array.ConvertAll(cacheKeys, x => (RedisKey)x)).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
-            LogMessage($"remove cache key [{cacheKey}] error", ex);
+            LogMessage($"remove cache key [{string.Join(" | ", keys)}] error", ex);
 
             if (_options.ThrowIfDistributedCacheError)
             {
@@ -419,10 +416,10 @@ public class HybridCache : IHybridCache, IDisposable
             }
         }
 
-        _memoryCache.Remove(cacheKey);
+        Array.ForEach(cacheKeys, _memoryCache.Remove);
 
         // send message to bus 
-        await PublishBusAsync(cacheKey).ConfigureAwait(false);
+        await PublishBusAsync(cacheKeys).ConfigureAwait(false);
     }
 
     private string GetCacheKey(string key) => $"{_options.InstanceName}:{key}";
@@ -550,7 +547,7 @@ public class HybridCache : IHybridCache, IDisposable
     public void Dispose()
     {
         _redisSubscriber?.UnsubscribeAll();
-        _redisConnection?.Dispose();
+        _redisDb?.Multiplexer?.Dispose();
         _memoryCache?.Dispose();
     }
 }

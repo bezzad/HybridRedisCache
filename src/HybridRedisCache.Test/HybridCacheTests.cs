@@ -1,37 +1,41 @@
-using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
-using StackExchange.Redis;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Timers;
 using Xunit;
 
 namespace HybridRedisCache.Test;
 
-public class HybridCacheTests
+public class HybridCacheTests : IDisposable
 {
     private ILoggerFactory _loggerFactory;
-    private HybridCachingOptions Option = new HybridCachingOptions()
-    {
-        InstanceName = "my-test-app",
-        RedisCacheConnectString = "localhost:6379",
-        ThrowIfDistributedCacheError = true
-    };
+    private HybridCache cache;
+    private HybridCachingOptions _options;
 
     public HybridCacheTests()
     {
-        // Create a new LoggerFactory instance
         _loggerFactory = new LoggerFactoryMock();
+        _options = new HybridCachingOptions()
+        {
+            InstanceName = "my-test-app",
+            RedisCacheConnectString = "localhost:6379",
+            ThrowIfDistributedCacheError = true
+        };
+        cache = new HybridCache(_options, _loggerFactory);
+    }
+
+    public void Dispose()
+    {
+        cache.Dispose();
+        _loggerFactory.Dispose();
     }
 
     [Fact]
     public void ShouldCacheAndRetrieveData()
     {
         // Arrange
-        var cache = new HybridCache(Option);
         var key = "mykey";
         var value = "myvalue";
 
@@ -47,7 +51,6 @@ public class HybridCacheTests
     public void SetAndGet_CacheEntryDoesNotExist_ReturnsNull()
     {
         // Arrange
-        var cache = new HybridCache(Option);
         var key = "nonexistentkey";
 
         // Act
@@ -61,7 +64,6 @@ public class HybridCacheTests
     public async Task Set_CacheEntryIsRemoved_AfterExpiration()
     {
         // Arrange
-        var cache = new HybridCache(Option);
         var key = "mykey";
         var value = "myvalue";
 
@@ -78,7 +80,6 @@ public class HybridCacheTests
     public void Remove_CacheEntryIsRemoved()
     {
         // Arrange
-        var cache = new HybridCache(Option);
         var key = "mykey";
         var value = "myvalue";
 
@@ -95,7 +96,6 @@ public class HybridCacheTests
     public async Task SetAndGetAsync_CacheEntryExists_ReturnsCachedValue()
     {
         // Arrange
-        var cache = new HybridCache(Option);
         var key = "mykey";
         var value = "myvalue";
 
@@ -111,7 +111,6 @@ public class HybridCacheTests
     public async Task SetAndGetAsync_CacheEntryDoesNotExist_ReturnsNull()
     {
         // Arrange
-        var cache = new HybridCache(Option);
         var key = "nonexistentkey";
 
         // Act
@@ -125,7 +124,6 @@ public class HybridCacheTests
     public async Task SetAsync_CacheEntryIsRemoved_AfterExpiration()
     {
         // Arrange
-        var cache = new HybridCache(Option);
         var key = "mykey";
         var value = "myvalue";
 
@@ -142,7 +140,6 @@ public class HybridCacheTests
     public async Task RemoveAsync_CacheEntryIsRemoved()
     {
         // Arrange
-        var cache = new HybridCache(Option);
         var key = "mykey";
         var value = "myvalue";
 
@@ -159,7 +156,6 @@ public class HybridCacheTests
     public void ShouldSerializeAndDeserializeComplexObject()
     {
         // Arrange
-        var cache = new HybridCache(Option);
         var obj = new { Name = "John", Age = 30 };
 
         // Act
@@ -175,8 +171,8 @@ public class HybridCacheTests
     public async Task TestSharedCache()
     {
         // create two instances of HybridCache that share the same Redis cache
-        var instance1 = new HybridCache(Option);
-        var instance2 = new HybridCache(Option);
+        var instance1 = new HybridCache(_options);
+        var instance2 = new HybridCache(_options);
 
         // set a value in the shared cache using instance1
         instance1.Set("mykey", "myvalue", fireAndForget: false);
@@ -203,9 +199,6 @@ public class HybridCacheTests
     [Fact]
     public void TestMultiThreadedCacheOperations()
     {
-        // create a HybridCache instance
-        var cache = new HybridCache(Option);
-
         // create a list of values to store in the cache
         var values = new List<string> { "foo", "bar", "baz", "qux" };
 
@@ -247,9 +240,6 @@ public class HybridCacheTests
     [Fact]
     public void CacheSerializationTest()
     {
-        // create a HybridRedisCache instance
-        var cache = new HybridCache(Option);
-
         // create a complex object to store in the cache
         var complexObject = new ComplexObject
         {
@@ -287,9 +277,6 @@ public class HybridCacheTests
     [Fact]
     public void CacheConcurrencyTest()
     {
-        // create a HybridRedisCache instance
-        var cache = new HybridCache(Option);
-
         // create a shared key and a list of values to store in the cache
         var key = "sharedKey";
         var values = new List<string> { "foo", "bar", "baz", "qux" };
@@ -342,7 +329,6 @@ public class HybridCacheTests
     public void ShouldCacheAndExistData()
     {
         // Arrange
-        var cache = new HybridCache(Option);
         var key = "mykey";
         var value = "myvalue";
 
@@ -358,7 +344,6 @@ public class HybridCacheTests
     public async Task ShouldCacheAndExistDataAsync()
     {
         // Arrange
-        var cache = new HybridCache(Option);
         var key = "mykey";
         var value = "myvalue";
 
@@ -371,26 +356,12 @@ public class HybridCacheTests
     }
 
     [Fact]
-    public void TestEnableLogging()
-    {
-        // Arrange
-        var cache = new HybridCache(Option, _loggerFactory);
-
-        // Act
-        Option.EnableLogging = true;
-
-        // Assert
-        Assert.True(Option.EnableLogging);
-    }
-
-    [Fact]
     public void TestSetGetWithLogging()
     {
         // Arrange
         var key = "#NotExistKey#$#NotExistKey#";
-        var realCacheKey = Option.InstanceName + ":" + key;
-        Option.EnableLogging = true;
-        var cache = new HybridCache(Option, _loggerFactory);
+        var realCacheKey = _options.InstanceName + ":" + key;
+        _options.EnableLogging = true;
         // Use the ILoggerFactory instance to get the ILogger instance
         var logger = _loggerFactory.CreateLogger(nameof(HybridCache)) as LoggerMock;
 
@@ -408,7 +379,6 @@ public class HybridCacheTests
     public void TestSetAll()
     {
         // Arrange
-        var cache = new HybridCache(Option);
         var keyValues = new Dictionary<string, object>
             {
                 { "key1", "value1" },
@@ -431,7 +401,6 @@ public class HybridCacheTests
     public async Task TestSetAllAsync()
     {
         // Arrange
-        var cache = new HybridCache(Option);
         var keyValues = new Dictionary<string, object>
             {
                 { "key1", "value1" },
@@ -449,4 +418,6 @@ public class HybridCacheTests
             Assert.Equal(kvp.Value, value);
         }
     }
+
+    
 }
