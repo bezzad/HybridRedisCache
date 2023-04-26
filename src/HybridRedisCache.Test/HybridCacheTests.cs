@@ -11,7 +11,7 @@ namespace HybridRedisCache.Test;
 public class HybridCacheTests : IDisposable
 {
     private ILoggerFactory _loggerFactory;
-    private HybridCache cache;
+    private HybridCache _cache;
     private HybridCachingOptions _options;
 
     public HybridCacheTests()
@@ -23,12 +23,12 @@ public class HybridCacheTests : IDisposable
             RedisCacheConnectString = "localhost:6379",
             ThrowIfDistributedCacheError = true
         };
-        cache = new HybridCache(_options, _loggerFactory);
+        _cache = new HybridCache(_options, _loggerFactory);
     }
 
     public void Dispose()
     {
-        cache.Dispose();
+        _cache.Dispose();
         _loggerFactory.Dispose();
     }
 
@@ -40,8 +40,8 @@ public class HybridCacheTests : IDisposable
         var value = "myvalue";
 
         // Act
-        cache.Set(key, value);
-        var result = cache.Get<string>(key);
+        _cache.Set(key, value);
+        var result = _cache.Get<string>(key);
 
         // Assert
         Assert.Equal(value, result);
@@ -54,7 +54,7 @@ public class HybridCacheTests : IDisposable
         var key = "nonexistentkey";
 
         // Act
-        var result = cache.Get<string>(key);
+        var result = _cache.Get<string>(key);
 
         // Assert
         Assert.Null(result);
@@ -68,9 +68,9 @@ public class HybridCacheTests : IDisposable
         var value = "myvalue";
 
         // Act
-        cache.Set(key, value, TimeSpan.FromMilliseconds(100));
+        _cache.Set(key, value, TimeSpan.FromMilliseconds(100));
         await Task.Delay(TimeSpan.FromSeconds(2));
-        var result = cache.Get<string>(key);
+        var result = _cache.Get<string>(key);
 
         // Assert
         Assert.Null(result);
@@ -84,9 +84,9 @@ public class HybridCacheTests : IDisposable
         var value = "myvalue";
 
         // Act
-        cache.Set(key, value);
-        cache.Remove(key);
-        var result = cache.Get<string>(key);
+        _cache.Set(key, value);
+        _cache.Remove(key);
+        var result = _cache.Get<string>(key);
 
         // Assert
         Assert.Null(result);
@@ -100,8 +100,8 @@ public class HybridCacheTests : IDisposable
         var value = "myvalue";
 
         // Act
-        await cache.SetAsync(key, value);
-        var result = await cache.GetAsync<string>(key);
+        await _cache.SetAsync(key, value);
+        var result = await _cache.GetAsync<string>(key);
 
         // Assert
         Assert.Equal(value, result);
@@ -114,7 +114,7 @@ public class HybridCacheTests : IDisposable
         var key = "nonexistentkey";
 
         // Act
-        var result = await cache.GetAsync<string>(key);
+        var result = await _cache.GetAsync<string>(key);
 
         // Assert
         Assert.Null(result);
@@ -128,9 +128,9 @@ public class HybridCacheTests : IDisposable
         var value = "myvalue";
 
         // Act
-        await cache.SetAsync(key, value, TimeSpan.FromSeconds(1));
+        await _cache.SetAsync(key, value, TimeSpan.FromSeconds(1));
         await Task.Delay(TimeSpan.FromSeconds(2));
-        var result = await cache.GetAsync<string>(key);
+        var result = await _cache.GetAsync<string>(key);
 
         // Assert
         Assert.Null(result);
@@ -144,9 +144,9 @@ public class HybridCacheTests : IDisposable
         var value = "myvalue";
 
         // Act
-        await cache.SetAsync(key, value);
-        await cache.RemoveAsync(key);
-        var result = await cache.GetAsync<string>(key);
+        await _cache.SetAsync(key, value);
+        await _cache.RemoveAsync(key);
+        var result = await _cache.GetAsync<string>(key);
 
         // Assert
         Assert.Null(result);
@@ -159,8 +159,8 @@ public class HybridCacheTests : IDisposable
         var obj = new { Name = "John", Age = 30 };
 
         // Act
-        cache.Set("mykey", obj, TimeSpan.FromMinutes(1));
-        var value = cache.Get<dynamic>("mykey");
+        _cache.Set("mykey", obj, TimeSpan.FromMinutes(1));
+        var value = _cache.Get<dynamic>("mykey");
 
         // Assert
         Assert.Equal(obj.Name, value.Name);
@@ -214,10 +214,10 @@ public class HybridCacheTests : IDisposable
                 var threadValue = tuple.Item2;
 
                 // perform cache operations on the cache instance
-                cache.Set(threadKey, threadValue);
-                var retrievedValue = cache.Get<string>(threadKey);
+                _cache.Set(threadKey, threadValue);
+                var retrievedValue = _cache.Get<string>(threadKey);
                 Assert.Equal(threadValue, retrievedValue);
-                cache.Remove(threadKey);
+                _cache.Remove(threadKey);
             });
 
             // create a local copy of the i variable to avoid race conditions
@@ -234,7 +234,7 @@ public class HybridCacheTests : IDisposable
         threads.ForEach(t => t.Join());
 
         // clean up
-        cache.Dispose();
+        _cache.Dispose();
     }
 
     [Fact]
@@ -256,10 +256,10 @@ public class HybridCacheTests : IDisposable
         };
 
         // store the object in the cache
-        cache.Set("complexObject", complexObject);
+        _cache.Set("complexObject", complexObject);
 
         // retrieve the object from the cache
-        var retrievedObject = cache.Get<ComplexObject>("complexObject");
+        var retrievedObject = _cache.Get<ComplexObject>("complexObject");
 
         // verify that the retrieved object is equal to the original object
         Assert.Equal(complexObject.Name, retrievedObject.Name);
@@ -271,7 +271,7 @@ public class HybridCacheTests : IDisposable
         Assert.Equal(complexObject.PhoneNumbers, retrievedObject.PhoneNumbers);
 
         // clean up
-        cache.Dispose();
+        _cache.Dispose();
     }
 
     [Fact]
@@ -292,14 +292,14 @@ public class HybridCacheTests : IDisposable
                 lock (values)
                 {
                     // perform cache operations on the cache instance
-                    var currentValue = cache.Get<string>(key);
+                    var currentValue = _cache.Get<string>(key);
                     if (currentValue == null)
                     {
-                        cache.Set(key, value, fireAndForget: false);
+                        _cache.Set(key, value, fireAndForget: false);
                     }
                     else
                     {
-                        cache.Set(key, currentValue + value, fireAndForget: false);
+                        _cache.Set(key, currentValue + value, fireAndForget: false);
                     }
                 }
             });
@@ -311,18 +311,18 @@ public class HybridCacheTests : IDisposable
         threads.ForEach(t => t.Start());
 
         // set the initial value in the cache
-        cache.Set(key, values[0], fireAndForget: false);
+        _cache.Set(key, values[0], fireAndForget: false);
 
         // waits for a brief period of time before verifying the final value in the cache
         // to ensure that all write operations have completed.
         Thread.Sleep(1000);
 
         // verify that the final value in the cache is correct
-        var actualValue = cache.Get<string>(key);
+        var actualValue = _cache.Get<string>(key);
         Assert.True(values.All(val => actualValue.Contains(val)), $"value was:{actualValue}");
 
         // clean up
-        cache.Dispose();
+        _cache.Dispose();
     }
 
     [Fact]
@@ -333,8 +333,8 @@ public class HybridCacheTests : IDisposable
         var value = "myvalue";
 
         // Act
-        cache.Set(key, value);
-        var result = cache.Exists(key);
+        _cache.Set(key, value);
+        var result = _cache.Exists(key);
 
         // Assert
         Assert.True(result);
@@ -348,8 +348,8 @@ public class HybridCacheTests : IDisposable
         var value = "myvalue";
 
         // Act
-        cache.Set(key, value);
-        var result = await cache.ExistsAsync(key);
+        _cache.Set(key, value);
+        var result = await _cache.ExistsAsync(key);
 
         // Assert
         Assert.True(result);
@@ -367,7 +367,7 @@ public class HybridCacheTests : IDisposable
 
         // Act
         // get a key which is not exist. So, throw an exception and it will be logged!
-        var _ = cache.Get<string>(key);
+        var _ = _cache.Get<string>(key);
 
         // Assert
         Assert.True(logger.LogHistory.Any());
@@ -387,12 +387,12 @@ public class HybridCacheTests : IDisposable
             };
 
         // Act
-        cache.SetAll(keyValues, TimeSpan.FromMinutes(10));
+        _cache.SetAll(keyValues, TimeSpan.FromMinutes(10));
 
         // Assert
         foreach (var kvp in keyValues)
         {
-            var value = cache.Get<object>(kvp.Key);
+            var value = _cache.Get<object>(kvp.Key);
             Assert.Equal(kvp.Value, value);
         }
     }
@@ -409,15 +409,55 @@ public class HybridCacheTests : IDisposable
             };
 
         // Act
-        await cache.SetAllAsync(keyValues, TimeSpan.FromMinutes(10)).ConfigureAwait(false);
+        await _cache.SetAllAsync(keyValues, TimeSpan.FromMinutes(10)).ConfigureAwait(false);
 
         // Assert
         foreach (var kvp in keyValues)
         {
-            var value = await cache.GetAsync<string>(kvp.Key).ConfigureAwait(false);
+            var value = await _cache.GetAsync<string>(kvp.Key).ConfigureAwait(false);
             Assert.Equal(kvp.Value, value);
         }
     }
 
-    
+    [Fact]
+    public void Remove_RemovesMultipleKeysFromCache()
+    {
+        // Arrange
+        var key1 = "key1";
+        var key2 = "key2";
+        var value1 = "value1";
+        var value2 = "value2";
+        _options.ThrowIfDistributedCacheError = true;
+
+        _cache.Set(key1, value1);
+        _cache.Set(key2, value2);
+
+        // Act
+        _cache.Remove(key1, key2);
+
+        // Assert
+        Assert.Null(_cache.Get<string>(key1));
+        Assert.Null(_cache.Get<string>(key2));
+    }
+
+    [Fact]
+    public async Task Remove_RemovesMultipleKeysFromCacheAsync()
+    {
+        // Arrange
+        var key1 = "key1";
+        var key2 = "key2";
+        var value1 = "value1";
+        var value2 = "value2";
+
+        _cache.Set(key1, value1);
+        _cache.Set(key2, value2);
+        
+
+        // Act
+        await _cache.RemoveAsync(key1, key2);
+
+        // Assert
+        Assert.Null(_cache.Get<string>(key1));
+        Assert.Null(_cache.Get<string>(key2));
+    }
 }
