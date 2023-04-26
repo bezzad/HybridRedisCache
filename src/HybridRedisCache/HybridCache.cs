@@ -12,7 +12,6 @@ namespace HybridRedisCache;
 /// </summary>
 public class HybridCache : IHybridCache, IDisposable
 {
-    private readonly IMemoryCache _memoryCache;
     private readonly IDatabase _redisDb;
     private readonly ConnectionMultiplexer _redisConnection;
     private readonly string _instanceId;
@@ -20,6 +19,7 @@ public class HybridCache : IHybridCache, IDisposable
     private readonly ISubscriber _redisSubscriber;
     private readonly ILogger _logger;
 
+    private IMemoryCache _memoryCache;
     private string InvalidationChannel => _options.InstanceName + ":invalidate";
     private int retryPublishCounter = 0;
     private int retryDelayMiliseconds = 100;
@@ -35,7 +35,7 @@ public class HybridCache : IHybridCache, IDisposable
     {
         _instanceId = Guid.NewGuid().ToString("N");
         _options = option;
-        _memoryCache = new MemoryCache(new MemoryCacheOptions());
+        CreateLocalCache();
         _redisConnection = ConnectionMultiplexer.Connect(option.RedisCacheConnectString);
         _redisDb = _redisConnection.GetDatabase();
         _redisSubscriber = _redisConnection.GetSubscriber();
@@ -48,6 +48,12 @@ public class HybridCache : IHybridCache, IDisposable
 
         // Subscribe to Redis key-space events to invalidate cache entries on all instances
         _redisSubscriber.Subscribe(InvalidationChannel, OnMessage, CommandFlags.FireAndForget);
+        _redisConnection.ConnectionRestored += OnReconnected;
+    }
+
+    private void CreateLocalCache()
+    {
+        _memoryCache = new MemoryCache(new MemoryCacheOptions());
     }
 
     private void OnMessage(RedisChannel channel, RedisValue value)
@@ -65,6 +71,16 @@ public class HybridCache : IHybridCache, IDisposable
                 LogMessage($"remove local cache that cache key is {key}");
             }
         }
+    }
+
+    private void OnReconnected(object sender, ConnectionFailedEventArgs e)
+    {
+        if (_options.FlushLocalCacheOnBusReconnection)
+        {
+            LogMessage("Flushing local cache due to bus reconnection");
+            _memoryCache.Dispose();
+            CreateLocalCache();
+        }        
     }
 
     /// <summary>
