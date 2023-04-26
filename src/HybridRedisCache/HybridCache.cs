@@ -39,8 +39,8 @@ public class HybridCache : IHybridCache, IDisposable
         _redisConnection = ConnectionMultiplexer.Connect(option.RedisCacheConnectString);
         _redisDb = _redisConnection.GetDatabase();
         _redisSubscriber = _redisConnection.GetSubscriber();
-        _logger = loggerFactory?.CreateLogger<HybridCache>();
-
+        _logger = loggerFactory?.CreateLogger(nameof(HybridCache));
+        
         if (string.IsNullOrWhiteSpace(option.InstanceName))
         {
             _options.InstanceName = _instanceId;
