@@ -1,9 +1,12 @@
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
+using StackExchange.Redis;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Timers;
 using Xunit;
 
 namespace HybridRedisCache.Test;
@@ -399,5 +402,51 @@ public class HybridCacheTests
         Assert.True(logger.LogHistory.Any());
         var firstLog = logger.LogHistory.LastOrDefault() as IReadOnlyList<KeyValuePair<string, object>>;
         Assert.Equal($"distributed cache can not get the value of {realCacheKey}", firstLog.FirstOrDefault().Value.ToString());
+    }
+
+    [Fact]
+    public void TestSetAll()
+    {
+        // Arrange
+        var cache = new HybridCache(Option);
+        var keyValues = new Dictionary<string, object>
+            {
+                { "key1", "value1" },
+                { "key2", "value2" },
+                { "key3", "value3" }
+            };
+
+        // Act
+        cache.SetAll(keyValues, TimeSpan.FromMinutes(10));
+
+        // Assert
+        foreach (var kvp in keyValues)
+        {
+            var value = cache.Get<object>(kvp.Key);
+            Assert.Equal(kvp.Value, value);
+        }
+    }
+
+    [Fact]
+    public async Task TestSetAllAsync()
+    {
+        // Arrange
+        var cache = new HybridCache(Option);
+        var keyValues = new Dictionary<string, object>
+            {
+                { "key1", "value1" },
+                { "key2", "value2" },
+                { "key3", "value3" }
+            };
+
+        // Act
+        await cache.SetAllAsync(keyValues, TimeSpan.FromMinutes(10)).ConfigureAwait(false);
+
+        // Assert
+        foreach (var kvp in keyValues)
+        {
+            var value = await cache.GetAsync<string>(kvp.Key).ConfigureAwait(false);
+            Assert.Equal(kvp.Value, value);
+        }
     }
 }

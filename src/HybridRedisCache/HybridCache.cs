@@ -48,7 +48,7 @@ public class HybridCache : IHybridCache, IDisposable
 
         // Subscribe to Redis key-space events to invalidate cache entries on all instances
         _redisSubscriber.Subscribe(InvalidationChannel, OnMessage, CommandFlags.FireAndForget);
-        _redisConnection.ConnectionRestored += OnReconnected;
+        _redisConnection.ConnectionRestored += OnReconnect;
     }
 
     private void CreateLocalCache()
@@ -73,7 +73,10 @@ public class HybridCache : IHybridCache, IDisposable
         }
     }
 
-    private void OnReconnected(object sender, ConnectionFailedEventArgs e)
+    /// <summary>
+    /// On reconnect (flushes local memory as it could be stale).
+    /// </summary>
+    private void OnReconnect(object sender, ConnectionFailedEventArgs e)
     {
         if (_options.FlushLocalCacheOnBusReconnection)
         {
@@ -148,12 +151,13 @@ public class HybridCache : IHybridCache, IDisposable
     /// <param name="fireAndForget">Whether to cache the value in Redis without waiting for the operation to complete.</param>
     public void Set<T>(string key, T value, TimeSpan? expiration = null, bool fireAndForget = true)
     {
+        var expiry = expiration ?? _options.DefaultExpirationTime;
         var cacheKey = GetCacheKey(key);
-        _memoryCache.Set(cacheKey, value, expiration ?? _options.DefaultExpirationTime);
+        _memoryCache.Set(cacheKey, value, expiry);
 
         try
         {
-            _redisDb.StringSet(cacheKey, Serialize(value), expiration ?? _options.DefaultExpirationTime,
+            _redisDb.StringSet(cacheKey, Serialize(value), expiry,
                     flags: fireAndForget ? CommandFlags.FireAndForget : CommandFlags.None);
         }
         catch (Exception ex)
@@ -181,12 +185,13 @@ public class HybridCache : IHybridCache, IDisposable
     /// <returns>A task that represents the asynchronous operation.</returns>
     public async Task SetAsync<T>(string key, T value, TimeSpan? expiration = null, bool fireAndForget = true)
     {
+        var expiry = expiration ?? _options.DefaultExpirationTime;
         var cacheKey = GetCacheKey(key);
-        _memoryCache.Set(cacheKey, value, expiration ?? _options.DefaultExpirationTime);
+        _memoryCache.Set(cacheKey, value, expiry);
 
         try
         {
-            await _redisDb.StringSetAsync(cacheKey, Serialize(value), expiration ?? _options.DefaultExpirationTime,
+            await _redisDb.StringSetAsync(cacheKey, Serialize(value), expiry,
                     flags: fireAndForget ? CommandFlags.FireAndForget : CommandFlags.None).ConfigureAwait(false);
         }
         catch (Exception ex)
@@ -201,6 +206,78 @@ public class HybridCache : IHybridCache, IDisposable
 
         // When create/update cache, send message to bus so that other clients can remove it.
         await PublishBusAsync(cacheKey).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Sets all.
+    /// </summary>
+    /// <returns>The all async.</returns>
+    /// <param name="value">Value.</param>
+    /// <param name="expiration">Expiration.</param>
+    /// <typeparam name="T">The 1st type parameter.</typeparam>
+    public void SetAll<T>(IDictionary<string, T> value, TimeSpan? expiration = null, bool fireAndForget = true)
+    {
+        var expiry = expiration ?? _options.DefaultExpirationTime;
+
+        foreach (var kvp in value)
+        {
+            var cacheKey = GetCacheKey(kvp.Key);
+            _memoryCache.Set(cacheKey, kvp.Value, expiry);
+
+            try
+            {
+                _redisDb.StringSet(cacheKey, Serialize(kvp.Value), expiry,
+                     flags: fireAndForget ? CommandFlags.FireAndForget : CommandFlags.None);
+            }
+            catch (Exception ex)
+            {
+                LogMessage($"set cache key [{cacheKey}] error", ex);
+
+                if (_options.ThrowIfDistributedCacheError)
+                {
+                    throw;
+                }
+            }
+        }
+
+        // send message to bus 
+        PublishBus(value.Keys.ToArray());
+    }
+
+    /// <summary>
+    /// Sets all async.
+    /// </summary>
+    /// <returns>The all async.</returns>
+    /// <param name="value">Value.</param>
+    /// <param name="expiration">Expiration.</param>
+    /// <typeparam name="T">The 1st type parameter.</typeparam>
+    public async Task SetAllAsync<T>(IDictionary<string, T> value, TimeSpan? expiration = null, bool fireAndForget = true)
+    {
+        var expiry = expiration ?? _options.DefaultExpirationTime;
+
+        foreach (var kvp in value)
+        {
+            var cacheKey = GetCacheKey(kvp.Key);
+            _memoryCache.Set(cacheKey, kvp.Value, expiry);
+
+            try
+            {
+                await _redisDb.StringSetAsync(cacheKey, Serialize(kvp.Value), expiry,
+                     flags: fireAndForget ? CommandFlags.FireAndForget : CommandFlags.None).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                LogMessage($"set cache key [{cacheKey}] error", ex);
+
+                if (_options.ThrowIfDistributedCacheError)
+                {
+                    throw;
+                }
+            }
+        }
+
+        // send message to bus 
+        await PublishBusAsync(value.Keys.ToArray());
     }
 
     /// <summary>
