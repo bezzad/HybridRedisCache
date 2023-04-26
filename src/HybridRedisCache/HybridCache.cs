@@ -32,6 +32,8 @@ public class HybridCache : IHybridCache, IDisposable
     /// <param name="defaultExpiryTime">default caching expiry time</param>
     public HybridCache(HybridCachingOptions option, ILoggerFactory loggerFactory = null)
     {
+        option.NotNull(nameof(option));
+
         _instanceId = Guid.NewGuid().ToString("N");
         _options = option;
         CreateLocalCache();
@@ -92,6 +94,7 @@ public class HybridCache : IHybridCache, IDisposable
     /// <param name="cacheKey">Cache key</param>
     public bool Exists(string key)
     {
+        key.NotNullOrWhiteSpace(nameof(key));
         var cacheKey = GetCacheKey(key);
 
         // Circuit Breaker may be more better
@@ -120,6 +123,7 @@ public class HybridCache : IHybridCache, IDisposable
     /// <param name="cancellationToken">CancellationToken</param>
     public async Task<bool> ExistsAsync(string key)
     {
+        key.NotNullOrWhiteSpace(nameof(key));
         var cacheKey = GetCacheKey(key);
 
         // Circuit Breaker may be more better
@@ -150,6 +154,7 @@ public class HybridCache : IHybridCache, IDisposable
     /// <param name="fireAndForget">Whether to cache the value in Redis without waiting for the operation to complete.</param>
     public void Set<T>(string key, T value, TimeSpan? expiration = null, bool fireAndForget = true)
     {
+        key.NotNullOrWhiteSpace(nameof(key));
         var expiry = expiration ?? _options.DefaultExpirationTime;
         var cacheKey = GetCacheKey(key);
         _memoryCache.Set(cacheKey, value, expiry);
@@ -184,6 +189,7 @@ public class HybridCache : IHybridCache, IDisposable
     /// <returns>A task that represents the asynchronous operation.</returns>
     public async Task SetAsync<T>(string key, T value, TimeSpan? expiration = null, bool fireAndForget = true)
     {
+        key.NotNullOrWhiteSpace(nameof(key));
         var expiry = expiration ?? _options.DefaultExpirationTime;
         var cacheKey = GetCacheKey(key);
         _memoryCache.Set(cacheKey, value, expiry);
@@ -216,6 +222,7 @@ public class HybridCache : IHybridCache, IDisposable
     /// <typeparam name="T">The 1st type parameter.</typeparam>
     public void SetAll<T>(IDictionary<string, T> value, TimeSpan? expiration = null, bool fireAndForget = true)
     {
+        value.NotNullAndCountGTZero(nameof(value));
         var expiry = expiration ?? _options.DefaultExpirationTime;
 
         foreach (var kvp in value)
@@ -252,6 +259,7 @@ public class HybridCache : IHybridCache, IDisposable
     /// <typeparam name="T">The 1st type parameter.</typeparam>
     public async Task SetAllAsync<T>(IDictionary<string, T> value, TimeSpan? expiration = null, bool fireAndForget = true)
     {
+        value.NotNullAndCountGTZero(nameof(value));
         var expiry = expiration ?? _options.DefaultExpirationTime;
 
         foreach (var kvp in value)
@@ -287,6 +295,7 @@ public class HybridCache : IHybridCache, IDisposable
     /// <returns>The cached value, or null if the key is not found in the cache.</returns>
     public T Get<T>(string key)
     {
+        key.NotNullOrWhiteSpace(nameof(key));
         var cacheKey = GetCacheKey(key);
         var value = _memoryCache.Get<T>(cacheKey);
         if (value != null)
@@ -330,6 +339,7 @@ public class HybridCache : IHybridCache, IDisposable
     /// <returns>A task that represents the asynchronous operation. The task result contains the cached value, or null if the key is not found in the cache.</returns>
     public async Task<T> GetAsync<T>(string key)
     {
+        key.NotNullOrWhiteSpace(nameof(key));
         var cacheKey = GetCacheKey(key);
         var value = _memoryCache.Get<T>(cacheKey);
         if (value != null)
@@ -371,6 +381,7 @@ public class HybridCache : IHybridCache, IDisposable
     /// <param name="key">The cache key.</param>
     public void Remove(params string[] keys)
     {
+        keys.NotNullAndCountGTZero(nameof(keys));
         var cacheKeys = Array.ConvertAll(keys, GetCacheKey);
         try
         {
@@ -400,6 +411,7 @@ public class HybridCache : IHybridCache, IDisposable
     /// <returns>A task that represents the asynchronous operation.</returns>
     public async Task RemoveAsync(params string[] keys)
     {
+        keys.NotNullAndCountGTZero(nameof(keys));
         var cacheKeys = Array.ConvertAll(keys, GetCacheKey);
         try
         {
@@ -426,6 +438,8 @@ public class HybridCache : IHybridCache, IDisposable
 
     private async Task PublishBusAsync(params string[] cacheKeys)
     {
+        cacheKeys.NotNullAndCountGTZero(nameof(cacheKeys));
+
         try
         {
             // include the instance ID in the pub/sub message payload to update another instances
@@ -444,6 +458,8 @@ public class HybridCache : IHybridCache, IDisposable
     }
     private void PublishBus(params string[] cacheKeys)
     {
+        cacheKeys.NotNullAndCountGTZero(nameof(cacheKeys));
+
         try
         {
             // include the instance ID in the pub/sub message payload to update another instances
@@ -463,9 +479,26 @@ public class HybridCache : IHybridCache, IDisposable
 
     private TimeSpan GetExpiration(string cacheKey)
     {
+        cacheKey.NotNullOrWhiteSpace(nameof(cacheKey));
+
         try
         {
             var time = _redisDb.KeyExpireTime(cacheKey);
+            return ToTimeSpan(time);
+        }
+        catch
+        {
+            return _options.DefaultExpirationTime;
+        }
+    }
+
+    private async Task<TimeSpan> GetExpirationAsync(string cacheKey)
+    {
+        cacheKey.NotNullOrWhiteSpace(nameof(cacheKey));
+
+        try
+        {
+            var time = await _redisDb.KeyExpireTimeAsync(cacheKey);
             return ToTimeSpan(time);
         }
         catch
@@ -491,19 +524,6 @@ public class HybridCache : IHybridCache, IDisposable
             {
                 _logger.LogError(ex, message);
             }
-        }
-    }
-
-    private async Task<TimeSpan> GetExpirationAsync(string cacheKey)
-    {
-        try
-        {
-            var time = await _redisDb.KeyExpireTimeAsync(cacheKey);
-            return ToTimeSpan(time);
-        }
-        catch
-        {
-            return _options.DefaultExpirationTime;
         }
     }
 
