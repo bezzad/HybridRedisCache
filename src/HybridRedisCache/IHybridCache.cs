@@ -12,4 +12,6 @@ public interface IHybridCache
     Task<T> GetAsync<T>(string key);
     void Remove(params string[] keys);
     Task RemoveAsync(params string[] keys);
+    public void ClearAll();
+    public Task ClearAllAsync();
 }

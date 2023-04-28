@@ -20,7 +20,7 @@
         public string RedisCacheConnectString { get; set; } = "localhost:6379";
 
         /// <summary>
-        /// Gets or sets the name of the instance.
+        /// Gets or sets the name of the instance which is shared between instances.
         /// </summary>
         public string InstanceName { get; set; }
 

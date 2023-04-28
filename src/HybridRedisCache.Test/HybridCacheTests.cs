@@ -460,4 +460,52 @@ public class HybridCacheTests : IDisposable
         Assert.Null(_cache.Get<string>(key1));
         Assert.Null(_cache.Get<string>(key2));
     }
+
+    [Fact]
+    public void FlushDbTest()
+    {
+        // Arrange
+        var key1 = "key1";
+        var key2 = "key2";
+        var value1 = "value1";
+        var value2 = "value2";
+
+        _cache.Set(key1, value1, fireAndForget: false);
+        _cache.Set(key2, value2, fireAndForget: false);
+
+        // Act
+        var value1b = _cache.Get<string>(key1);
+        var value2b = _cache.Get<string>(key2);
+        _cache.ClearAll();
+
+        // Assert
+        Assert.Equal(value1, value1b);
+        Assert.Equal(value2, value2b);
+        Assert.Null(_cache.Get<string>(key1));
+        Assert.Null(_cache.Get<string>(key2));
+    }
+
+    [Fact]
+    public async Task FlushDbAsyncTest()
+    {
+        // Arrange
+        var key1 = "key1";
+        var key2 = "key2";
+        var value1 = "value1";
+        var value2 = "value2";
+
+        await _cache.SetAsync(key1, value1, fireAndForget: false);
+        await _cache.SetAsync(key2, value2, fireAndForget: false);
+
+        // Act
+        var value1b = await _cache.GetAsync<string>(key1);
+        var value2b = await _cache.GetAsync<string>(key2);
+        await _cache.ClearAllAsync();
+
+        // Assert
+        Assert.Equal(value1, value1b);
+        Assert.Equal(value2, value2b);
+        Assert.Null(await _cache.GetAsync<string>(key1));
+        Assert.Null(await _cache.GetAsync<string>(key2));
+    }
 }

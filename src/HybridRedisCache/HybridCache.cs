@@ -12,6 +12,7 @@ namespace HybridRedisCache;
 /// </summary>
 public class HybridCache : IHybridCache, IDisposable
 {
+    private const string FlushDb = "FLUSHDB";
     private readonly IDatabase _redisDb;
     private readonly string _instanceId;
     private readonly HybridCachingOptions _options;
@@ -22,6 +23,7 @@ public class HybridCache : IHybridCache, IDisposable
     private string InvalidationChannel => _options.InstanceName + ":invalidate";
     private int retryPublishCounter = 0;
     private int retryDelayMiliseconds = 100;
+    private string ClearAllKey => GetCacheKey($"*{FlushDb}*");
 
     /// <summary>
     /// This method initializes the HybridCache instance and subscribes to Redis key-space events 
@@ -66,6 +68,12 @@ public class HybridCache : IHybridCache, IDisposable
         var message = Deserialize<CacheInvalidationMessage>(value.ToString());
         if (message.InstanceId != _instanceId) // filter out messages from the current instance
         {
+            if (message.CacheKeys.FirstOrDefault().Equals(ClearAllKey))
+            {
+                ClearLocalMemory();
+                return;
+            }
+
             foreach (var key in message.CacheKeys)
             {
                 _memoryCache.Remove(key);
@@ -82,8 +90,7 @@ public class HybridCache : IHybridCache, IDisposable
         if (_options.FlushLocalCacheOnBusReconnection)
         {
             LogMessage("Flushing local cache due to bus reconnection");
-            _memoryCache.Dispose();
-            CreateLocalCache();
+            ClearLocalMemory();
         }
     }
 
@@ -432,6 +439,30 @@ public class HybridCache : IHybridCache, IDisposable
 
         // send message to bus 
         await PublishBusAsync(cacheKeys).ConfigureAwait(false);
+    }
+
+    public void ClearAll()
+    {
+        _redisDb.Execute(FlushDb);
+        ClearLocalMemory();
+        PublishBus(ClearAllKey);
+    }
+
+    public async Task ClearAllAsync()
+    {
+        await _redisDb.ExecuteAsync(FlushDb);
+        ClearLocalMemory();
+        await PublishBusAsync(ClearAllKey);
+    }
+
+    private void ClearLocalMemory()
+    {
+        lock (_memoryCache)
+        {
+            _memoryCache.Dispose();
+            CreateLocalCache();
+            LogMessage($"clear all local cache.");
+        }
     }
 
     private string GetCacheKey(string key) => $"{_options.InstanceName}:{key}";
