@@ -68,7 +68,7 @@ public class HybridCacheTests : IDisposable
         var value = "myvalue";
 
         // Act
-        _cache.Set(key, value, TimeSpan.FromMilliseconds(100));
+        _cache.Set(key, value, TimeSpan.FromMilliseconds(100), TimeSpan.FromMilliseconds(100));
         await Task.Delay(TimeSpan.FromSeconds(2));
         var result = _cache.Get<string>(key);
 
@@ -128,12 +128,63 @@ public class HybridCacheTests : IDisposable
         var value = "myvalue";
 
         // Act
-        await _cache.SetAsync(key, value, TimeSpan.FromSeconds(1));
+        await _cache.SetAsync(key, value, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
         await Task.Delay(TimeSpan.FromSeconds(2));
         var result = await _cache.GetAsync<string>(key);
 
         // Assert
         Assert.Null(result);
+    }
+
+    [Fact]
+    public async Task SetAsync_LocalCacheEntryIsRemoved_RedisCacheIsExist_AfterExpiration()
+    {
+        // Arrange
+        var key = DateTime.Now.GetHashCode().ToString();
+        var value = "myvalue";
+
+        // Act
+        await _cache.SetAsync(key, value, TimeSpan.FromMilliseconds(100), TimeSpan.FromMilliseconds(300), false);
+        await Task.Delay(200);
+        var valueAfterLocalExpiration = await _cache.GetAsync<string>(key);
+        await Task.Delay(400);
+        var valueAfterRedisExpiration = await _cache.GetAsync<string>(key);
+
+        // Assert
+        Assert.Equal(value, valueAfterLocalExpiration);
+        Assert.Null(valueAfterRedisExpiration);
+    }
+
+    [Fact]
+    public async Task GetExpirationAsyncTest()
+    {
+        // Arrange
+        var key = "mykey";
+        var value = "myvalue";
+        var expiryTimeMin = 2;
+
+        // Act
+        await _cache.SetAsync(key, value, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(expiryTimeMin), false);
+        var expiration = await _cache.GetExpirationAsync(key);
+
+        // Assert
+        Assert.Equal(expiryTimeMin, Math.Round(expiration.TotalMinutes));
+    }
+
+    [Fact]
+    public void GetExpirationTest()
+    {
+        // Arrange
+        var key = "mykey";
+        var value = "myvalue";
+        var expiryTimeMin = 2;
+
+        // Act
+        _cache.Set(key, value, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(expiryTimeMin), false);
+        var expiration = _cache.GetExpiration(key);
+
+        // Assert
+        Assert.Equal(expiryTimeMin, Math.Round(expiration.TotalMinutes));
     }
 
     [Fact]
@@ -451,7 +502,7 @@ public class HybridCacheTests : IDisposable
 
         _cache.Set(key1, value1);
         _cache.Set(key2, value2);
-        
+
 
         // Act
         await _cache.RemoveAsync(key1, key2);

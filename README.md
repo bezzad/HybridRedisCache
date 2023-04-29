@@ -27,10 +27,14 @@ using HybridRedisCache;
 // Create a new instance of HybridCache with cache options
 var options = new HybridCachingOptions()
 {
-    DefaultExpirationTime = TimeSpan.FromSeconds(1),
+    DefaultLocalExpirationTime = TimeSpan.FromMinutes(1),
+    DefaultDistributedExpirationTime = TimeSpan.FromDays(1),
     InstanceName = "SampleApp",
     ThrowIfDistributedCacheError = true,
-    RedisCacheConnectString = "localhost:6379"
+    RedisCacheConnectString = "localhost:6379",
+    BusRetryCount = 10,
+    EnableLogging = true,
+    FlushLocalCacheOnBusReconnection = true,
 };
 var cache = new HybridCache(options);
 

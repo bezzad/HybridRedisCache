@@ -5,7 +5,8 @@ Console.WriteLine("Welcome Hybrid Redis Cache");
 // Create a new instance of HybridCache with cache options
 var options = new HybridCachingOptions()
 {
-    DefaultExpirationTime = TimeSpan.FromSeconds(1),
+    DefaultLocalExpirationTime = TimeSpan.FromMinutes(1),
+    DefaultDistributedExpirationTime = TimeSpan.FromDays(1),
     InstanceName = "SampleApp",
     ThrowIfDistributedCacheError = true,
     RedisCacheConnectString = "localhost:6379",

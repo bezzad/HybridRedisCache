@@ -25,9 +25,14 @@
         public string InstanceName { get; set; } = nameof(HybridCache);
 
         /// <summary>
-        /// Gets or sets a expiry time of caches 
+        /// Gets or sets a expiry time of redis cache
         /// </summary>        
-        public TimeSpan DefaultExpirationTime { get; set; } = TimeSpan.FromDays(60);
+        public TimeSpan DefaultDistributedExpirationTime { get; set; } = TimeSpan.FromDays(1);
+
+        /// <summary>
+        /// Gets or sets a expiry time of local cache
+        /// </summary>        
+        public TimeSpan DefaultLocalExpirationTime { get; set; } = TimeSpan.FromMinutes(60);
 
         /// <summary>
         /// The bus retry count.
