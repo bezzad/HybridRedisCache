@@ -97,5 +97,4 @@ public class Program
     {
         Console.Write("\f\u001bc\x1b[3J");
     }
-
 }
