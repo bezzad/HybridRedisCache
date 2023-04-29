@@ -19,7 +19,7 @@ public class HybridCacheTests : IDisposable
         _loggerFactory = new LoggerFactoryMock();
         _options = new HybridCachingOptions()
         {
-            InstanceName = "my-test-app",
+            InstancesSharedName = "my-test-app",
             RedisCacheConnectString = "localhost:6379",
             ThrowIfDistributedCacheError = true
         };
@@ -411,7 +411,7 @@ public class HybridCacheTests : IDisposable
     {
         // Arrange
         var key = "#NotExistKey#$#NotExistKey#";
-        var realCacheKey = _options.InstanceName + ":" + key;
+        var realCacheKey = _options.InstancesSharedName + ":" + key;
         _options.EnableLogging = true;
         // Use the ILoggerFactory instance to get the ILogger instance
         var logger = _loggerFactory.CreateLogger(nameof(HybridCache)) as LoggerMock;

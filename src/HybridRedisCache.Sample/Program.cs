@@ -7,7 +7,7 @@ var options = new HybridCachingOptions()
 {
     DefaultLocalExpirationTime = TimeSpan.FromMinutes(1),
     DefaultDistributedExpirationTime = TimeSpan.FromDays(1),
-    InstanceName = "SampleApp",
+    InstancesSharedName = "SampleApp",
     ThrowIfDistributedCacheError = true,
     RedisCacheConnectString = "localhost:6379",
     BusRetryCount = 10,

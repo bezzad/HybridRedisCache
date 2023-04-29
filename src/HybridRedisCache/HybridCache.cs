@@ -20,7 +20,7 @@ public class HybridCache : IHybridCache, IDisposable
     private readonly ILogger _logger;
 
     private IMemoryCache _memoryCache;
-    private string InvalidationChannel => _options.InstanceName + ":invalidate";
+    private string InvalidationChannel => _options.InstancesSharedName + ":invalidate";
     private int retryPublishCounter = 0;
     private int retryDelayMiliseconds = 100;
     private string ClearAllKey => GetCacheKey($"*{FlushDb}*");
@@ -468,7 +468,7 @@ public class HybridCache : IHybridCache, IDisposable
         }
     }
 
-    private string GetCacheKey(string key) => $"{_options.InstanceName}:{key}";
+    private string GetCacheKey(string key) => $"{_options.InstancesSharedName}:{key}";
 
     private async Task PublishBusAsync(params string[] cacheKeys)
     {
