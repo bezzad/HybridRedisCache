@@ -22,7 +22,7 @@
         /// <summary>
         /// Gets or sets the name of the instance which is shared between instances.
         /// </summary>
-        public string InstanceName { get; set; }
+        public string InstanceName { get; set; } = nameof(HybridCache);
 
         /// <summary>
         /// Gets or sets a expiry time of caches 

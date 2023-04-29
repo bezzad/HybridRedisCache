@@ -8,7 +8,10 @@ var options = new HybridCachingOptions()
     DefaultExpirationTime = TimeSpan.FromSeconds(1),
     InstanceName = "SampleApp",
     ThrowIfDistributedCacheError = true,
-    RedisCacheConnectString = "localhost:6379"
+    RedisCacheConnectString = "localhost:6379",
+    BusRetryCount = 10,
+    EnableLogging = true,
+    FlushLocalCacheOnBusReconnection = true,
 };
 var cache = new HybridCache(options);
 
