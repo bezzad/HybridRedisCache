@@ -1,4 +1,5 @@
 ﻿using BenchmarkDotNet.Attributes;
+using BenchmarkDotNet.Configs;
 using Microsoft.Extensions.Caching.Memory;
 using RedisCache.Benchmark;
 using StackExchange.Redis;
@@ -6,10 +7,14 @@ using System.Text.Json;
 
 namespace HybridRedisCache.Benchmark;
 
-//[MemoryDiagnoser]
-[Orderer(BenchmarkDotNet.Order.SummaryOrderPolicy.FastestToSlowest)]
+[MemoryDiagnoser]
+[Orderer(BenchmarkDotNet.Order.SummaryOrderPolicy.FastestToSlowest, BenchmarkDotNet.Order.MethodOrderPolicy.Alphabetical)]
+[GroupBenchmarksBy(BenchmarkLogicalGroupRule.ByCategory)]
+[RankColumn]
+[CategoriesColumn]
 public class BenchmarkManager
 {
+    ConnectionMultiplexer _redisConnection;
     IMemoryCache _memCache;
     IRedisCacheService _redisCache;
     EasyHybridCache _easyHybridCache;
@@ -24,23 +29,23 @@ public class BenchmarkManager
     static Lazy<SampleModel> _singleModel = new Lazy<SampleModel>(() => _data[0], true);
     static Lazy<SampleModel> _singleWorseModel = new Lazy<SampleModel>(() => _data[1], true);
 
-    [Params(1, 10, 100)]
-    public int RepeatCount { get; set; }
+    //[Params(1, 10, 100)]
+    public int RepeatCount { get; set; } = 1;
 
     [GlobalSetup]
     public void GlobalSetup()
     {
         // Write your initialization code here
-        var connection = ConnectionMultiplexer.Connect($"{redisIP}:{redisPort}");
-        _redisCache = new RedisCacheService(connection);
+        _redisConnection = ConnectionMultiplexer.Connect($"{redisIP}:{redisPort}");
+        _redisCache = new RedisCacheService(_redisConnection);
         _memCache = new MemoryCache(new MemoryCacheOptions());
         _easyHybridCache = new EasyHybridCache(redisIP, redisPort);
         _data ??= Enumerable.Range(0, 10000).Select(_ => SampleModel.Factory()).ToArray();
         _hybridCache = new HybridCache(new HybridCachingOptions()
         {
             InstancesSharedName = nameof(BenchmarkManager),
-            DefaultDistributedExpirationTime = TimeSpan.FromMinutes(120),
-            DefaultLocalExpirationTime = TimeSpan.FromMinutes(120),
+            DefaultDistributedExpirationTime = TimeSpan.FromMinutes(200),
+            DefaultLocalExpirationTime = TimeSpan.FromMinutes(200),
             RedisCacheConnectString = $"{redisIP}:{redisPort}",
             ThrowIfDistributedCacheError = false,
             BusRetryCount = 0
@@ -55,7 +60,16 @@ public class BenchmarkManager
             _memCache.Set(KeyPrefix + i, JsonSerializer.Serialize(_data[i]), DateTimeOffset.Now.AddSeconds(ExpireDurationSecond));
     }
 
-    [Benchmark]
+    [GlobalCleanup]
+    public void Cleanup()
+    {
+        _memCache.Dispose();
+        _redisCache.Clear();
+        _redisConnection.Dispose();
+        _hybridCache.Dispose();
+    }
+
+    [BenchmarkCategory("Write"), Benchmark]
     public async Task Add_InMemory_Async()
     {
         // write cache
@@ -63,7 +77,7 @@ public class BenchmarkManager
             await _memCache.GetOrCreateAsync(KeyPrefix + i, _ => Task.FromResult(JsonSerializer.Serialize(_data[i])));
     }
 
-    [Benchmark]
+    [BenchmarkCategory("Write"), Benchmark]
     public void Add_Redis()
     {
         // write cache
@@ -71,7 +85,7 @@ public class BenchmarkManager
             _redisCache.AddOrUpdate(KeyPrefix + i, _data[i], DateTimeOffset.Now.AddSeconds(ExpireDurationSecond));
     }
 
-    [Benchmark]
+    [BenchmarkCategory("Write"), Benchmark]
     public async Task Add_Redis_Async()
     {
         // write cache
@@ -79,7 +93,7 @@ public class BenchmarkManager
             await _redisCache.AddOrUpdateAsync(KeyPrefix + i, _data[i], DateTimeOffset.Now.AddSeconds(ExpireDurationSecond));
     }
 
-    [Benchmark]
+    [BenchmarkCategory("Write"), Benchmark]
     public void Add_Redis_With_FireAndForget()
     {
         // write cache
@@ -87,7 +101,7 @@ public class BenchmarkManager
             _redisCache.AddOrUpdate(KeyPrefix + i, _data[i], DateTimeOffset.Now.AddSeconds(ExpireDurationSecond), true);
     }
 
-    [Benchmark]
+    [BenchmarkCategory("Write"), Benchmark]
     public async Task Add_Redis_With_FireAndForget_Async()
     {
         // write cache
@@ -95,7 +109,7 @@ public class BenchmarkManager
             await _redisCache.AddOrUpdateAsync(KeyPrefix + i, _data[i], DateTimeOffset.Now.AddSeconds(ExpireDurationSecond), true);
     }
 
-    [Benchmark]
+    [BenchmarkCategory("Write"), Benchmark]
     public void Add_EasyCache_Hybrid()
     {
         // write cache
@@ -103,7 +117,7 @@ public class BenchmarkManager
             _easyHybridCache.Set(KeyPrefix + i, _data[i], TimeSpan.FromSeconds(ExpireDurationSecond));
     }
 
-    [Benchmark]
+    [BenchmarkCategory("Write"), Benchmark]
     public async Task Add_EasyCache_Hybrid_Async()
     {
         // write cache
@@ -111,7 +125,7 @@ public class BenchmarkManager
             await _easyHybridCache.SetAsync(KeyPrefix + i, _data[i], TimeSpan.FromSeconds(ExpireDurationSecond));
     }
 
-    [Benchmark]
+    [BenchmarkCategory("Write"), Benchmark]
     public void Add_HybridRedisCache()
     {
         // write cache
@@ -119,7 +133,7 @@ public class BenchmarkManager
             _hybridCache.Set(KeyPrefix + i, _data[i], TimeSpan.FromSeconds(ExpireDurationSecond), TimeSpan.FromSeconds(ExpireDurationSecond), fireAndForget: true);
     }
 
-    [Benchmark]
+    [BenchmarkCategory("Write"), Benchmark]
     public async Task Add_HybridRedisCache_Async()
     {
         // write cache
@@ -127,7 +141,7 @@ public class BenchmarkManager
             await _hybridCache.SetAsync(KeyPrefix + i, _data[i], TimeSpan.FromSeconds(ExpireDurationSecond), TimeSpan.FromSeconds(ExpireDurationSecond), fireAndForget: true);
     }
 
-    [Benchmark]
+    [BenchmarkCategory("Read"), Benchmark]
     public void Get_InMemory()
     {
         // write single cache
@@ -139,7 +153,7 @@ public class BenchmarkManager
                 ThrowIfIsNotMatch(JsonSerializer.Deserialize<SampleModel>(value), _singleModel.Value);
     }
 
-    [Benchmark]
+    [BenchmarkCategory("Read"), Benchmark]
     public async Task Get_InMemory_Async()
     {
         // write single cache
@@ -154,7 +168,7 @@ public class BenchmarkManager
         }
     }
 
-    [Benchmark]
+    [BenchmarkCategory("Read"), Benchmark]
     public void Get_Redis()
     {
         // write single cache
@@ -166,7 +180,7 @@ public class BenchmarkManager
                 ThrowIfIsNotMatch(value, _singleModel.Value);
     }
 
-    [Benchmark]
+    [BenchmarkCategory("Read"), Benchmark]
     public async Task Get_Redis_Async()
     {
         // write single cache
@@ -181,7 +195,7 @@ public class BenchmarkManager
         }
     }
 
-    [Benchmark]
+    [BenchmarkCategory("Read"), Benchmark]
     public void Get_EasyCache_Hybrid()
     {
         // write single cache
@@ -197,7 +211,7 @@ public class BenchmarkManager
         }
     }
 
-    [Benchmark]
+    [BenchmarkCategory("Read"), Benchmark]
     public async Task Get_EasyCache_Hybrid_Async()
     {
         // write single cache
@@ -213,7 +227,7 @@ public class BenchmarkManager
         }
     }
 
-    [Benchmark]
+    [BenchmarkCategory("Read"), Benchmark]
     public void Get_HybridRedisCache()
     {
         // write single cache
@@ -229,7 +243,7 @@ public class BenchmarkManager
         }
     }
 
-    [Benchmark]
+    [BenchmarkCategory("Read"), Benchmark]
     public async Task Get_HybridRedisCache_Async()
     {
         // write single cache
