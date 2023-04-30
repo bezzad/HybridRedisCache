@@ -39,6 +39,8 @@ You can install the `HybridRedisCache` package using NuGet:
 
 ## Usage
 
+### Simple usage in console applications
+
 To use `HybridCache`, you can create an instance of the `HybridCache` class and then call its `Set` and `Get` methods to cache and retrieve data, respectively.
 Here's an example:
 
@@ -68,7 +70,7 @@ cache.Set("mykey", "myvalue", TimeSpan.FromMinutes(1));
 var value = cache.Get<string>("mykey");
 ```
 
-Here is a sample configuration for WebAPI applications
+### Configure Startup class for Web APIs
 
 ```csharp
 var builder = WebApplication.CreateBuilder(args);
@@ -86,6 +88,46 @@ builder.Services.AddHybridRedisCaching(options =>
     options.FlushLocalCacheOnBusReconnection = true;
 });
 ```
+
+### Write code in your controller
+
+```csharp
+[Route("api/[controller]")]
+public class WeatherForecastController : Controller
+{
+    private readonly IHybridCache _cacheService;
+
+    public VWeatherForecastController(IHybridCache cacheService)
+    {
+        this._cacheService = cacheService;
+    }
+
+    [HttpGet]
+    public string Handle()
+    {
+        //Set
+        _cacheService.Set("demo", "123", TimeSpan.FromMinutes(1));
+            
+        //Set Async
+        await _cacheService.SetAsync("demo", "123", TimeSpan.FromMinutes(1));                  
+    }
+
+    [HttpGet)]
+    public async Task<WeatherForecast> Get(int id)
+    {
+        var data = await _cacheService.GetAsync<WeatherForecast>(id);
+        return data;
+    }
+
+    [HttpGet)]
+    public IEnumerable<WeatherForecast> Get()
+    {
+        var data = _cacheService.Get<IEnumerable<WeatherForecast>>("demo");
+        return data;
+    }
+}
+```
+
 
 ## Features
 `HybridCache` is a caching library that provides a number of advantages over traditional `in-memory` caching solutions. 
