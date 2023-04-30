@@ -68,6 +68,25 @@ cache.Set("mykey", "myvalue", TimeSpan.FromMinutes(1));
 var value = cache.Get<string>("mykey");
 ```
 
+Here is a sample configuration for WebAPI applications
+
+```csharp
+var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddHybridRedisCaching(options =>
+{
+    options.RedisCacheConnectString = builder.Configuration["Redis"];
+    options.InstancesSharedName = "RedisCacheSystem.Demo";
+    options.DefaultLocalExpirationTime = TimeSpan.FromMinutes(1);
+    options.DefaultDistributedExpirationTime = TimeSpan.FromDays(10);
+    options.ThrowIfDistributedCacheError = true;
+    options.RedisCacheConnectString = "localhost:6379";
+    options.BusRetryCount = 10;
+    options.EnableLogging = true;
+    options.FlushLocalCacheOnBusReconnection = true;
+});
+```
+
 ## Features
 `HybridCache` is a caching library that provides a number of advantages over traditional `in-memory` caching solutions. 
 One of its key features is the ability to persist caches between instances and sync data for all instances.
