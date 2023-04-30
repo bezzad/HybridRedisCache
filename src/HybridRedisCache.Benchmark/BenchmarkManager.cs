@@ -39,10 +39,11 @@ public class BenchmarkManager
         _hybridCache = new HybridCache(new HybridCachingOptions()
         {
             InstancesSharedName = nameof(BenchmarkManager),
-            DefaultDistributedExpirationTime = TimeSpan.FromDays(1),
-            DefaultLocalExpirationTime = TimeSpan.FromMinutes(10),
+            DefaultDistributedExpirationTime = TimeSpan.FromMinutes(120),
+            DefaultLocalExpirationTime = TimeSpan.FromMinutes(120),
             RedisCacheConnectString = $"{redisIP}:{redisPort}",
-            ThrowIfDistributedCacheError = false
+            ThrowIfDistributedCacheError = false,
+            BusRetryCount = 0
         });
     }
 
@@ -115,7 +116,7 @@ public class BenchmarkManager
     {
         // write cache
         for (var i = 0; i < RepeatCount; i++)
-            _hybridCache.Set(KeyPrefix + i, _data[i], TimeSpan.FromSeconds(ExpireDurationSecond), fireAndForget: true);
+            _hybridCache.Set(KeyPrefix + i, _data[i], TimeSpan.FromSeconds(ExpireDurationSecond), TimeSpan.FromSeconds(ExpireDurationSecond), fireAndForget: true);
     }
 
     [Benchmark]
@@ -123,7 +124,7 @@ public class BenchmarkManager
     {
         // write cache
         for (var i = 0; i < RepeatCount; i++)
-            await _hybridCache.SetAsync(KeyPrefix + i, _data[i], TimeSpan.FromSeconds(ExpireDurationSecond), fireAndForget: true);
+            await _hybridCache.SetAsync(KeyPrefix + i, _data[i], TimeSpan.FromSeconds(ExpireDurationSecond), TimeSpan.FromSeconds(ExpireDurationSecond), fireAndForget: true);
     }
 
     [Benchmark]

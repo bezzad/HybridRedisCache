@@ -609,7 +609,7 @@ public class HybridCache : IHybridCache, IDisposable
         {
             // include the instance ID in the pub/sub message payload to update another instances
             var message = new CacheInvalidationMessage(_instanceId, cacheKeys);
-            await _redisDb.PublishAsync(InvalidationChannel, Serialize(message)).ConfigureAwait(false);
+            await _redisDb.PublishAsync(InvalidationChannel, Serialize(message), CommandFlags.FireAndForget).ConfigureAwait(false);
         }
         catch
         {
@@ -629,7 +629,7 @@ public class HybridCache : IHybridCache, IDisposable
         {
             // include the instance ID in the pub/sub message payload to update another instances
             var message = new CacheInvalidationMessage(_instanceId, cacheKeys);
-            _redisDb.Publish(InvalidationChannel, Serialize(message));
+            _redisDb.Publish(InvalidationChannel, Serialize(message), CommandFlags.FireAndForget);
         }
         catch
         {
