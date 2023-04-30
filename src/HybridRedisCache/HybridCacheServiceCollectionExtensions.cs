@@ -14,20 +14,16 @@ public static class HybridCacheServiceCollectionExtensions
     /// <param name="setupAction">An <see cref="Action{HybridCachingOptions}"/> to configure the provided
     /// <see cref="HybridCachingOptions"/>.</param>
     /// <returns>The <see cref="IServiceCollection"/> so that additional calls can be chained.</returns>
-    public static IServiceCollection AddHybridRedisCache(this IServiceCollection services, Action<HybridCachingOptions> setupAction)
+    public static IServiceCollection AddHybridRedisCaching(this IServiceCollection services, Action<HybridCachingOptions> setupAction)
     {
-        if (services == null)
-        {
-            throw new ArgumentNullException(nameof(services));
-        }
+        ArgumentCheck.NotNull(services, nameof(services));
+        ArgumentCheck.NotNull(setupAction, nameof(setupAction));
 
-        if (setupAction == null)
-        {
-            throw new ArgumentNullException(nameof(setupAction));
-        }
+        //Options and extension service
+        var options = new HybridCachingOptions();
+        setupAction(options);
 
-        services.AddOptions();
-        services.Configure(setupAction);
+        services.AddSingleton(options);
         services.Add(ServiceDescriptor.Singleton<IHybridCache, HybridCache>());
 
         return services;

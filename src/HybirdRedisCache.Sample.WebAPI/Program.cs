@@ -13,7 +13,7 @@ builder.Services.AddSwaggerGen(c =>
     c.SwaggerDoc("v1", new OpenApiInfo { Title = "RedisCacheSystem", Version = "v1" });
 });
 
-builder.Services.AddHybridRedisCache(options =>
+builder.Services.AddHybridRedisCaching(options =>
 {
     options.RedisCacheConnectString = builder.Configuration["Redis"];
     options.InstancesSharedName = "RedisCacheSystem.Demo";
