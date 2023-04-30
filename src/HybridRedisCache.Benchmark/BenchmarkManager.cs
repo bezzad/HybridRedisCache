@@ -7,7 +7,7 @@ using System.Text.Json;
 
 namespace HybridRedisCache.Benchmark;
 
-[MemoryDiagnoser]
+//[MemoryDiagnoser]
 [Orderer(BenchmarkDotNet.Order.SummaryOrderPolicy.FastestToSlowest, BenchmarkDotNet.Order.MethodOrderPolicy.Alphabetical)]
 [GroupBenchmarksBy(BenchmarkLogicalGroupRule.ByCategory)]
 [RankColumn]
@@ -52,14 +52,6 @@ public class BenchmarkManager
         });
     }
 
-    [Benchmark(Baseline = true)]
-    public void Add_InMemory()
-    {
-        // write cache
-        for (var i = 0; i < RepeatCount; i++)
-            _memCache.Set(KeyPrefix + i, JsonSerializer.Serialize(_data[i]), DateTimeOffset.Now.AddSeconds(ExpireDurationSecond));
-    }
-
     [GlobalCleanup]
     public void Cleanup()
     {
@@ -67,6 +59,14 @@ public class BenchmarkManager
         _redisCache.Clear();
         _redisConnection.Dispose();
         _hybridCache.Dispose();
+    }
+
+    [BenchmarkCategory("Write"), Benchmark]
+    public void Add_InMemory()
+    {
+        // write cache
+        for (var i = 0; i < RepeatCount; i++)
+            _memCache.Set(KeyPrefix + i, JsonSerializer.Serialize(_data[i]), DateTimeOffset.Now.AddSeconds(ExpireDurationSecond));
     }
 
     [BenchmarkCategory("Write"), Benchmark]
