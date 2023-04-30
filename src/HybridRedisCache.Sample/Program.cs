@@ -1,5 +1,6 @@
 ﻿using HybridRedisCache;
 
+const string Key = "HybridRedisCache.Sample.Console.Key";
 Console.WriteLine("Welcome Hybrid Redis Cache");
 
 // Create a new instance of HybridCache with cache options
@@ -16,15 +17,17 @@ var options = new HybridCachingOptions()
 };
 var cache = new HybridCache(options);
 
-Console.WriteLine($"retrieving 'mykey' value from redis cache...");
-var retrivedValue = cache.Get<string>("mykey");
+Console.WriteLine($"retrieving [{Key}] value from redis cache...");
+var retrivedValue = cache.Get<string>(Key);
 Console.WriteLine($"value is: {retrivedValue}\n\n");
 
-// Cache a string value with key "mykey" for 1 minute
-cache.Set("mykey", Guid.NewGuid().ToString("N"), TimeSpan.FromMinutes(100));
-Console.WriteLine($"mykey cached with a new GUID value for 100min");
+// Cache a string value with key for 1 minute
+cache.Set(Key, Guid.NewGuid().ToString("N"), TimeSpan.FromDays(100));
+Console.WriteLine($"[{Key}] cached with a new GUID value for 100 days");
 
-// Retrieve the cached value with key "mykey"
-Console.WriteLine($"retrieving mykey value from local memory cache...");
-retrivedValue = cache.Get<string>("mykey");
+// Retrieve the cached value with key
+Console.WriteLine($"retrieving [{Key}] value from local memory cache...");
+retrivedValue = cache.Get<string>(Key);
 Console.WriteLine($"value is: {retrivedValue}");
+
+Console.ReadLine();
