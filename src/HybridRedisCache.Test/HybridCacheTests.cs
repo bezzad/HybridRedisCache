@@ -413,6 +413,52 @@ public class HybridCacheTests : IDisposable
     }
 
     [Fact]
+    public void ShouldCacheGetDataIfAlsoNotExistData()
+    {
+        // Arrange
+        var key = Guid.NewGuid().ToString("N");
+        var value = "myvalue";
+        string dataRetriever()
+        {
+            Task.Delay(100).Wait();
+            return value;
+        };
+
+        // Act
+        var firstResult = _cache.Get<string>(key);
+        var retrievedResult = _cache.Get<string>(key, dataRetriever);
+        var isExist = _cache.Exists(key);
+
+        // Assert
+        Assert.Null(firstResult);
+        Assert.Equal(value, retrievedResult);
+        Assert.True(isExist);
+    }
+
+    [Fact]
+    public async Task ShouldCacheGetDataIfAlsoNotExistDataAsync()
+    {
+        // Arrange
+        var key = Guid.NewGuid().ToString("N");
+        var value = "myvalue";
+        async Task<string> dataRetriever()
+        {
+            await Task.Delay(100);
+            return value;
+        };
+
+        // Act
+        var firstResult = await _cache.GetAsync<string>(key);
+        var retrievedResult = await _cache.GetAsync<string>(key, dataRetriever);
+        var isExist = await _cache.ExistsAsync(key);
+
+        // Assert
+        Assert.Null(firstResult);
+        Assert.Equal(value, retrievedResult);
+        Assert.True(isExist);
+    }
+
+    [Fact]
     public void TestSetGetWithLogging()
     {
         // Arrange
@@ -429,7 +475,7 @@ public class HybridCacheTests : IDisposable
         // Assert
         Assert.True(logger.LogHistory.Any());
         var firstLog = logger.LogHistory.LastOrDefault() as IReadOnlyList<KeyValuePair<string, object>>;
-        Assert.Equal($"distributed cache can not get the value of {realCacheKey}", firstLog.FirstOrDefault().Value.ToString());
+        Assert.Equal($"distributed cache can not get the value of `{key}` key", firstLog.FirstOrDefault().Value.ToString());
     }
 
     [Fact]
