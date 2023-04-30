@@ -555,7 +555,7 @@ public class HybridCache : IHybridCache, IDisposable
         {
             if (ex is null)
             {
-                _logger.LogDebug(message);
+                _logger.LogInformation(message);
             }
             else
             {
