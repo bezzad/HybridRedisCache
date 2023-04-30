@@ -120,34 +120,39 @@ public class HybridCacheTests : IDisposable
         Assert.Null(result);
     }
 
-    [Fact]
-    public async Task SetAsync_CacheEntryIsRemoved_AfterExpiration()
+    [Theory]
+    [InlineData(1, 1)]
+    [InlineData(1, 2)]
+    [InlineData(2, 1)]
+    public async Task SetAsync_CacheEntryIsRemoved_AfterExpiration(int localExpiry, int redisExpiry)
     {
         // Arrange
         var key = "mykey";
         var value = "myvalue";
 
         // Act
-        await _cache.SetAsync(key, value, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
-        await Task.Delay(TimeSpan.FromSeconds(2));
+        await _cache.SetAsync(key, value, TimeSpan.FromSeconds(localExpiry), TimeSpan.FromSeconds(redisExpiry));
+        await Task.Delay(TimeSpan.FromSeconds(Math.Max(localExpiry, redisExpiry)));
         var result = await _cache.GetAsync<string>(key);
 
         // Assert
         Assert.Null(result);
     }
 
-    [Fact]
-    public async Task SetAsync_LocalCacheEntryIsRemoved_RedisCacheIsExist_AfterExpiration()
+    [Theory]
+    [InlineData(100, 200)] // local cache expired before redis cache
+    [InlineData(200, 100)] // redis cache expired before local cache
+    public async Task SetAsync_LocalCacheEntryIsRemoved_RedisCacheIsExist_AfterExpiration(int localExpiry, int redisExpiry)
     {
         // Arrange
         var key = DateTime.Now.GetHashCode().ToString();
         var value = "myvalue";
 
         // Act
-        await _cache.SetAsync(key, value, TimeSpan.FromMilliseconds(100), TimeSpan.FromMilliseconds(300), false);
-        await Task.Delay(200);
+        await _cache.SetAsync(key, value, TimeSpan.FromMilliseconds(localExpiry), TimeSpan.FromMilliseconds(redisExpiry), false);
+        await Task.Delay(Math.Min(localExpiry, redisExpiry));
         var valueAfterLocalExpiration = await _cache.GetAsync<string>(key);
-        await Task.Delay(400);
+        await Task.Delay(Math.Abs(redisExpiry - localExpiry));
         var valueAfterRedisExpiration = await _cache.GetAsync<string>(key);
 
         // Assert
@@ -187,11 +192,12 @@ public class HybridCacheTests : IDisposable
         Assert.Equal(expiryTimeMin, Math.Round(expiration.TotalMinutes));
     }
 
-    [Fact]
-    public async Task RemoveAsync_CacheEntryIsRemoved()
+    [Theory]
+    [InlineData("theKey")]
+    [InlineData("  theKey")]
+    public async Task RemoveAsync_CacheEntryIsRemoved(string key)
     {
         // Arrange
-        var key = "mykey";
         var value = "myvalue";
 
         // Act
