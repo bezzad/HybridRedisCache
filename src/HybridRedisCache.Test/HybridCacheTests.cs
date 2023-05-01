@@ -67,7 +67,7 @@ public class HybridCacheTests : IDisposable
         var key = "tryget_nonexistentkey";
 
         // Act
-        var result = _cache.TryGet<string>(key, out var value);
+        var result = _cache.TryGetValue<string>(key, out var value);
 
         // Assert
         Assert.False(result);
@@ -432,7 +432,7 @@ public class HybridCacheTests : IDisposable
         // Arrange
         var key = Guid.NewGuid().ToString("N");
         var value = "myvalue";
-        string dataRetriever()
+        string dataRetriever(string key)
         {
             Task.Delay(100).Wait();
             return value;
@@ -440,7 +440,7 @@ public class HybridCacheTests : IDisposable
 
         // Act
         var firstResult = _cache.Get<string>(key);
-        var retrievedResult = _cache.Get<string>(key, dataRetriever);
+        var retrievedResult = _cache.Get(key, dataRetriever);
         var isExist = _cache.Exists(key);
 
         // Assert
@@ -455,7 +455,7 @@ public class HybridCacheTests : IDisposable
         // Arrange
         var key = Guid.NewGuid().ToString("N");
         var value = "myvalue";
-        async Task<string> dataRetriever()
+        async Task<string> dataRetriever(string key)
         {
             await Task.Delay(100);
             return value;
