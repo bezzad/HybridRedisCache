@@ -12,6 +12,7 @@ public interface IHybridCache
     T Get<T>(string cacheKey, Func<T> dataRetriever, TimeSpan? localExpiry = null, TimeSpan? redisExpiry = null, bool fireAndForget = true);
     Task<T> GetAsync<T>(string key);
     Task<T> GetAsync<T>(string cacheKey, Func<Task<T>> dataRetriever, TimeSpan? localExpiry = null, TimeSpan? redisExpiry = null, bool fireAndForget = true);
+    bool TryGet<T>(string key, out T value);
     void Remove(params string[] keys);
     Task RemoveAsync(params string[] keys);
     TimeSpan GetExpiration(string cacheKey);

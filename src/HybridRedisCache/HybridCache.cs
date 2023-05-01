@@ -517,6 +517,48 @@ public class HybridCache : IHybridCache, IDisposable
     }
 
     /// <summary>
+    /// Try gets a cached value with the specified key.
+    /// </summary>
+    /// <typeparam name="T">The type of the cached value.</typeparam>
+    /// <param name="key">The cache key.</param>
+    /// <returns>The cached value, or null if the key is not found in the cache.</returns>
+    public bool TryGet<T>(string key, out T value)
+    {
+        key.NotNullOrWhiteSpace(nameof(key));
+        var cacheKey = GetCacheKey(key);
+        value = _memoryCache.Get<T>(cacheKey);
+        if (value != null)
+        {
+            return true;
+        }
+
+        try
+        {
+            var redisValue = _redisDb.StringGet(cacheKey);
+            if (redisValue.HasValue)
+            {
+                value = Deserialize<T>(redisValue);
+            }
+        }
+        catch (Exception ex)
+        {
+            LogMessage($"Redis cache get error, [{key}]", ex);
+            if (_options.ThrowIfDistributedCacheError)
+                throw;
+        }
+
+        if (value != null)
+        {
+            var expiry = GetExpiration(key);
+            _memoryCache.Set(cacheKey, value, expiry);
+            return true;
+        }
+
+        LogMessage($"distributed cache can not get the value of `{key}` key");
+        return false;
+    }
+
+    /// <summary>
     /// Removes a cached value with the specified key.
     /// </summary>
     /// <param name="key">The cache key.</param>

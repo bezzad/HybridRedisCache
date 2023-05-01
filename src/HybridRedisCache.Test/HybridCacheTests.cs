@@ -61,6 +61,20 @@ public class HybridCacheTests : IDisposable
     }
 
     [Fact]
+    public void TryGet_CacheEntryDoesNotExist_ReturnsFalse()
+    {
+        // Arrange
+        var key = "tryget_nonexistentkey";
+
+        // Act
+        var result = _cache.TryGet<string>(key, out var value);
+
+        // Assert
+        Assert.False(result);
+        Assert.Null(value);
+    }
+
+    [Fact]
     public async Task Set_CacheEntryIsRemoved_AfterExpiration()
     {
         // Arrange
