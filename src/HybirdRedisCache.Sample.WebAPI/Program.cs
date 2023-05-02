@@ -15,12 +15,12 @@ builder.Services.AddSwaggerGen(c =>
 
 builder.Services.AddHybridRedisCaching(options =>
 {
-    options.RedisCacheConnectString = builder.Configuration["Redis"];
+    options.RedisConnectString = builder.Configuration["Redis"];
     options.InstancesSharedName = "RedisCacheSystem.Demo";
     options.DefaultLocalExpirationTime = TimeSpan.FromMinutes(1);
     options.DefaultDistributedExpirationTime = TimeSpan.FromDays(10);
     options.ThrowIfDistributedCacheError = true;
-    options.BusRetryCount = 10;
+    options.ConnectRetry = 10;
     options.EnableLogging = true;
     options.FlushLocalCacheOnBusReconnection = true;
 });

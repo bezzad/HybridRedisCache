@@ -10,8 +10,8 @@ var options = new HybridCachingOptions()
     DefaultDistributedExpirationTime = TimeSpan.FromDays(1),
     InstancesSharedName = "SampleApp",
     ThrowIfDistributedCacheError = true,
-    RedisCacheConnectString = "localhost:6379",
-    BusRetryCount = 10,
+    RedisConnectString = "localhost:6379,allowAdmin=true,keepAlive=180",
+    ConnectRetry = 10,
     EnableLogging = true,
     FlushLocalCacheOnBusReconnection = true,
 };

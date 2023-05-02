@@ -22,7 +22,7 @@ public class HybridCache : IHybridCache, IDisposable
     private IMemoryCache _memoryCache;
     private string InvalidationChannel => _options.InstancesSharedName + ":invalidate";
     private int retryPublishCounter = 0;
-    private int retryDelayMiliseconds = 100;
+    private int exponentialRetryMilliseconds = 100;
     private string ClearAllKey => GetCacheKey($"*{FlushDb}*");
 
     /// <summary>
@@ -39,7 +39,12 @@ public class HybridCache : IHybridCache, IDisposable
         _instanceId = Guid.NewGuid().ToString("N");
         _options = option;
         CreateLocalCache();
-        var redis = ConnectionMultiplexer.Connect(option.RedisCacheConnectString);
+        var redisConfig = ConfigurationOptions.Parse(option.RedisConnectString, true);
+        redisConfig.AbortOnConnectFail = option.AbortOnConnectFail;
+        redisConfig.ConnectRetry = option.ConnectRetry;
+        redisConfig.ClientName = option.InstancesSharedName + ":" + _instanceId;
+        var redis = ConnectionMultiplexer.Connect(redisConfig);
+
         _redisDb = redis.GetDatabase();
         _redisSubscriber = redis.GetSubscriber();
         _logger = loggerFactory?.CreateLogger(nameof(HybridCache));
@@ -656,9 +661,9 @@ public class HybridCache : IHybridCache, IDisposable
         catch
         {
             // Retry to publish message
-            if (retryPublishCounter++ < _options.BusRetryCount)
+            if (retryPublishCounter++ < _options.ConnectRetry)
             {
-                await Task.Delay(retryDelayMiliseconds * retryPublishCounter).ConfigureAwait(false);
+                await Task.Delay(exponentialRetryMilliseconds * retryPublishCounter).ConfigureAwait(false);
                 await PublishBusAsync(cacheKeys).ConfigureAwait(false);
             }
         }
@@ -676,9 +681,9 @@ public class HybridCache : IHybridCache, IDisposable
         catch
         {
             // Retry to publish message
-            if (retryPublishCounter++ < _options.BusRetryCount)
+            if (retryPublishCounter++ < _options.ConnectRetry)
             {
-                Thread.Sleep(retryDelayMiliseconds * retryPublishCounter);
+                Thread.Sleep(exponentialRetryMilliseconds * retryPublishCounter);
                 PublishBus(cacheKeys);
             }
         }

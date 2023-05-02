@@ -56,7 +56,7 @@ var options = new HybridCachingOptions()
     DefaultDistributedExpirationTime = TimeSpan.FromDays(1),
     InstancesSharedName = "SampleApp",
     ThrowIfDistributedCacheError = true,
-    RedisCacheConnectString = "localhost:6379",
+    RedisConnectString = "localhost",
     BusRetryCount = 10,
     EnableLogging = true,
     FlushLocalCacheOnBusReconnection = true,
@@ -77,11 +77,12 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddHybridRedisCaching(options =>
 {
+    options.AbortOnConnectFail = false;
     options.InstancesSharedName = "RedisCacheSystem.Demo";
     options.DefaultLocalExpirationTime = TimeSpan.FromMinutes(1);
     options.DefaultDistributedExpirationTime = TimeSpan.FromDays(10);
     options.ThrowIfDistributedCacheError = true;
-    options.RedisCacheConnectString = "localhost:6379";
+    options.RedisConnectString = "localhost:6379,redis0:6380,redis1:6380,allowAdmin=true,keepAlive=180";
     options.BusRetryCount = 10;
     options.EnableLogging = true;
     options.FlushLocalCacheOnBusReconnection = true;

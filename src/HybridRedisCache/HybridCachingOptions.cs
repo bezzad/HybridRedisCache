@@ -3,6 +3,12 @@
 public class HybridCachingOptions
 {
     /// <summary>
+    /// Gets or sets a value indicating whether the connection should be aborted if the connection fails to reach the distributed cache.
+    /// If true, Redis connect will not create a connection while no servers are available.
+    /// </summary>
+    public bool AbortOnConnectFail { get; set; } = true;
+    
+    /// <summary>
     /// Gets or sets a value indicating whether loggin is enable or not.
     /// </summary>
     /// <value><c>true</c> if enable logging; otherwise, <c>false</c>.</value>
@@ -15,9 +21,9 @@ public class HybridCachingOptions
     public bool ThrowIfDistributedCacheError { get; set; } = false;
 
     /// <summary>
-    /// Redis cache connection string
+    /// Redis connection string
     /// </summary>
-    public string RedisCacheConnectString { get; set; } = "localhost:6379";
+    public string RedisConnectString { get; set; } = "localhost:6379";
 
     /// <summary>
     /// Gets or sets the name of the instance which is shared between instances.
@@ -35,13 +41,12 @@ public class HybridCachingOptions
     public TimeSpan DefaultLocalExpirationTime { get; set; } = TimeSpan.FromMinutes(60);
 
     /// <summary>
-    /// The bus retry count.
+    /// The Redis bus and connect retry count.
     /// </summary>
     /// <remarks>
     /// When sending message failed, we will retry some times, default is 3 times.
     /// </remarks>
-
-    public int BusRetryCount { get; set; } = 3;
+    public int ConnectRetry { get; set; } = 3;
 
     /// <summary>
     /// Flush the local cache on bus disconnection/reconnection

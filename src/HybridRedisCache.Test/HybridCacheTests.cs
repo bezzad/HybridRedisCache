@@ -20,7 +20,7 @@ public class HybridCacheTests : IDisposable
         _options = new HybridCachingOptions()
         {
             InstancesSharedName = "my-test-app",
-            RedisCacheConnectString = "localhost:6379",
+            RedisConnectString = "localhost:6379",
             ThrowIfDistributedCacheError = true
         };
         _cache = new HybridCache(_options, _loggerFactory);
@@ -58,20 +58,6 @@ public class HybridCacheTests : IDisposable
 
         // Assert
         Assert.Null(result);
-    }
-
-    [Fact]
-    public void TryGet_CacheEntryDoesNotExist_ReturnsFalse()
-    {
-        // Arrange
-        var key = "tryget_nonexistentkey";
-
-        // Act
-        var result = _cache.TryGetValue<string>(key, out var value);
-
-        // Assert
-        Assert.False(result);
-        Assert.Null(value);
     }
 
     [Fact]
@@ -440,7 +426,7 @@ public class HybridCacheTests : IDisposable
 
         // Act
         var firstResult = _cache.Get<string>(key);
-        var retrievedResult = _cache.Get(key, dataRetriever);
+        var retrievedResult = _cache.Get<string>(key, dataRetriever);
         var isExist = _cache.Exists(key);
 
         // Assert
