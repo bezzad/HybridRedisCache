@@ -20,7 +20,6 @@ builder.Services.AddHybridRedisCaching(options =>
     options.DefaultLocalExpirationTime = TimeSpan.FromMinutes(1);
     options.DefaultDistributedExpirationTime = TimeSpan.FromDays(10);
     options.ThrowIfDistributedCacheError = true;
-    options.RedisCacheConnectString = "localhost:6379";
     options.BusRetryCount = 10;
     options.EnableLogging = true;
     options.FlushLocalCacheOnBusReconnection = true;

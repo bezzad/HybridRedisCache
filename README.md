@@ -77,7 +77,6 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddHybridRedisCaching(options =>
 {
-    options.RedisCacheConnectString = builder.Configuration["Redis"];
     options.InstancesSharedName = "RedisCacheSystem.Demo";
     options.DefaultLocalExpirationTime = TimeSpan.FromMinutes(1);
     options.DefaultDistributedExpirationTime = TimeSpan.FromDays(10);
