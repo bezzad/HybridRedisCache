@@ -13,6 +13,7 @@ public class HybridCacheTests : IDisposable
     private ILoggerFactory _loggerFactory;
     private HybridCache _cache;
     private HybridCachingOptions _options;
+    private string uniqueKey => "test_Key_" + Guid.NewGuid().ToString("N");
 
     public HybridCacheTests()
     {
@@ -21,7 +22,10 @@ public class HybridCacheTests : IDisposable
         {
             InstancesSharedName = "my-test-app",
             RedisConnectString = "localhost:6379",
-            ThrowIfDistributedCacheError = true
+            ThrowIfDistributedCacheError = true,
+            AbortOnConnectFail = true,
+            ConnectRetry = 1,
+            FlushLocalCacheOnBusReconnection = false,
         };
         _cache = new HybridCache(_options, _loggerFactory);
     }
@@ -36,7 +40,7 @@ public class HybridCacheTests : IDisposable
     public void ShouldCacheAndRetrieveData()
     {
         // Arrange
-        var key = "mykey";
+        var key = uniqueKey;
         var value = "myvalue";
 
         // Act
@@ -51,7 +55,7 @@ public class HybridCacheTests : IDisposable
     public void SetAndGet_CacheEntryDoesNotExist_ReturnsNull()
     {
         // Arrange
-        var key = "nonexistentkey";
+        var key = uniqueKey;
 
         // Act
         var result = _cache.Get<string>(key);
@@ -61,10 +65,24 @@ public class HybridCacheTests : IDisposable
     }
 
     [Fact]
+    public void TryGetValue_CacheEntryDoesNotExist_ReturnFalse()
+    {
+        // Arrange
+        var key = uniqueKey;
+
+        // Act
+        var result = _cache.TryGetValue<object>(key, out var value);
+
+        // Assert
+        Assert.False(result);
+        Assert.Null(value);
+    }
+
+    [Fact]
     public async Task Set_CacheEntryIsRemoved_AfterExpiration()
     {
         // Arrange
-        var key = "mykey";
+        var key = uniqueKey;
         var value = "myvalue";
 
         // Act
@@ -80,7 +98,7 @@ public class HybridCacheTests : IDisposable
     public void Remove_CacheEntryIsRemoved()
     {
         // Arrange
-        var key = "mykey";
+        var key = uniqueKey;
         var value = "myvalue";
 
         // Act
@@ -96,7 +114,7 @@ public class HybridCacheTests : IDisposable
     public async Task SetAndGetAsync_CacheEntryExists_ReturnsCachedValue()
     {
         // Arrange
-        var key = "mykey";
+        var key = uniqueKey;
         var value = "myvalue";
 
         // Act
@@ -111,7 +129,7 @@ public class HybridCacheTests : IDisposable
     public async Task SetAndGetAsync_CacheEntryDoesNotExist_ReturnsNull()
     {
         // Arrange
-        var key = "nonexistentkey";
+        var key = uniqueKey;
 
         // Act
         var result = await _cache.GetAsync<string>(key);
@@ -127,7 +145,7 @@ public class HybridCacheTests : IDisposable
     public async Task SetAsync_CacheEntryIsRemoved_AfterExpiration(int localExpiry, int redisExpiry)
     {
         // Arrange
-        var key = "mykey";
+        var key = uniqueKey;
         var value = "myvalue";
 
         // Act
@@ -145,7 +163,7 @@ public class HybridCacheTests : IDisposable
     public async Task SetAsync_LocalCacheEntryIsRemoved_RedisCacheIsExist_AfterExpiration(int localExpiry, int redisExpiry)
     {
         // Arrange
-        var key = DateTime.Now.GetHashCode().ToString();
+        var key = uniqueKey;
         var value = "myvalue";
 
         // Act
@@ -164,7 +182,7 @@ public class HybridCacheTests : IDisposable
     public async Task GetExpirationAsyncTest()
     {
         // Arrange
-        var key = "mykey";
+        var key = uniqueKey;
         var value = "myvalue";
         var expiryTimeMin = 2;
 
@@ -180,7 +198,7 @@ public class HybridCacheTests : IDisposable
     public void GetExpirationTest()
     {
         // Arrange
-        var key = "mykey";
+        var key = uniqueKey;
         var value = "myvalue";
         var expiryTimeMin = 2;
 
@@ -193,8 +211,8 @@ public class HybridCacheTests : IDisposable
     }
 
     [Theory]
-    [InlineData("theKey")]
-    [InlineData("  theKey")]
+    [InlineData("theKey#1234")]
+    [InlineData("  theKey#1234   ")]
     public async Task RemoveAsync_CacheEntryIsRemoved(string key)
     {
         // Arrange
@@ -213,11 +231,12 @@ public class HybridCacheTests : IDisposable
     public void ShouldSerializeAndDeserializeComplexObject()
     {
         // Arrange
+        var key = uniqueKey;
         var obj = new { Name = "John", Age = 30 };
 
         // Act
-        _cache.Set("mykey", obj, TimeSpan.FromMinutes(1));
-        var value = _cache.Get<dynamic>("mykey");
+        _cache.Set(key, obj, TimeSpan.FromMinutes(1));
+        var value = _cache.Get<dynamic>(key);
 
         // Assert
         Assert.Equal(obj.Name, value.Name);
@@ -227,26 +246,31 @@ public class HybridCacheTests : IDisposable
     [Fact]
     public async Task TestSharedCache()
     {
+        // Arrange
+        var key = uniqueKey;
+        var value1 = "myValue1";
+        var value2 = "newValue2";
+
         // create two instances of HybridCache that share the same Redis cache
         var instance1 = new HybridCache(_options);
         var instance2 = new HybridCache(_options);
 
         // set a value in the shared cache using instance1
-        instance1.Set("mykey", "myvalue", fireAndForget: false);
+        await instance1.SetAsync(key, value1, fireAndForget: false);
 
         // retrieve the value from the shared cache using instance2
-        var value = instance2.Get<string>("mykey");
-        Assert.Equal("myvalue", value);
+        var value = await instance2.GetAsync<string>(key);
+        Assert.Equal(value1, value);
 
         // update the value in the shared cache using instance2
-        instance2.Set("mykey", "newvalue", fireAndForget: false);
+        await instance2.SetAsync(key, value2, fireAndForget: false);
 
         // wait for cache invalidation message to be received
         await Task.Delay(1000);
 
         // retrieve the updated value from the shared cache using instance1
-        value = instance1.Get<string>("mykey");
-        Assert.Equal("newvalue", value);
+        value = await instance1.GetAsync<string>(key);
+        Assert.Equal(value2, value);
 
         // clean up
         instance1.Dispose();
@@ -256,22 +280,19 @@ public class HybridCacheTests : IDisposable
     [Fact]
     public void TestMultiThreadedCacheOperations()
     {
-        // create a list of values to store in the cache
-        var values = new List<string> { "foo", "bar", "baz", "qux" };
-
         // create multiple threads, each of which performs cache operations
         var threads = new List<Thread>();
-        for (int i = 0; i < values.Count; i++)
+        for (int i = 0; i < 100; i++)
         {
-            var thread = new Thread((state) =>
+            var thread = new Thread(() =>
             {
                 // retrieve the key and value variables from the state object
-                var tuple = (Tuple<string, string>)state;
-                var threadKey = tuple.Item1;
-                var threadValue = tuple.Item2;
+                var threadKey = uniqueKey;
+                var threadValue = "test_threading_value";
 
                 // perform cache operations on the cache instance
                 _cache.Set(threadKey, threadValue);
+                Thread.Sleep(10);
                 var retrievedValue = _cache.Get<string>(threadKey);
                 Assert.Equal(threadValue, retrievedValue);
                 _cache.Remove(threadKey);
@@ -281,7 +302,7 @@ public class HybridCacheTests : IDisposable
             var localI = i;
 
             // start the thread and pass the key and value variables as a state object
-            thread.Start(Tuple.Create($"key{i}", values[i]));
+            thread.Start();
 
             // add the thread to the list
             threads.Add(thread);
@@ -297,8 +318,9 @@ public class HybridCacheTests : IDisposable
     [Fact]
     public void CacheSerializationTest()
     {
-        // create a complex object to store in the cache
-        var complexObject = new ComplexObject
+        // Arrange
+        var key = uniqueKey;
+        var complexValue = new ComplexObject
         {
             Name = "John",
             Age = 30,
@@ -312,67 +334,50 @@ public class HybridCacheTests : IDisposable
             PhoneNumbers = new List<string> { "555-1234", "555-5678" }
         };
 
-        // store the object in the cache
-        _cache.Set("complexObject", complexObject);
+        // Act
+        _cache.Set(key, complexValue);
+        var retrievedObject = _cache.Get<ComplexObject>(key);
 
-        // retrieve the object from the cache
-        var retrievedObject = _cache.Get<ComplexObject>("complexObject");
-
+        // Assert
         // verify that the retrieved object is equal to the original object
-        Assert.Equal(complexObject.Name, retrievedObject.Name);
-        Assert.Equal(complexObject.Age, retrievedObject.Age);
-        Assert.Equal(complexObject.Address.Street, retrievedObject.Address.Street);
-        Assert.Equal(complexObject.Address.City, retrievedObject.Address.City);
-        Assert.Equal(complexObject.Address.State, retrievedObject.Address.State);
-        Assert.Equal(complexObject.Address.Zip, retrievedObject.Address.Zip);
-        Assert.Equal(complexObject.PhoneNumbers, retrievedObject.PhoneNumbers);
-
-        // clean up
-        _cache.Dispose();
+        Assert.Equal(complexValue.Name, retrievedObject.Name);
+        Assert.Equal(complexValue.Age, retrievedObject.Age);
+        Assert.Equal(complexValue.Address.Street, retrievedObject.Address.Street);
+        Assert.Equal(complexValue.Address.City, retrievedObject.Address.City);
+        Assert.Equal(complexValue.Address.State, retrievedObject.Address.State);
+        Assert.Equal(complexValue.Address.Zip, retrievedObject.Address.Zip);
+        Assert.Equal(complexValue.PhoneNumbers, retrievedObject.PhoneNumbers);
     }
 
     [Fact]
     public void CacheConcurrencyTest()
     {
         // create a shared key and a list of values to store in the cache
-        var key = "sharedKey";
-        var values = new List<string> { "foo", "bar", "baz", "qux" };
+        var key = uniqueKey;
+        var values = new List<string> { "foo", "bar", "baz", "qux", "esx", "rdc", "tfv", "ygb", "uhn", "ijm" };
+        var locker = new SemaphoreSlim(1);
 
-        // create multiple threads, each of which performs cache operations
-        var threads = new List<Thread>();
+        // create multiple tasks, each of which performs cache operations
+        var tasks = new List<Task>();
         for (int i = 0; i < values.Count; i++)
         {
             var value = values[i];
-            var thread = new Thread(() =>
+            tasks.Add(Task.Run(async () =>
             {
                 // wait for the initial value to be set by another thread
-                lock (values)
+                try
                 {
+                    await locker.WaitAsync();
                     // perform cache operations on the cache instance
                     var currentValue = _cache.Get<string>(key);
-                    if (currentValue == null)
-                    {
-                        _cache.Set(key, value, fireAndForget: false);
-                    }
-                    else
-                    {
-                        _cache.Set(key, currentValue + value, fireAndForget: false);
-                    }
+                    _cache.Set(key, (currentValue ?? "") + value, fireAndForget: false);
                 }
-            });
-
-            threads.Add(thread);
+                finally { locker.Release(); }
+            }));
         }
 
-        // start the threads and wait for them to complete
-        threads.ForEach(t => t.Start());
-
-        // set the initial value in the cache
-        _cache.Set(key, values[0], fireAndForget: false);
-
-        // waits for a brief period of time before verifying the final value in the cache
         // to ensure that all write operations have completed.
-        Thread.Sleep(1000);
+        Task.WaitAll(tasks.ToArray());
 
         // verify that the final value in the cache is correct
         var actualValue = _cache.Get<string>(key);
@@ -386,7 +391,7 @@ public class HybridCacheTests : IDisposable
     public void ShouldCacheAndExistData()
     {
         // Arrange
-        var key = "mykey";
+        var key = uniqueKey;
         var value = "myvalue";
 
         // Act
@@ -401,7 +406,7 @@ public class HybridCacheTests : IDisposable
     public async Task ShouldCacheAndExistDataAsync()
     {
         // Arrange
-        var key = "mykey";
+        var key = uniqueKey;
         var value = "myvalue";
 
         // Act
@@ -416,7 +421,7 @@ public class HybridCacheTests : IDisposable
     public void ShouldCacheGetDataIfAlsoNotExistData()
     {
         // Arrange
-        var key = Guid.NewGuid().ToString("N");
+        var key = uniqueKey;
         var value = "myvalue";
         string dataRetriever(string key)
         {
@@ -439,7 +444,7 @@ public class HybridCacheTests : IDisposable
     public async Task ShouldCacheGetDataIfAlsoNotExistDataAsync()
     {
         // Arrange
-        var key = Guid.NewGuid().ToString("N");
+        var key = uniqueKey;
         var value = "myvalue";
         async Task<string> dataRetriever(string key)
         {
@@ -462,7 +467,7 @@ public class HybridCacheTests : IDisposable
     public void TestSetGetWithLogging()
     {
         // Arrange
-        var key = "#NotExistKey#$#NotExistKey#";
+        var key = uniqueKey;
         var realCacheKey = _options.InstancesSharedName + ":" + key;
         _options.EnableLogging = true;
         // Use the ILoggerFactory instance to get the ILogger instance
@@ -484,9 +489,9 @@ public class HybridCacheTests : IDisposable
         // Arrange
         var keyValues = new Dictionary<string, object>
             {
-                { "key1", "value1" },
-                { "key2", "value2" },
-                { "key3", "value3" }
+                { uniqueKey, "value1" },
+                { uniqueKey, "value2" },
+                { uniqueKey, "value3" }
             };
 
         // Act
@@ -506,9 +511,9 @@ public class HybridCacheTests : IDisposable
         // Arrange
         var keyValues = new Dictionary<string, object>
             {
-                { "key1", "value1" },
-                { "key2", "value2" },
-                { "key3", "value3" }
+                { uniqueKey, "value1" },
+                { uniqueKey, "value2" },
+                { uniqueKey, "value3" }
             };
 
         // Act
@@ -526,8 +531,8 @@ public class HybridCacheTests : IDisposable
     public void Remove_RemovesMultipleKeysFromCache()
     {
         // Arrange
-        var key1 = "key1";
-        var key2 = "key2";
+        var key1 = uniqueKey;
+        var key2 = uniqueKey;
         var value1 = "value1";
         var value2 = "value2";
         _options.ThrowIfDistributedCacheError = true;
@@ -547,8 +552,8 @@ public class HybridCacheTests : IDisposable
     public async Task Remove_RemovesMultipleKeysFromCacheAsync()
     {
         // Arrange
-        var key1 = "key1";
-        var key2 = "key2";
+        var key1 = uniqueKey;
+        var key2 = uniqueKey;
         var value1 = "value1";
         var value2 = "value2";
 
@@ -568,8 +573,8 @@ public class HybridCacheTests : IDisposable
     public void FlushDbTest()
     {
         // Arrange
-        var key1 = "key1";
-        var key2 = "key2";
+        var key1 = uniqueKey;
+        var key2 = uniqueKey;
         var value1 = "value1";
         var value2 = "value2";
 
@@ -592,8 +597,8 @@ public class HybridCacheTests : IDisposable
     public async Task FlushDbAsyncTest()
     {
         // Arrange
-        var key1 = "key1";
-        var key2 = "key2";
+        var key1 = uniqueKey;
+        var key2 = uniqueKey;
         var value1 = "value1";
         var value2 = "value2";
 
