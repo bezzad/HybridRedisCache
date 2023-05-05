@@ -19,7 +19,7 @@ It provides a way to cache frequently accessed data in memory for fast access an
     <PackageReleaseNotes>fixed deserialize redis values for polymorphic</PackageReleaseNotes>
     <IncludeSymbols>True</IncludeSymbols>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
-    <Version>1.2.2</Version>
+    <Version>1.2.3</Version>
   </PropertyGroup>
 
   <ItemGroup>
