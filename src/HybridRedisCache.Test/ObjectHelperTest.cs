@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using Xunit;
 
@@ -96,6 +97,57 @@ namespace HybridRedisCache.Test
             Assert.Equal(_value1.Name, result.Name);
             Assert.Equal(_value1.PhoneNumbers.First(), result.PhoneNumbers.First());
             Assert.Equal(_value1.Address.City, result.Address.City);
+        }
+
+        [Fact]
+        public void PrimitivesTypeSerializationTest()
+        {
+            // Arrange
+            double doubleNum = 123456789.0123456789;
+            float floatNum = 123456.012345f;
+            int intNum = 1234;
+            short shortNum = 1234;
+            char character = 'A';
+            string text = "This is a sample text";
+
+            // Act and Assert
+            PrimitivesTypeTest(doubleNum);
+            PrimitivesTypeTest(floatNum);
+            PrimitivesTypeTest(intNum);
+            PrimitivesTypeTest(shortNum);
+            PrimitivesTypeTest(character);
+            PrimitivesTypeTest(text);
+        }
+
+        private void PrimitivesTypeTest<T>(T value)
+        {
+            // Arrange
+            var json = value.Serialize();
+
+            // Act
+            var result = json.Deserialize<T>();
+
+            // Assert
+            // verify that the retrieved object is equal to the original object
+            Assert.NotNull(result);
+            Assert.IsType<T>(result);
+            Assert.Equal(value, result);
+        }
+
+        [Fact]
+        public void ToTimeSpanTest()
+        {
+            // Arrange
+            DateTime? date = DateTime.UtcNow.AddDays(16).AddHours(8).AddMinutes(40).AddSeconds(20);
+
+            // Act
+            var time = date.ToTimeSpan();
+
+            // Assert
+            // verify that the retrieved object is equal to the original object
+            Assert.Equal(16, time.Days);
+            Assert.Equal(8, time.Hours);
+            Assert.Equal(40, time.Minutes);
         }
     }
 }
