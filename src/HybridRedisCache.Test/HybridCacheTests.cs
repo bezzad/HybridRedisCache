@@ -52,6 +52,38 @@ public class HybridCacheTests : IDisposable
     }
 
     [Fact]
+    public async Task ShouldCacheAndRetrieveDataFromRedis()
+    {
+        // Arrange
+        var key = uniqueKey;
+        var value = "myvalue";
+
+        // Act
+        await _cache.SetAsync(key, value, TimeSpan.FromTicks(1), TimeSpan.FromSeconds(600), false);
+        await Task.Delay(100);
+        var result = await _cache.GetAsync<string>(key);
+
+        // Assert
+        Assert.Equal(value, result);
+    }
+
+    [Fact]
+    public async Task ShouldCacheNumberAndRetrieveData()
+    {
+        // Arrange
+        var key = uniqueKey;
+        var value = 12345679.5;
+
+        // Act
+        await _cache.SetAsync(key, value, TimeSpan.FromTicks(1), TimeSpan.FromSeconds(600), false);
+        await Task.Delay(100);
+        var result = await _cache.GetAsync<double>(key);
+
+        // Assert
+        Assert.Equal(value, result);
+    }
+
+    [Fact]
     public void SetAndGet_CacheEntryDoesNotExist_ReturnsNull()
     {
         // Arrange
@@ -336,7 +368,42 @@ public class HybridCacheTests : IDisposable
 
         // Act
         _cache.Set(key, complexValue);
-        var retrievedObject = _cache.Get<ComplexObject>(key);
+        var retrievedObject = _cache.Get<IComplexObject>(key);
+
+        // Assert
+        // verify that the retrieved object is equal to the original object
+        Assert.Equal(complexValue.Name, retrievedObject.Name);
+        Assert.Equal(complexValue.Age, retrievedObject.Age);
+        Assert.Equal(complexValue.Address.Street, retrievedObject.Address.Street);
+        Assert.Equal(complexValue.Address.City, retrievedObject.Address.City);
+        Assert.Equal(complexValue.Address.State, retrievedObject.Address.State);
+        Assert.Equal(complexValue.Address.Zip, retrievedObject.Address.Zip);
+        Assert.Equal(complexValue.PhoneNumbers, retrievedObject.PhoneNumbers);
+    }
+
+    [Fact]
+    public async Task CacheDeserializationFromRedisStringTest()
+    {
+        // Arrange
+        var key = uniqueKey;
+        var complexValue = new ComplexObject
+        {
+            Name = "John",
+            Age = 30,
+            Address = new Address
+            {
+                Street = "123 Main St",
+                City = "Anytown",
+                State = "CA",
+                Zip = "12345"
+            },
+            PhoneNumbers = new List<string> { "555-1234", "555-5678" }
+        };
+
+        // Act
+        await _cache.SetAsync(key, complexValue, TimeSpan.FromTicks(1), TimeSpan.FromSeconds(60), false);
+        await Task.Delay(100);
+        var retrievedObject = _cache.Get<IComplexObject>(key);
 
         // Assert
         // verify that the retrieved object is equal to the original object

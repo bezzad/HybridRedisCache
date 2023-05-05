@@ -2,7 +2,6 @@
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
-using System.Text.Json;
 
 namespace HybridRedisCache;
 
@@ -65,7 +64,7 @@ public class HybridCache : IHybridCache, IDisposable
         // all instances of HybridCache that are subscribed to the pub/sub channel will receive a message
         // and invalidate the corresponding key in their local MemoryCache.
 
-        var message = Deserialize<CacheInvalidationMessage>(value.ToString());
+        var message = value.ToString().Deserialize<CacheInvalidationMessage>();
         if (message.InstanceId != _instanceId) // filter out messages from the current instance
         {
             if (message.CacheKeys.FirstOrDefault().Equals(ClearAllKey))
@@ -170,7 +169,7 @@ public class HybridCache : IHybridCache, IDisposable
 
         try
         {
-            _redisDb.StringSet(cacheKey, Serialize(value), redisExpiry.Value,
+            _redisDb.StringSet(cacheKey, value.Serialize(), redisExpiry.Value,
                     flags: fireAndForget ? CommandFlags.FireAndForget : CommandFlags.None);
         }
         catch (Exception ex)
@@ -207,7 +206,7 @@ public class HybridCache : IHybridCache, IDisposable
 
         try
         {
-            await _redisDb.StringSetAsync(cacheKey, Serialize(value), redisExpiry.Value,
+            await _redisDb.StringSetAsync(cacheKey, value.Serialize(), redisExpiry.Value,
                     flags: fireAndForget ? CommandFlags.FireAndForget : CommandFlags.None).ConfigureAwait(false);
         }
         catch (Exception ex)
@@ -245,7 +244,7 @@ public class HybridCache : IHybridCache, IDisposable
 
             try
             {
-                _redisDb.StringSet(cacheKey, Serialize(kvp.Value), redisExpiry.Value,
+                _redisDb.StringSet(cacheKey, kvp.Value.Serialize(), redisExpiry.Value,
                      flags: fireAndForget ? CommandFlags.FireAndForget : CommandFlags.None);
             }
             catch (Exception ex)
@@ -283,7 +282,7 @@ public class HybridCache : IHybridCache, IDisposable
 
             try
             {
-                await _redisDb.StringSetAsync(cacheKey, Serialize(kvp.Value), redisExpiry.Value,
+                await _redisDb.StringSetAsync(cacheKey, kvp.Value.Serialize(), redisExpiry.Value,
                      flags: fireAndForget ? CommandFlags.FireAndForget : CommandFlags.None).ConfigureAwait(false);
             }
             catch (Exception ex)
@@ -311,8 +310,7 @@ public class HybridCache : IHybridCache, IDisposable
     {
         key.NotNullOrWhiteSpace(nameof(key));
         var cacheKey = GetCacheKey(key);
-        var value = _memoryCache.Get<T>(cacheKey);
-        if (value != null)
+        if (_memoryCache.TryGetValue(cacheKey, out T value))
         {
             return value;
         }
@@ -322,7 +320,7 @@ public class HybridCache : IHybridCache, IDisposable
             var redisValue = _redisDb.StringGet(cacheKey);
             if (redisValue.HasValue)
             {
-                value = Deserialize<T>(redisValue);
+                value = redisValue.ToString().Deserialize<T>();
             }
         }
         catch (Exception ex)
@@ -359,10 +357,9 @@ public class HybridCache : IHybridCache, IDisposable
         SetExpiryTimes(ref localExpiry, ref redisExpiry);
         var cacheKey = GetCacheKey(key);
 
-        var result = _memoryCache.Get<T>(cacheKey);
-        if (result is not null)
+        if (_memoryCache.TryGetValue(cacheKey, out T value))
         {
-            return result;
+            return value;
         }
 
         try
@@ -370,7 +367,7 @@ public class HybridCache : IHybridCache, IDisposable
             var redisValue = _redisDb.StringGet(cacheKey);
             if (redisValue.HasValue)
             {
-                result = Deserialize<T>(redisValue);
+                value = redisValue.ToString().Deserialize<T>();
             }
         }
         catch (Exception ex)
@@ -380,15 +377,15 @@ public class HybridCache : IHybridCache, IDisposable
                 throw;
         }
 
-        if (result is not null)
+        if (value is not null)
         {
-            _memoryCache.Set(cacheKey, result, localExpiry.Value);
-            return result;
+            _memoryCache.Set(cacheKey, value, localExpiry.Value);
+            return value;
         }
 
         try
         {
-            result = dataRetriever(key);
+            value = dataRetriever(key);
         }
         catch (Exception ex)
         {
@@ -397,14 +394,14 @@ public class HybridCache : IHybridCache, IDisposable
                 throw;
         }
 
-        if (result is not null)
+        if (value is not null)
         {
-            Set(key, result, localExpiry, redisExpiry, fireAndForget);
-            return result;
+            Set(key, value, localExpiry, redisExpiry, fireAndForget);
+            return value;
         }
 
         LogMessage($"distributed cache can not get the value of `{key}` key. Data retriver also had problem.");
-        return result;
+        return value;
     }
 
     /// <summary>
@@ -417,8 +414,7 @@ public class HybridCache : IHybridCache, IDisposable
     {
         key.NotNullOrWhiteSpace(nameof(key));
         var cacheKey = GetCacheKey(key);
-        var value = _memoryCache.Get<T>(cacheKey);
-        if (value != null)
+        if(_memoryCache.TryGetValue(cacheKey, out T value))
         {
             return value;
         }
@@ -428,7 +424,7 @@ public class HybridCache : IHybridCache, IDisposable
             var redisValue = await _redisDb.StringGetAsync(cacheKey).ConfigureAwait(false);
             if (redisValue.HasValue)
             {
-                value = Deserialize<T>(redisValue);
+                value = redisValue.ToString().Deserialize<T>();
             }
         }
         catch (Exception ex)
@@ -459,17 +455,16 @@ public class HybridCache : IHybridCache, IDisposable
     /// <param name="redisExpiry">The expiration time for the redis cache entry. If not specified, the default distributed expiration time is used.</param>
     /// <param name="fireAndForget">Whether to cache the value in Redis without waiting for the operation to complete.</param>
     /// <typeparam name="T">The 1st type parameter.</typeparam>
-    public async Task<T> GetAsync<T>(string key, Func<string, Task<T>> dataRetriever, 
+    public async Task<T> GetAsync<T>(string key, Func<string, Task<T>> dataRetriever,
         TimeSpan? localExpiry = null, TimeSpan? redisExpiry = null, bool fireAndForget = true)
     {
         key.NotNullOrWhiteSpace(nameof(key));
         SetExpiryTimes(ref localExpiry, ref redisExpiry);
         var cacheKey = GetCacheKey(key);
 
-        var result = _memoryCache.Get<T>(cacheKey);
-        if (result is not null)
+        if (_memoryCache.TryGetValue(cacheKey, out T value))
         {
-            return result;
+            return value;
         }
 
         try
@@ -477,7 +472,7 @@ public class HybridCache : IHybridCache, IDisposable
             var redisValue = await _redisDb.StringGetAsync(cacheKey).ConfigureAwait(false);
             if (redisValue.HasValue)
             {
-                result = Deserialize<T>(redisValue);
+                value = redisValue.ToString().Deserialize<T>();
             }
         }
         catch (Exception ex)
@@ -487,15 +482,15 @@ public class HybridCache : IHybridCache, IDisposable
                 throw;
         }
 
-        if (result is not null)
+        if (value is not null)
         {
-            _memoryCache.Set(cacheKey, result, localExpiry.Value);
-            return result;
+            _memoryCache.Set(cacheKey, value, localExpiry.Value);
+            return value;
         }
 
         try
         {
-            result = await dataRetriever(key);
+            value = await dataRetriever(key);
         }
         catch (Exception ex)
         {
@@ -504,14 +499,14 @@ public class HybridCache : IHybridCache, IDisposable
                 throw;
         }
 
-        if (result is not null)
+        if (value is not null)
         {
-            Set(key, result, localExpiry, redisExpiry, fireAndForget);
-            return result;
+            Set(key, value, localExpiry, redisExpiry, fireAndForget);
+            return value;
         }
 
         LogMessage($"distributed cache can not get the value of `{key}` key. Data retriver also had a problem.");
-        return result;
+        return value;
     }
 
     /// <summary>
@@ -524,8 +519,7 @@ public class HybridCache : IHybridCache, IDisposable
     {
         key.NotNullOrWhiteSpace(nameof(key));
         var cacheKey = GetCacheKey(key);
-        value = _memoryCache.Get<T>(cacheKey);
-        if (value != null)
+        if (_memoryCache.TryGetValue(cacheKey, out value))
         {
             return true;
         }
@@ -535,7 +529,7 @@ public class HybridCache : IHybridCache, IDisposable
             var redisValue = _redisDb.StringGet(cacheKey);
             if (redisValue.HasValue)
             {
-                value = Deserialize<T>(redisValue);
+                value = redisValue.ToString().Deserialize<T>();
             }
         }
         catch (Exception ex)
@@ -649,7 +643,7 @@ public class HybridCache : IHybridCache, IDisposable
         {
             // include the instance ID in the pub/sub message payload to update another instances
             var message = new CacheInvalidationMessage(_instanceId, cacheKeys);
-            await _redisDb.PublishAsync(InvalidationChannel, Serialize(message), CommandFlags.FireAndForget).ConfigureAwait(false);
+            await _redisDb.PublishAsync(InvalidationChannel, message.Serialize(), CommandFlags.FireAndForget).ConfigureAwait(false);
         }
         catch
         {
@@ -669,7 +663,7 @@ public class HybridCache : IHybridCache, IDisposable
         {
             // include the instance ID in the pub/sub message payload to update another instances
             var message = new CacheInvalidationMessage(_instanceId, cacheKeys);
-            _redisDb.Publish(InvalidationChannel, Serialize(message), CommandFlags.FireAndForget);
+            _redisDb.Publish(InvalidationChannel, message.Serialize(), CommandFlags.FireAndForget);
         }
         catch
         {
@@ -689,7 +683,7 @@ public class HybridCache : IHybridCache, IDisposable
         try
         {
             var time = _redisDb.KeyExpireTime(GetCacheKey(cacheKey));
-            return ToTimeSpan(time.Value);
+            return time.ToTimeSpan();
         }
         catch
         {
@@ -704,10 +698,7 @@ public class HybridCache : IHybridCache, IDisposable
         try
         {
             var time = await _redisDb.KeyExpireTimeAsync(GetCacheKey(cacheKey));
-            if (time.HasValue)
-                return ToTimeSpan(time.Value);
-            else
-                return TimeSpan.Zero;
+            return time.ToTimeSpan();
         }
         catch
         {
@@ -744,43 +735,6 @@ public class HybridCache : IHybridCache, IDisposable
                 _logger.LogError(ex, message);
             }
         }
-    }
-
-    private TimeSpan ToTimeSpan(DateTime? time)
-    {
-        TimeSpan duration = TimeSpan.Zero;
-
-        if (time.HasValue)
-        {
-            duration = time.Value.Subtract(DateTime.UtcNow);
-        }
-
-        if (duration <= TimeSpan.Zero)
-        {
-            duration = TimeSpan.Zero;
-        }
-
-        return duration;
-    }
-
-    private static string Serialize<T>(T value)
-    {
-        if (value == null)
-        {
-            return null;
-        }
-
-        return JsonSerializer.Serialize(value);
-    }
-
-    private static T Deserialize<T>(string value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return default;
-        }
-
-        return JsonSerializer.Deserialize<T>(value);
     }
 
     public void Dispose()
