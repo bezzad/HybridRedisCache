@@ -10,16 +10,16 @@
     <Authors>bezzad</Authors>
     <Description>A simple in-memory and Redis hybrid caching solution for .NET applications. 
 It provides a way to cache frequently accessed data in memory for fast access and automatically falls back to using Redis as a persistent cache when memory cache capacity is exceeded.</Description>
-    <Copyright>2022</Copyright>
+    <Copyright>2023</Copyright>
     <PackageProjectUrl>https://www.nuget.org/packages/Downloader/</PackageProjectUrl>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <RepositoryUrl>https://github.com/bezzad/HybridRedisCache</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageTags>redis; cache; in-memory; memcache; RedisMemoryCache; HybridCachePlus; InRedisCache; MemRedisCache; RedisFusionCache; RedisMemCache; RedisInMemoryCache; MemHybridCache; RedisHybridStore; HybridRedisCache</PackageTags>
-    <PackageReleaseNotes>fixed expiration time when local time is more than redis time</PackageReleaseNotes>
+    <PackageReleaseNotes>fixed deserialize redis values for polymorphic</PackageReleaseNotes>
     <IncludeSymbols>True</IncludeSymbols>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
-    <Version>1.1.1</Version>
+    <Version>1.2.0</Version>
   </PropertyGroup>
 
   <ItemGroup>
