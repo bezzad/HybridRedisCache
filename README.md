@@ -37,6 +37,10 @@ You can install the `HybridRedisCache` package using NuGet:
 
 > `PM> Install-Package HybridRedisCache`
 
+Installing via the .NET Core command line interface:
+
+> `dotnet add package HybridRedisCache`
+
 ## Usage
 
 ### Simple usage in console applications
