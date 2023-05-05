@@ -10,7 +10,8 @@ namespace HybridRedisCache
         {
             // There is no polymorphic deserialization (equivalent to Newtonsoft.Json's TypeNameHandling)
             // support built-in to System.Text.Json.
-            TypeNameHandling = TypeNameHandling.Objects,
+            // TypeNameHandling.All will write and use type names for objects and collections.
+            TypeNameHandling = TypeNameHandling.All,
             ReferenceLoopHandling = ReferenceLoopHandling.Ignore,
             NullValueHandling = NullValueHandling.Ignore,
             Formatting = Formatting.None,

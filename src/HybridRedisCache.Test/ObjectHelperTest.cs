@@ -1,5 +1,7 @@
-﻿using System;
+﻿using Microsoft.VisualBasic;
+using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Linq;
 using Xunit;
 
@@ -64,6 +66,66 @@ namespace HybridRedisCache.Test
             Assert.Equal(_value2.Name, result.Name);
             Assert.Equal(_value2.PhoneNumbers.First(), result.PhoneNumbers.First());
             Assert.Equal(_value2.Parent.Address.City, realTypeResult.Parent.Address.City);
+        }
+
+        [Fact]
+        public void DeserializePolymorphicInCollections()
+        {
+            // Arrang 
+            ICollection<string> collection = new Collection<string>()
+            {
+                "test_collection_0",
+                "test_collection_1",
+                "test_collection_2",
+                "test_collection_3",
+                "test_collection_4"
+            };
+
+            // Act
+            var json = collection.Serialize();
+            var result = json.Deserialize<ICollection<string>>();
+            var realTypeResult = result as Collection<string>;
+
+            // Assert
+            // verify that the retrieved object is equal to the original object
+            Assert.NotNull(json);
+            Assert.NotNull(result);
+            Assert.NotNull(realTypeResult);
+            Assert.IsType<Collection<string>>(result);
+            for (int i = 0; i < collection.Count; i++)
+            {
+                Assert.Equal("test_collection_" + i, realTypeResult[i]);
+            }
+        }
+
+        [Fact]
+        public void DeserializePolymorphicList()
+        {
+            // Arrang 
+            IList<string> collection = new List<string>()
+            {
+                "test_list_0",
+                "test_list_1",
+                "test_list_2",
+                "test_list_3",
+                "test_list_4"
+            };
+
+            // Act
+            var json = collection.Serialize();
+            var result = json.Deserialize<IList<string>>();
+            var realTypeResult = result as List<string>;
+
+            // Assert
+            // verify that the retrieved object is equal to the original object
+            Assert.NotNull(json);
+            Assert.NotNull(result);
+            Assert.NotNull(realTypeResult);
+            Assert.IsType<List<string>>(result);
+            for (int i = 0; i < collection.Count; i++)
+            {
+                Assert.Equal("test_list_" + i, realTypeResult[i]);
+            }
         }
 
         [Fact]
