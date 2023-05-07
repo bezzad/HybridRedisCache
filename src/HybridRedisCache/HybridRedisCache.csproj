@@ -16,10 +16,10 @@ It provides a way to cache frequently accessed data in memory for fast access an
     <RepositoryUrl>https://github.com/bezzad/HybridRedisCache</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageTags>redis; cache; in-memory; memcache; RedisMemoryCache; HybridCachePlus; InRedisCache; MemRedisCache; RedisFusionCache; RedisMemCache; RedisInMemoryCache; MemHybridCache; RedisHybridStore; HybridRedisCache</PackageTags>
-    <PackageReleaseNotes>fixed deserialize redis values for polymorphic</PackageReleaseNotes>
+    <PackageReleaseNotes>add flush local caches; fix control of expiration between local and server;</PackageReleaseNotes>
     <IncludeSymbols>True</IncludeSymbols>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
-    <Version>1.2.3</Version>
+    <Version>1.2.4</Version>
   </PropertyGroup>
 
   <ItemGroup>
