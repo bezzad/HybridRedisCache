@@ -73,9 +73,13 @@ cache.Set("mykey", "myvalue", TimeSpan.FromMinutes(1));
 // Retrieve the cached value with key "mykey"
 var value = cache.Get<string>("mykey");
 
-// Retrieve the cached value with key "mykey" if not exist create one by dataRetriever method
-var value = await cache.GetAsync("mykey", dataRetriever: async key => await CreateValueTaskAsync(key, ...), 
-        localExpiry: TimeSpan.FromMinutes(1), redisExpiry: TimeSpan.FromHours(6), fireAndForget: true);
+// Retrieve the cached value with key "mykey" 
+// if not exist create one by dataRetriever method
+var value = await cache.GetAsync("mykey", 
+        dataRetriever: async key => await CreateValueTaskAsync(key, ...), 
+        localExpiry: TimeSpan.FromMinutes(1), 
+        redisExpiry: TimeSpan.FromHours(6), 
+        fireAndForget: true);
 
 ```
 
