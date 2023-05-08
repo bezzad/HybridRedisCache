@@ -1,0 +1,16 @@
+{
+  "name": "hybrid-redis-cache.load-test",
+  "version": "0.0.0",
+  "description": "HybridRedisCache.LoadTest",
+  "main": "app.js",
+  "author": {
+    "name": ""
+  },
+  "devDependencies": {
+    "@types/k6": "^0.44.1",
+    "core-js": "^3.30.2",
+    "eslint": "^8.21.0",
+    "k6": "^0.0.0"
+  },
+  "eslintConfig": {}
+}

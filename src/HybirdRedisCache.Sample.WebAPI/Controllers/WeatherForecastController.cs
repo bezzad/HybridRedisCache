@@ -1,5 +1,6 @@
 using HybridRedisCache;
 using Microsoft.AspNetCore.Mvc;
+using System.Diagnostics.Metrics;
 
 namespace HybirdRedisCache.Sample.WebAPI.Controllers;
 
@@ -7,6 +8,8 @@ namespace HybirdRedisCache.Sample.WebAPI.Controllers;
 [Route("[controller]")]
 public class WeatherForecastController : ControllerBase
 {
+    private static int Counter = 0;
+
     private static readonly string[] Summaries = new[]
     {
         "Freezing", "Bracing", "Chilly", "Cool",
@@ -25,6 +28,7 @@ public class WeatherForecastController : ControllerBase
     [HttpGet(Name = "GetWeatherForecast")]
     public async Task<IEnumerable<WeatherForecast>> Get()
     {
+        Counter++;
         var cacheData = GetKeyValues();
         if (cacheData.Any())
         {
