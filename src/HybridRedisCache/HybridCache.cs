@@ -612,13 +612,23 @@ public class HybridCache : IHybridCache, IDisposable
     public void ClearAll()
     {
         _redisDb.Execute(FlushDb);
-        ClearLocalMemory();
-        PublishBus(ClearAllKey);
+        FlushLocalCaches();
     }
 
     public async Task ClearAllAsync()
     {
         await _redisDb.ExecuteAsync(FlushDb);
+        await FlushLocalCachesAsync();
+    }
+
+    public void FlushLocalCaches()
+    {
+        ClearLocalMemory();
+        PublishBus(ClearAllKey);
+    }
+
+    public async Task FlushLocalCachesAsync()
+    {
         ClearLocalMemory();
         await PublishBusAsync(ClearAllKey);
     }
@@ -629,7 +639,7 @@ public class HybridCache : IHybridCache, IDisposable
         {
             _memoryCache.Dispose();
             CreateLocalCache();
-            LogMessage($"clear all local cache.");
+            LogMessage($"clear all local cache");
         }
     }
 
@@ -710,11 +720,6 @@ public class HybridCache : IHybridCache, IDisposable
     {
         localExpiry ??= _options.DefaultLocalExpirationTime;
         redisExpiry ??= _options.DefaultDistributedExpirationTime;
-
-        if (redisExpiry.Value < localExpiry.Value)
-        {
-            redisExpiry = localExpiry;
-        }
     }
 
     /// <summary>

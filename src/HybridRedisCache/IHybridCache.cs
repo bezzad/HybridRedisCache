@@ -17,6 +17,8 @@ public interface IHybridCache
     Task RemoveAsync(params string[] keys);
     TimeSpan GetExpiration(string cacheKey);
     Task<TimeSpan> GetExpirationAsync(string cacheKey);
+    void FlushLocalCaches();
+    Task FlushLocalCachesAsync();
     void ClearAll();
     Task ClearAllAsync();
 }

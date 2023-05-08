@@ -683,4 +683,58 @@ public class HybridCacheTests : IDisposable
         Assert.Null(await _cache.GetAsync<string>(key1));
         Assert.Null(await _cache.GetAsync<string>(key2));
     }
+
+    [Fact]
+    public async Task FlushLocalDbAsyncTest()
+    {
+        // Arrange
+        var key1 = uniqueKey;
+        var key2 = uniqueKey;
+        var value1 = "value1";
+        var value2 = "value2";
+
+        await _cache.SetAsync(key1, value1, TimeSpan.FromMinutes(1), TimeSpan.FromMilliseconds(1), fireAndForget: false).ConfigureAwait(false); // without redis caching
+        await _cache.SetAsync(key2, value2, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(1), fireAndForget: false).ConfigureAwait(false);
+
+        // Act
+        var value1b = await _cache.GetAsync<string>(key1).ConfigureAwait(false);
+        var value2b = await _cache.GetAsync<string>(key2).ConfigureAwait(false);
+        await _cache.FlushLocalCachesAsync().ConfigureAwait(false);
+        await Task.Delay(100).ConfigureAwait(false);
+        var value1a = await _cache.GetAsync<string>(key1).ConfigureAwait(false);
+        var value2a = await _cache.GetAsync<string>(key2).ConfigureAwait(false);
+
+        // Assert
+        Assert.Equal(value1, value1b);
+        Assert.Equal(value2, value2b);
+        Assert.Equal(value2, value2a); // read from redis
+        Assert.Null(value1a); // read from redis, but also redis has been expired
+    }
+
+    [Fact]
+    public void FlushLocalDbTest()
+    {
+        // Arrange
+        var key1 = uniqueKey;
+        var key2 = uniqueKey;
+        var value1 = "value1";
+        var value2 = "value2";
+
+        _cache.Set(key1, value1, TimeSpan.FromMinutes(1), TimeSpan.FromMilliseconds(1), fireAndForget: false); // without redis caching
+        _cache.Set(key2, value2, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(1), fireAndForget: false);
+
+        // Act
+        var value1b = _cache.Get<string>(key1);
+        var value2b = _cache.Get<string>(key2);
+        _cache.FlushLocalCaches();
+        Task.Delay(100).Wait();
+        var value1a = _cache.Get<string>(key1);
+        var value2a = _cache.Get<string>(key2);
+
+        // Assert
+        Assert.Equal(value1, value1b);
+        Assert.Equal(value2, value2b);
+        Assert.Equal(value2, value2a); // read from redis
+        Assert.Null(value1a); // read from redis, but also redis has been expired
+    }
 }
