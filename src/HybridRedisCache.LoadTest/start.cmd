@@ -1,2 +1,3 @@
-docker run --rm -i grafana/k6 run - <app.js
+# docker run --rm -i grafana/k6 run - <app.js
+k6 run app.js
 pause
