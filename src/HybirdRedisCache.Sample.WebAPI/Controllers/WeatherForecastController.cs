@@ -1,6 +1,5 @@
 using HybridRedisCache;
 using Microsoft.AspNetCore.Mvc;
-using System.Diagnostics.Metrics;
 
 namespace HybirdRedisCache.Sample.WebAPI.Controllers;
 
@@ -25,17 +24,17 @@ public class WeatherForecastController : ControllerBase
         _cacheService = cacheService;
     }
 
-    [HttpGet(Name = "GetWeatherForecast")]
-    public async Task<IEnumerable<WeatherForecast>> Get()
+    [HttpGet]
+    public async Task<WeatherForecast[]> GetAll([FromQuery] int count = 100)
     {
         Counter++;
-        var cacheData = GetKeyValues();
+        var cacheData = GetKeyValues(count);
         if (cacheData.Any())
         {
-            return cacheData.Values;
+            return cacheData;
         }
 
-        var newData = Enumerable.Range(1, 10).Select(index => new WeatherForecast
+        var newData = Enumerable.Range(1, 100).Select(index => new WeatherForecast
         {
             Id = index,
             Date = DateTime.Now.AddDays(index),
@@ -43,54 +42,41 @@ public class WeatherForecastController : ControllerBase
             Summary = Summaries[Random.Shared.Next(Summaries.Length)]
         }).ToArray();
 
-        await Save(newData, 50).ConfigureAwait(false);
+        await Save(newData).ConfigureAwait(false);
         return newData;
     }
 
-    [HttpGet(nameof(WeatherForecast))]
+    [HttpGet("{id}")]
     public WeatherForecast Get(int id)
     {
-        var cacheData = GetKeyValues();
-        cacheData.TryGetValue(id, out var filteredData);
-
+        _cacheService.TryGetValue<WeatherForecast>(GetKey(id), out var filteredData);
         return filteredData;
     }
 
-    [HttpPost("addWeatherForecasts/{durationMinutes}")]
-    public async Task<WeatherForecast[]> PostList(WeatherForecast[] values, int durationMinutes)
+    [HttpPost]
+    public async Task<WeatherForecast[]> Post(WeatherForecast[] values)
     {
-        var cacheData = GetKeyValues();
-        foreach (var value in values)
-        {
-            cacheData[value.Id] = value;
-        }
-        await Save(cacheData.Values, durationMinutes).ConfigureAwait(false);
+        await Save(values).ConfigureAwait(false);
         return values;
     }
 
-    [HttpPost("addWeatherForecast")]
-    public async Task<WeatherForecast> Post(WeatherForecast value)
+    [HttpPut]
+    public async Task<WeatherForecast> Put(WeatherForecast value)
     {
-        var cacheData = GetKeyValues();
-        cacheData[value.Id] = value;
-        await Save(cacheData.Values).ConfigureAwait(false);
+        await Save(value).ConfigureAwait(false);
         return value;
     }
 
-    [HttpPut("updateWeatherForecast")]
-    public async void Put(WeatherForecast WeatherForecast)
+    [HttpPatch]
+    public async void Patch(WeatherForecast WeatherForecast)
     {
-        var cacheData = GetKeyValues();
-        cacheData[WeatherForecast.Id] = WeatherForecast;
-        await Save(cacheData.Values).ConfigureAwait(false);
+        await Save(WeatherForecast).ConfigureAwait(false);
     }
 
-    [HttpDelete("deleteWeatherForecast")]
+    [HttpDelete("{id}")]
     public async Task Delete(int id)
     {
-        var cacheData = GetKeyValues();
-        cacheData.Remove(id);
-        await Save(cacheData.Values).ConfigureAwait(false);
+        await _cacheService.RemoveAsync(GetKey(id)).ConfigureAwait(false);
     }
 
     [HttpDelete("ClearAll")]
@@ -99,16 +85,28 @@ public class WeatherForecastController : ControllerBase
         await _cacheService.ClearAllAsync();
     }
 
-    private async Task<bool> Save(IEnumerable<WeatherForecast> weatherForecasts, double expireAfterMinutes = 50)
+    private async Task<bool> Save(params WeatherForecast[] weatherForecasts)
     {
-        var expirationTime = TimeSpan.FromMinutes(expireAfterMinutes);
-        await _cacheService.SetAsync(nameof(WeatherForecast), weatherForecasts, expirationTime);
+        var expirationTime = TimeSpan.FromMinutes(50);
+        await Parallel.ForEachAsync(weatherForecasts, async (weather, ct) =>
+            await _cacheService.SetAsync(GetKey(weather.Id), weather, expirationTime).ConfigureAwait(false))
+                .ConfigureAwait(false);
+
         return true;
     }
 
-    private Dictionary<int, WeatherForecast> GetKeyValues()
+    private WeatherForecast[] GetKeyValues(int count = 100)
     {
-        var data = _cacheService.Get<IEnumerable<WeatherForecast>>(nameof(WeatherForecast));
-        return data?.ToDictionary(key => key.Id, val => val) ?? new Dictionary<int, WeatherForecast>();
+        var result = new List<WeatherForecast>();
+        for (int i = 0; i < count; i++)
+            if (_cacheService.TryGetValue<WeatherForecast>(GetKey(i), out var data))
+                result.Add(data);
+
+        return result.ToArray();
+    }
+
+    private string GetKey(int id)
+    {
+        return $"{nameof(WeatherForecast)}_{id}";
     }
 }
