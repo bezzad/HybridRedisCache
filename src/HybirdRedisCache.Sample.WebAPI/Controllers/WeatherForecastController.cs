@@ -7,8 +7,6 @@ namespace HybirdRedisCache.Sample.WebAPI.Controllers;
 [Route("[controller]")]
 public class WeatherForecastController : ControllerBase
 {
-    private static int Counter = 0;
-
     private static readonly string[] Summaries = new[]
     {
         "Freezing", "Bracing", "Chilly", "Cool",
@@ -27,7 +25,7 @@ public class WeatherForecastController : ControllerBase
     [HttpGet]
     public async Task<WeatherForecast[]> GetAll([FromQuery] int count = 100)
     {
-        Counter++;
+        _logger.LogInformation($"GET All: WeatherForecast[count: {count}]");
         var cacheData = GetKeyValues(count);
         if (cacheData.Any())
         {
@@ -42,56 +40,45 @@ public class WeatherForecastController : ControllerBase
             Summary = Summaries[Random.Shared.Next(Summaries.Length)]
         }).ToArray();
 
-        await Save(newData).ConfigureAwait(false);
+        foreach (var data in newData)
+            await Save(data).ConfigureAwait(false);
+
         return newData;
     }
 
     [HttpGet("{id}")]
-    public WeatherForecast Get(int id)
+    public Task<WeatherForecast> Get(int id)
     {
+        _logger.LogInformation($"GET: WeatherForecast {{ id: {id} }}");
         _cacheService.TryGetValue<WeatherForecast>(GetKey(id), out var filteredData);
-        return filteredData;
+        return Task.FromResult(filteredData);
     }
 
     [HttpPost]
-    public async Task<WeatherForecast[]> Post(WeatherForecast[] values)
+    public async Task Post(WeatherForecast value)
     {
-        await Save(values).ConfigureAwait(false);
-        return values;
-    }
-
-    [HttpPut]
-    public async Task<WeatherForecast> Put(WeatherForecast value)
-    {
+        _logger.LogInformation($"Post: WeatherForecast {{ id: {value.Id} }}");
         await Save(value).ConfigureAwait(false);
-        return value;
-    }
-
-    [HttpPatch]
-    public async void Patch(WeatherForecast WeatherForecast)
-    {
-        await Save(WeatherForecast).ConfigureAwait(false);
     }
 
     [HttpDelete("{id}")]
     public async Task Delete(int id)
     {
+        _logger.LogInformation($"Delete: WeatherForecast {{ id: {id} }}");
         await _cacheService.RemoveAsync(GetKey(id)).ConfigureAwait(false);
     }
 
     [HttpDelete("ClearAll")]
     public async Task Delete()
     {
+        _logger.LogInformation($"Delete: all WeatherForecast");
         await _cacheService.ClearAllAsync();
     }
 
-    private async Task<bool> Save(params WeatherForecast[] weatherForecasts)
+    private async Task<bool> Save(WeatherForecast weather)
     {
         var expirationTime = TimeSpan.FromMinutes(50);
-        await Parallel.ForEachAsync(weatherForecasts, async (weather, ct) =>
-            await _cacheService.SetAsync(GetKey(weather.Id), weather, expirationTime).ConfigureAwait(false))
-                .ConfigureAwait(false);
-
+        await _cacheService.SetAsync(GetKey(weather.Id), weather, expirationTime).ConfigureAwait(false);
         return true;
     }
 
