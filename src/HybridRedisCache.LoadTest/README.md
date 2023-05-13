@@ -11,10 +11,14 @@
 ## How to install Grafana/K6 on windows
 > winget install k6
 
+or 
+
+> choco install k6
+
 ## How to install Grafana/K6 on Docker
 > docker pull grafana/k6:latest
 
 Run K6:
-> docker run --rm -i grafana/k6 run - <appjs
+> docker run --rm -i grafana/k6 run - <app.js
 
 For more information about installing: https://k6.io/docs/get-started/installation/
