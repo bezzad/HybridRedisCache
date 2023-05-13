@@ -29,6 +29,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Content Include="app.js" />
+    <Content Include="helper.js" />
     <Content Include="package.json" />
     <Content Include="README.md" />
     <Content Include="start.cmd" />
