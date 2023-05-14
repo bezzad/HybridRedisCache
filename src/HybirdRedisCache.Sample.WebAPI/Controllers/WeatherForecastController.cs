@@ -77,7 +77,7 @@ public class WeatherForecastController : ControllerBase
     private async Task<bool> Save(WeatherForecast weather)
     {
         var expirationTime = TimeSpan.FromMinutes(120);
-        await _cacheService.SetAsync(GetKey(weather.Id), weather, expirationTime, expirationTime, false).ConfigureAwait(false);
+        await _cacheService.SetAsync(GetKey(weather.Id), weather, expirationTime, fireAndForget: false).ConfigureAwait(false);
         return true;
     }
 

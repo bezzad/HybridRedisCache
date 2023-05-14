@@ -24,8 +24,8 @@ builder.Services.AddHybridRedisCaching(options =>
     options.InstancesSharedName = "RedisCacheSystem.Sample.WebAPI";
     options.DefaultLocalExpirationTime = TimeSpan.FromMinutes(120);
     options.DefaultDistributedExpirationTime = TimeSpan.FromDays(10);
-    options.ThrowIfDistributedCacheError = true;
-    options.ConnectRetry = 10;
+    options.ThrowIfDistributedCacheError = false;
+    options.ConnectRetry = int.MaxValue;
     options.EnableLogging = true;
     options.FlushLocalCacheOnBusReconnection = false;
 });

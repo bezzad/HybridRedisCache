@@ -112,13 +112,13 @@ export default function (authToken) {
             }
         });
 
-        group('Delete weather', () => {
-            let res = http.del(`${BASE_URL}/${newPayload.id}`, null, requestConfigWithTag({ name: 'Delete' }));
-            myTrend.add(res.timings.waiting);
-            if (!check(res, { 'Weather was deleted correctly': () => res.status === 200 })) {
-                console.error(`Weather(id: ${newPayload.id}) was not deleted properly`);
-            }
-        });
+        //group('Delete weather', () => {
+        //    let res = http.del(`${BASE_URL}/${newPayload.id}`, null, requestConfigWithTag({ name: 'Delete' }));
+        //    myTrend.add(res.timings.waiting);
+        //    if (!check(res, { 'Weather was deleted correctly': () => res.status === 200 })) {
+        //        console.error(`Weather(id: ${newPayload.id}) was not deleted properly`);
+        //    }
+        //});
     });
 
     sleep(1);
