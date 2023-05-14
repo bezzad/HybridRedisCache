@@ -19,7 +19,7 @@ export const options = {
     stages: [
         { target: 50, duration: '30s' },  // linearly go from 5 iters/s to 50 iters/s for 30s
         { target: 100, duration: '0' },   // instantly jump to 100 iters/s
-        { target: 200, duration: '1m' },  // continue with 200 iters/s for 1 minute
+        { target: 100, duration: '1m' },  // continue with 100 iters/s for 1 minute
     ],
     thresholds: {
         // Assert that 99% of requests finish within 3000ms.
@@ -66,18 +66,18 @@ export default function (authToken) {
             }
         });
 
-        group('GET with multiple requests', () => {
+        group('GET with 10 aggregate requests', () => {
             let responses = http.batch([
-                ['GET', `${BASE_URL}/${payload.id}`, null, requestConfigWithTag({ name: 'GET' })],
-                ['GET', `${BASE_URL}/${payload.id}`, null, requestConfigWithTag({ name: 'GET' })],
-                ['GET', `${BASE_URL}/${payload.id}`, null, requestConfigWithTag({ name: 'GET' })],
-                ['GET', `${BASE_URL}/${payload.id}`, null, requestConfigWithTag({ name: 'GET' })],
-                ['GET', `${BASE_URL}/${payload.id}`, null, requestConfigWithTag({ name: 'GET' })],
-                ['GET', `${BASE_URL}/${payload.id}`, null, requestConfigWithTag({ name: 'GET' })],
-                ['GET', `${BASE_URL}/${payload.id}`, null, requestConfigWithTag({ name: 'GET' })],
-                ['GET', `${BASE_URL}/${payload.id}`, null, requestConfigWithTag({ name: 'GET' })],
-                ['GET', `${BASE_URL}/${payload.id}`, null, requestConfigWithTag({ name: 'GET' })],
-                ['GET', `${BASE_URL}/${payload.id}`, null, requestConfigWithTag({ name: 'GET' })],
+                ['GET', `${BASE_URL}/${payload.id}`, requestConfigWithTag({ name: 'GET' })],
+                ['GET', `${BASE_URL}/${payload.id}`, requestConfigWithTag({ name: 'GET' })],
+                ['GET', `${BASE_URL}/${payload.id}`, requestConfigWithTag({ name: 'GET' })],
+                ['GET', `${BASE_URL}/${payload.id}`, requestConfigWithTag({ name: 'GET' })],
+                ['GET', `${BASE_URL}/${payload.id}`, requestConfigWithTag({ name: 'GET' })],
+                ['GET', `${BASE_URL}/${payload.id}`, requestConfigWithTag({ name: 'GET' })],
+                ['GET', `${BASE_URL}/${payload.id}`, requestConfigWithTag({ name: 'GET' })],
+                ['GET', `${BASE_URL}/${payload.id}`, requestConfigWithTag({ name: 'GET' })],
+                ['GET', `${BASE_URL}/${payload.id}`, requestConfigWithTag({ name: 'GET' })],
+                ['GET', `${BASE_URL}/${payload.id}`, requestConfigWithTag({ name: 'GET' })],
             ]);
 
             const temperatures = Object.values(responses).map((res) => res.json('temperatureC'));
@@ -112,13 +112,13 @@ export default function (authToken) {
             }
         });
 
-        //group('Delete weather', () => {
-        //    let res = http.del(`${BASE_URL}/${newPayload.id}`, null, requestConfigWithTag({ name: 'Delete' }));
-        //    myTrend.add(res.timings.waiting);
-        //    if (!check(res, { 'Weather was deleted correctly': () => res.status === 200 })) {
-        //        console.error(`Weather(id: ${newPayload.id}) was not deleted properly`);
-        //    }
-        //});
+        group('Delete weather', () => {
+            let res = http.del(`${BASE_URL}/${newPayload.id}`, null, requestConfigWithTag({ name: 'Delete' }));
+            myTrend.add(res.timings.waiting);
+            if (!check(res, { 'Weather was deleted correctly': () => res.status === 200 })) {
+                console.error(`Weather(id: ${newPayload.id}) was not deleted properly`);
+            }
+        });
     });
 
     sleep(1);
