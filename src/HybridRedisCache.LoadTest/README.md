@@ -22,3 +22,10 @@ Run K6:
 > docker run --rm -i grafana/k6 run - <app.js
 
 For more information about installing: https://k6.io/docs/get-started/installation/
+
+
+## How to run load test
+Open CMD and start `start.cmd` file in root folder of load test.
+
+## Load test result with 100 virtual user
+![Redis vs. InMemory](https://raw.githubusercontent.com/bezzad/HybridRedisCache/main/img/LoadTestResult.png)
