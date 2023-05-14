@@ -2,6 +2,11 @@ using HybridRedisCache;
 using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.WebHost.UseKestrel(options =>
+{
+    options.Limits.MaxConcurrentConnections = long.MaxValue;
+    options.Limits.MaxConcurrentUpgradedConnections = long.MaxValue;
+});
 
 // Add services to the container.
 
@@ -15,14 +20,14 @@ builder.Services.AddSwaggerGen(c =>
 
 builder.Services.AddHybridRedisCaching(options =>
 {
-    options.RedisConnectString = builder.Configuration["Redis"];
-    options.InstancesSharedName = "RedisCacheSystem.Demo";
-    options.DefaultLocalExpirationTime = TimeSpan.FromMinutes(1);
+    options.RedisConnectString = builder.Configuration["RedisConnection"];
+    options.InstancesSharedName = "RedisCacheSystem.Sample.WebAPI";
+    options.DefaultLocalExpirationTime = TimeSpan.FromMinutes(120);
     options.DefaultDistributedExpirationTime = TimeSpan.FromDays(10);
     options.ThrowIfDistributedCacheError = true;
     options.ConnectRetry = 10;
     options.EnableLogging = true;
-    options.FlushLocalCacheOnBusReconnection = true;
+    options.FlushLocalCacheOnBusReconnection = false;
 });
 
 var app = builder.Build();

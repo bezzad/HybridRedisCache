@@ -12,14 +12,14 @@ console.log('Start HybridCache Load Test with Grafano/K6 instance');
 export const options = {
     vus: 20, // virtual users (VUs)
     executor: 'ramping-arrival-rate',
-    preAllocatedVUs: 60,
+    preAllocatedVUs: 10,
     timeUnit: '1s',
-    startRate: 50,
+    startRate: 5,
     // Ramp the number of virtual users up and down
     stages: [
-        { target: 200, duration: '30s' }, // linearly go from 50 iters/s to 200 iters/s for 30s
-        { target: 500, duration: '0' }, // instantly jump to 500 iters/s
-        { target: 500, duration: '1m' }, // continue with 500 iters/s for 1 minute
+        { target: 50, duration: '30s' },  // linearly go from 5 iters/s to 50 iters/s for 30s
+        { target: 100, duration: '0' },   // instantly jump to 100 iters/s
+        { target: 200, duration: '1m' },  // continue with 200 iters/s for 1 minute
     ],
     thresholds: {
         // Assert that 99% of requests finish within 3000ms.
@@ -48,7 +48,7 @@ export default function (authToken) {
 
     var getSampleWeather = () => ({
         id: uuidv4(),
-        date: Date.UTC,
+        date: new Date(),
         temperatureC: randomIntBetween(1, 40),
         summary: `Name ${randomString(10)}`
     });
