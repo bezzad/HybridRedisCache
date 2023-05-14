@@ -3,11 +3,11 @@
 import http from 'k6/http';
 import { check, group, sleep } from 'k6';
 import { Trend } from 'k6/metrics';
-import { randomString, randomIntBetween } from './helper.js';
+import { randomString, randomIntBetween, uuidv4 } from './helper.js';
 const BASE_URL = "https://localhost:7037/WeatherForecast";
 const myTrend = new Trend('waiting_time');
 
-console.log('HybridCache Load Test with Grafano/K6');
+console.log('Start HybridCache Load Test with Grafano/K6 instance');
 
 export const options = {
     vus: 20, // virtual users (VUs)
@@ -18,7 +18,7 @@ export const options = {
     // Ramp the number of virtual users up and down
     stages: [
         { target: 200, duration: '30s' }, // linearly go from 50 iters/s to 200 iters/s for 30s
-        { target: 50, duration: '0' }, // instantly jump to 500 iters/s
+        { target: 500, duration: '0' }, // instantly jump to 500 iters/s
         { target: 500, duration: '1m' }, // continue with 500 iters/s for 1 minute
     ],
     thresholds: {
@@ -29,13 +29,14 @@ export const options = {
     userAgent: 'HybridRedisCache_K6_LoadTest/1.0',
 };
 
+
 // Simulated user behavior
 export default function (authToken) {
-    const requestConfigWithTag = (tag) => ({
+    var requestConfigWithTag = (tag) => ({
         'headers': {
             //Authorization: `Bearer ${authToken}`,
             'Content-Type': 'application/json'
-        },        
+        },
         'tag': Object.assign(
             {},
             {
@@ -45,118 +46,80 @@ export default function (authToken) {
         ),
     });
 
-    group('Add data to the Redis', () => {
+    var getSampleWeather = () => ({
+        id: uuidv4(),
+        date: Date.UTC,
+        temperatureC: randomIntBetween(1, 40),
+        summary: `Name ${randomString(10)}`
+    });
 
-        const payload = {
-            id: randomIntBetween(0, 123123123),
-            date: Date.UTC,
-            temperatureC: 22,
-            summary: `Name ${randomString(10)}`
-        }
-        
-        const res = http.post(BASE_URL, JSON.stringify(payload), requestConfigWithTag({ name: 'POST' }));
-       // console.log(res);
-        //const res = http.get(BASE_URL + "/1", requestConfigWithTag({ name: 'GET' }));
-        //const res = http.request("PATCH", BASE_URL, payload, requestConfigWithTag({ name: 'POST' }));
+    group('Create and modify weathers', () => {
+        let payload = getSampleWeather();
+        let newPayload = getSampleWeather();
+        newPayload.id = payload.id;
 
-        // Validate response status
-        check(res, { 'status was 200': (r) => r.status == 200 });
-    })
+        group('Create weathers', () => {
+            let res = http.post(BASE_URL, JSON.stringify(payload), requestConfigWithTag({ name: 'Create' }));
+            myTrend.add(res.timings.waiting);
+            if (!check(res, { 'Weather created correctly': (r) => r.status === 200 })) {
+                console.error(`Unable to create a Weather ${res.status} ${res.body}`);
+            }
+        });
 
-    //group('Public GET endpoints', () => {
-    //    const responses = http.batch([
-    //        ['GET', `${BASE_URL}/`, null],
-    //        ['GET', `${BASE_URL}/1/`, null],
-    //        ['GET', `${BASE_URL}/2/`, null],
-    //        ['GET', `${BASE_URL}/3/`, null],
-    //        ['GET', `${BASE_URL}/4/`, null],
-    //        ['GET', `${BASE_URL}/5/`, null],
-    //        ['GET', `${BASE_URL}/6/`, null],
-    //        ['GET', `${BASE_URL}/7/`, null],
-    //        ['GET', `${BASE_URL}/8/`, null],
-    //        ['GET', `${BASE_URL}/9/`, null],
-    //    ]);
+        group('GET with multiple requests', () => {
+            let responses = http.batch([
+                ['GET', `${BASE_URL}/${payload.id}`, null, requestConfigWithTag({ name: 'GET' })],
+                ['GET', `${BASE_URL}/${payload.id}`, null, requestConfigWithTag({ name: 'GET' })],
+                ['GET', `${BASE_URL}/${payload.id}`, null, requestConfigWithTag({ name: 'GET' })],
+                ['GET', `${BASE_URL}/${payload.id}`, null, requestConfigWithTag({ name: 'GET' })],
+                ['GET', `${BASE_URL}/${payload.id}`, null, requestConfigWithTag({ name: 'GET' })],
+                ['GET', `${BASE_URL}/${payload.id}`, null, requestConfigWithTag({ name: 'GET' })],
+                ['GET', `${BASE_URL}/${payload.id}`, null, requestConfigWithTag({ name: 'GET' })],
+                ['GET', `${BASE_URL}/${payload.id}`, null, requestConfigWithTag({ name: 'GET' })],
+                ['GET', `${BASE_URL}/${payload.id}`, null, requestConfigWithTag({ name: 'GET' })],
+                ['GET', `${BASE_URL}/${payload.id}`, null, requestConfigWithTag({ name: 'GET' })],
+            ]);
 
-    //    const temperatures = Object.values(responses).map((res) => res.json('temperatureC'));
+            const temperatures = Object.values(responses).map((res) => res.json('temperatureC'));
 
-    //    // Functional test
-    //    check(temperatures, {
-    //        'Weathers temperatures are more than 10°C': Math.min(...temperatures) > 10,
-    //    });
-    //});
+            // Functional test
+            if (!check(temperatures, {
+                'Weathers temperatures are more than 1°C': Math.min(...temperatures) >= 1,
+                'Weathers temperatures are less than 40°C': Math.max(...temperatures) <= 40,
+            })) {
+                console.error(`Unable to get the Weather(id: ${payload.id}): ${res.status} ${res.body}`);
+            };
+        });
 
-    //group('Create and modify crocs', () => {
-    //    let URL = `${BASE_URL}/WeatherForecast`;
-    //    const payload = {
-    //        id: randomIntBetween(0, 2123123123),
-    //        date: Date.UTC,
-    //        temperatureC: 22,
-    //        summary: `Name ${randomString(10)}`
-    //    }
+        group('Update weather', () => {
+            let res = http.post(BASE_URL, JSON.stringify(newPayload), requestConfigWithTag({ name: 'Update' }));
+            myTrend.add(res.timings.waiting);
+            if (!check(res, { 'Update worked': (r) => r.status == 200 })) {
+                console.error(`Unable to update the weather(id: ${newPayload.id}): ${res.status} ${res.body}`);
+            }
+        });
 
-    //    group('Create weathers', () => {
-    //        const res = http.put(URL, payload, requestConfigWithTag({ name: 'Create' }));
+        group('Read and verify updated data', () => {
+            let res = http.get(`${BASE_URL}/${newPayload.id}`, requestConfigWithTag({ name: 'Read and Verify' }));
+            myTrend.add(res.timings.waiting);
+            if (!check(res, {
+                'Update worked': (r) => r.status === 200,
+                'Updated name is correct': (r) => JSON.parse(r.body).summary == newPayload.summary,
+                'Updated temp is correct': (r) => JSON.parse(r.body).temperatureC == newPayload.temperatureC,
+            })) {
+                console.error(`Verify update the weather(id: ${newPayload.id}) was unsuccess! ${res.status} ${res.body}`);
+                console.error(res);
+            }
+        });
 
-    //        if (check(res, { 'Weather created correctly': (r) => r.status === 200 })) {
-    //            console.log(`Create a Weather (id: ${res.json('id')})`);
-    //        } else {
-    //            console.log(`Unable to create a Weather ${res.status} ${res.body}`);
-    //            return;
-    //        }
-    //    });
-
-    //    group('Update weather', () => {
-    //        payload.date = Date.UTC;
-    //        payload.date = Date.temperatureC = 33;
-    //        payload.date = Date.summary = 'New name';
-
-    //        const res = http.patch(URL, payload, requestConfigWithTag({ name: 'Update' }));
-    //        const isSuccessfulUpdate = check(res, {
-    //            'Update worked': () => res.status === 200,
-    //            'Updated name is correct': () => res.json('summary') === 'New name',
-    //            'Updated temp is correct': () => res.json('temperatureC') === 33,
-    //        });
-
-    //        if (!isSuccessfulUpdate) {
-    //            console.log(`Unable to update the weather ${res.status} ${res.body}`);
-    //            return;
-    //        }
-    //    });
-
-    //    group('Delete weather', () => {
-    //        const delRes = http.del(URL + `/${payload.id}`, null, requestConfigWithTag({ name: 'Delete' }));
-    //        const isSuccessfulDelete = check(null, {
-    //            'Weather was deleted correctly': () => delRes.status === 200,
-    //        });
-
-    //        if (!isSuccessfulDelete) {
-    //            console.log(`Weather was not deleted properly`);
-    //            return;
-    //        }
-    //    });
-    //});
+        group('Delete weather', () => {
+            let res = http.del(`${BASE_URL}/${newPayload.id}`, null, requestConfigWithTag({ name: 'Delete' }));
+            myTrend.add(res.timings.waiting);
+            if (!check(res, { 'Weather was deleted correctly': () => res.status === 200 })) {
+                console.error(`Weather(id: ${newPayload.id}) was not deleted properly`);
+            }
+        });
+    });
 
     sleep(1);
 }
-
-//export default function () {
-//    var res = http.get(`${BASE_URL}/WeatherForecast`);
-//    myTrend.add(res.timings.waiting);
-
-//    // Validate response status
-//    check(res, { 'status was 200': (r) => r.status == 200 });
-
-//    res = http.post('https://localhost:7037/WeatherForecast/addWeatherForecasts/50', [
-//        {
-//            "id": 1,
-//            "date": "2023-05-15T08:32:55.0979184+03:30",
-//            "temperatureC": 22,
-//            "summary": "Cold"
-//        }
-//    ]);
-//    myTrend.add(res.timings.waiting);
-
-//    // Validate response status
-//    check(res, { 'status was 200': (r) => r.status == 200 });
-//    sleep(1);
-//}

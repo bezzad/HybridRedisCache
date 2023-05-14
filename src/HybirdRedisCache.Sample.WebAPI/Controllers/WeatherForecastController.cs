@@ -34,7 +34,6 @@ public class WeatherForecastController : ControllerBase
 
         var newData = Enumerable.Range(1, 100).Select(index => new WeatherForecast
         {
-            Id = index,
             Date = DateTime.Now.AddDays(index),
             TemperatureC = Random.Shared.Next(-20, 55),
             Summary = Summaries[Random.Shared.Next(Summaries.Length)]
@@ -47,7 +46,7 @@ public class WeatherForecastController : ControllerBase
     }
 
     [HttpGet("{id}")]
-    public Task<WeatherForecast> Get(int id)
+    public Task<WeatherForecast> Get(string id)
     {
         _logger.LogInformation($"GET: WeatherForecast {{ id: {id} }}");
         _cacheService.TryGetValue<WeatherForecast>(GetKey(id), out var filteredData);
@@ -62,7 +61,7 @@ public class WeatherForecastController : ControllerBase
     }
 
     [HttpDelete("{id}")]
-    public async Task Delete(int id)
+    public async Task Delete(string id)
     {
         _logger.LogInformation($"Delete: WeatherForecast {{ id: {id} }}");
         await _cacheService.RemoveAsync(GetKey(id)).ConfigureAwait(false);
@@ -77,8 +76,8 @@ public class WeatherForecastController : ControllerBase
 
     private async Task<bool> Save(WeatherForecast weather)
     {
-        var expirationTime = TimeSpan.FromMinutes(50);
-        await _cacheService.SetAsync(GetKey(weather.Id), weather, expirationTime).ConfigureAwait(false);
+        var expirationTime = TimeSpan.FromMinutes(120);
+        await _cacheService.SetAsync(GetKey(weather.Id), weather, expirationTime, expirationTime, false).ConfigureAwait(false);
         return true;
     }
 
@@ -86,13 +85,13 @@ public class WeatherForecastController : ControllerBase
     {
         var result = new List<WeatherForecast>();
         for (int i = 0; i < count; i++)
-            if (_cacheService.TryGetValue<WeatherForecast>(GetKey(i), out var data))
+            if (_cacheService.TryGetValue<WeatherForecast>(GetKey(i.ToString()), out var data))
                 result.Add(data);
 
         return result.ToArray();
     }
 
-    private string GetKey(int id)
+    private string GetKey(string id)
     {
         return $"{nameof(WeatherForecast)}_{id}";
     }
