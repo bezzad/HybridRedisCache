@@ -1,12 +1,10 @@
 using HybridRedisCache;
-using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Mvc;
 
 namespace HybirdRedisCache.Sample.WebAPI.Controllers;
 
 [ApiController]
 [Route("[controller]")]
-[DisableCors]
 public class WeatherForecastController : ControllerBase
 {
     private static readonly string[] Summaries = new[]
