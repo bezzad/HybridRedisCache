@@ -42,11 +42,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
-
-//app.UseHttpsRedirection();
-
 app.MapControllers();
-
 app.Run();
 
 // How to reset OS ports reservations

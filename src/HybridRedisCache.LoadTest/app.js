@@ -20,8 +20,8 @@ export const options = {
     // Ramp the number of virtual users up and down
     stages: [
         { target: 500, duration: '30s' },  // linearly go from 5 iters/s to 500 iters/s for 30s
-        { target: 1000, duration: '0' },   // instantly jump to 1000 iters/s
-        { target: 1000, duration: '2m' },  // continue with 1000 iters/s for 2 minutes
+        { target: 500, duration: '0' },   // instantly jump to 1000 iters/s
+        { target: 1000, duration: '1m' },  // continue with 1000 iters/s for 2 minutes
     ],
     thresholds: {
         // Assert that 99% of requests finish within 1000ms.
