@@ -9,7 +9,6 @@ builder.WebHost.ConfigureKestrel(serverOptions =>
     serverOptions.Limits.Http2.MaxStreamsPerConnection = int.MaxValue;
     serverOptions.Limits.KeepAliveTimeout = TimeSpan.FromMinutes(2);
     serverOptions.DisableStringReuse = true;
-    //serverOptions.ListenLocalhost(7037);
     serverOptions.AllowSynchronousIO = true;
 });
 
