@@ -1,5 +1,7 @@
 'use strict';
 
+import { htmlReport } from "https://raw.githubusercontent.com/benc-uk/k6-reporter/main/dist/bundle.js";
+import { textSummary } from "https://jslib.k6.io/k6-summary/0.0.1/index.js";
 import http from 'k6/http';
 import { check, group, sleep } from 'k6';
 import { Trend } from 'k6/metrics';
@@ -17,13 +19,13 @@ export const options = {
     startRate: 5,
     // Ramp the number of virtual users up and down
     stages: [
-        { target: 50, duration: '30s' },  // linearly go from 5 iters/s to 50 iters/s for 30s
-        { target: 100, duration: '0' },   // instantly jump to 100 iters/s
-        { target: 100, duration: '1m' },  // continue with 100 iters/s for 1 minute
+        { target: 500, duration: '30s' },  // linearly go from 5 iters/s to 500 iters/s for 30s
+        { target: 1000, duration: '0' },   // instantly jump to 1000 iters/s
+        { target: 1000, duration: '2m' },  // continue with 1000 iters/s for 2 minutes
     ],
     thresholds: {
         // Assert that 99% of requests finish within 1000ms.
-        http_req_duration: ["p(99) < 1000"],
+        http_req_duration: ["p(99) < 400"],
     },
     noConnectionReuse: true,
     userAgent: 'HybridRedisCache_K6_LoadTest/1.0',
@@ -122,4 +124,16 @@ export default function (authToken) {
     });
 
     sleep(1);
+}
+
+export function handleSummary(data) {
+    const med_latency = data.metrics.iteration_duration.values.med;
+    const latency_message = `The median latency was ${med_latency}\n`;
+
+    return {
+        // stdout: latency_message,
+        'summary.json': JSON.stringify(data), //the default data object
+        "result.html": htmlReport(data),
+        stdout: textSummary(data, { indent: " ", enableColors: true }),
+    };
 }

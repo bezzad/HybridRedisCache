@@ -4,8 +4,8 @@ using Microsoft.OpenApi.Models;
 var builder = WebApplication.CreateBuilder(args);
 builder.WebHost.UseKestrel(options =>
 {
-    options.Limits.MaxConcurrentConnections = long.MaxValue;
-    options.Limits.MaxConcurrentUpgradedConnections = long.MaxValue;
+    options.Limits.MaxConcurrentConnections = null;
+    options.Limits.MaxConcurrentUpgradedConnections = null;
 });
 
 // Add services to the container.
@@ -15,7 +15,7 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
-    c.SwaggerDoc("v1", new OpenApiInfo { Title = "RedisCacheSystem", Version = "v1" });
+    c.SwaggerDoc("v1", new OpenApiInfo { Title = "RedisCacheSystem API Sample", Version = "v1" });
 });
 
 builder.Services.AddHybridRedisCaching(options =>
@@ -40,8 +40,6 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-
-app.UseAuthorization();
 
 app.MapControllers();
 
