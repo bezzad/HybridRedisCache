@@ -46,3 +46,8 @@ app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
+
+// How to reset OS ports reservations
+// Run CMD as Admin and execute below codes:
+// $ net stop winnat
+// $ net start winnat

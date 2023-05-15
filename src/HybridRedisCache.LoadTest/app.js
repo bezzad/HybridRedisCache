@@ -22,8 +22,8 @@ export const options = {
         { target: 100, duration: '1m' },  // continue with 100 iters/s for 1 minute
     ],
     thresholds: {
-        // Assert that 99% of requests finish within 3000ms.
-        http_req_duration: ["p(99) < 3000"],
+        // Assert that 99% of requests finish within 1000ms.
+        http_req_duration: ["p(99) < 1000"],
     },
     noConnectionReuse: true,
     userAgent: 'HybridRedisCache_K6_LoadTest/1.0',
