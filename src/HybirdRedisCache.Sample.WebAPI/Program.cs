@@ -8,6 +8,7 @@ builder.WebHost.ConfigureKestrel(serverOptions =>
     serverOptions.Limits.MaxConcurrentUpgradedConnections = null;
     serverOptions.Limits.Http2.MaxStreamsPerConnection = int.MaxValue;
     serverOptions.Limits.KeepAliveTimeout = TimeSpan.FromMinutes(2);
+    serverOptions.Limits.RequestHeadersTimeout = TimeSpan.FromSeconds(120);
     serverOptions.DisableStringReuse = true;
     serverOptions.AllowSynchronousIO = true;
 });
@@ -15,7 +16,6 @@ builder.WebHost.ConfigureKestrel(serverOptions =>
 // Add services to the container.
 
 builder.Services.AddControllers();
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
