@@ -8,16 +8,16 @@ import { Trend } from 'k6/metrics';
 import { randomString, randomIntBetween, uuidv4 } from './helper.js';
 const BASE_URL = "https://localhost:7037/WeatherForecast";
 const myTrend = new Trend('waiting_time');
-const Max_SleepTime_Seconds = 30;
+const Max_SleepTime_Seconds = 20;
 
 console.log('Start HybridCache Load Test with Grafano/K6 instance');
 
 export const options = {
-    vus: 20, // virtual users (VUs)
+    vus: 50, // virtual users (VUs)
     executor: 'ramping-arrival-rate',
     preAllocatedVUs: 10,
     timeUnit: '1s',
-    startRate: 5,
+    startRate: 50,
     // Ramp the number of virtual users up and down
     stages: [
         { target: 500, duration: '10s' },  // linearly go from 10 iters/s to 500 iters/s for 10s
@@ -26,12 +26,8 @@ export const options = {
         { target: 1000, duration: '30s' }, // continue with 1000 iters/s for 30s
         { target: 1500, duration: '60s' }, // linearly go from 1000 iters/s to 1500 iters/s for 60s
         { target: 1500, duration: '30s' }, // continue with 1500 iters/s for 30s
-        { target: 2000, duration: '60s' }, // linearly go from 1500 iters/s to 2000 iters/s for 60s
-        { target: 2000, duration: '30s' }, // continue with 2000 iters/s for 30s
-        { target: 3000, duration: '0' },   // immediate to 3000 iters/s
-        { target: 3000, duration: '60s' }, // continue with 3000 iters/s for 60s
-        { target: 5000, duration: '2m' }, // linearly go from 3000 iters/s to 5000 iters/s for 2 minutes
-        { target: 5000, duration: '2m' }, // continue with 5000 iters/s for 2 minutes
+        { target: 2000, duration: '0' },   // immediate to 2000 iters/s for 60s
+        { target: 2000, duration: '5m' },  // continue with 2000 iters/s for 5 minutes
     ],
     thresholds: {
         // Assert that 95% of requests finish within 2000ms.
