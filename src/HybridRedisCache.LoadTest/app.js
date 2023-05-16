@@ -8,7 +8,7 @@ import { Trend } from 'k6/metrics';
 import { randomString, randomIntBetween, uuidv4 } from './helper.js';
 const BASE_URL = "https://localhost:7037/WeatherForecast";
 const myTrend = new Trend('waiting_time');
-const Max_SleepTime_Second = 20;
+const Max_SleepTime_Seconds = 30;
 
 console.log('Start HybridCache Load Test with Grafano/K6 instance');
 
@@ -29,11 +29,13 @@ export const options = {
         { target: 2000, duration: '60s' }, // linearly go from 1500 iters/s to 2000 iters/s for 60s
         { target: 2000, duration: '30s' }, // continue with 2000 iters/s for 30s
         { target: 3000, duration: '0' },   // immediate to 3000 iters/s
-        { target: 3000, duration: '30s' }, // continue with 3000 iters/s for 2 minutes
+        { target: 3000, duration: '60s' }, // continue with 3000 iters/s for 60s
+        { target: 5000, duration: '2m' }, // linearly go from 3000 iters/s to 5000 iters/s for 2 minutes
+        { target: 5000, duration: '2m' }, // continue with 5000 iters/s for 2 minutes
     ],
     thresholds: {
-        // Assert that 99% of requests finish within 3000ms.
-        http_req_duration: ["p(99) < 3000"],
+        // Assert that 95% of requests finish within 2000ms.
+        http_req_duration: ["p(95) < 2000"],
     },
     noConnectionReuse: true,
     userAgent: 'HybridRedisCache_K6_LoadTest/1.0',
@@ -79,7 +81,7 @@ export default function (authToken) {
         }
     });
 
-    sleep(Math.random() * Max_SleepTime_Second); // Duration, in seconds.
+    sleep(Math.random() * Max_SleepTime_Seconds);
 
     group('GET with 10 aggregate requests', () => {
         let responses = http.batch([
@@ -98,7 +100,7 @@ export default function (authToken) {
             console.error(`Unable to get the Weather(id: ${payload.id})! ${res.status} ${res.body}`);
         };
     });
-    sleep(Math.random() * Max_SleepTime_Second); // Duration, in seconds.
+    sleep(Math.random() * Max_SleepTime_Seconds);
 
     group('Update weather', () => {
         let res = http.post(BASE_URL, JSON.stringify(newPayload), requestConfigWithTag({ name: 'Update' }));
@@ -107,7 +109,7 @@ export default function (authToken) {
             console.error(`Unable to update the weather(id: ${newPayload.id})! ${res.status} ${res.body}`);
         }
     });
-    sleep(Math.random() * Max_SleepTime_Second); // Duration, in seconds.
+    sleep(Math.random() * Max_SleepTime_Seconds); 
 
     group('Read and verify updated data', () => {
         let res = http.get(`${BASE_URL}/${newPayload.id}`, requestConfigWithTag({ name: 'Read and Verify' }));
@@ -120,7 +122,7 @@ export default function (authToken) {
             console.error(`Verify update the weather(id: ${newPayload.id}) was unsuccess! ${res.status} ${res.body}`);
         }
     });
-    sleep(Math.random() * Max_SleepTime_Second); // Duration, in seconds.
+    sleep(Math.random() * Max_SleepTime_Seconds);
 
     group('Delete weather', () => {
         let res = http.del(`${BASE_URL}/${newPayload.id}`, null, requestConfigWithTag({ name: 'Delete' }));
@@ -129,7 +131,7 @@ export default function (authToken) {
             console.error(`Weather(id: ${newPayload.id}) was not deleted properly! ${res.status} ${res.body}`);
         }
     });
-    sleep(Math.random() * Max_SleepTime_Second); // Duration, in seconds.
+    sleep(Math.random() * Max_SleepTime_Seconds);
 }
 
 export function handleSummary(data) {
