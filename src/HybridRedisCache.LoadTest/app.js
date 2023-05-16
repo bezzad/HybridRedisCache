@@ -8,6 +8,7 @@ import { Trend } from 'k6/metrics';
 import { randomString, randomIntBetween, uuidv4 } from './helper.js';
 const BASE_URL = "https://localhost:7037/WeatherForecast";
 const myTrend = new Trend('waiting_time');
+const Max_SleepTime_Second = 20;
 
 console.log('Start HybridCache Load Test with Grafano/K6 instance');
 
@@ -16,17 +17,19 @@ export const options = {
     executor: 'ramping-arrival-rate',
     preAllocatedVUs: 10,
     timeUnit: '1s',
-    startRate: 1,
+    startRate: 5,
     // Ramp the number of virtual users up and down
     stages: [
-        { target: 500, duration: '10s' },  // linearly go from 5 iters/s to 500 iters/s for 30s
-        { target: 500, duration: '10s' },  // linearly go from 5 iters/s to 500 iters/s for 30s
-        { target: 1000, duration: '60s' },   // linearly go from 500 iters/s to 1000 iters/s for 5s
-        { target: 1000, duration: '30s' },   // linearly go from 500 iters/s to 1000 iters/s for 5s
-        { target: 1500, duration: '60s' },   // linearly go from 1000 iters/s to 1500 iters/s for 30s
-        { target: 1500, duration: '30s' },   // linearly go from 1000 iters/s to 1500 iters/s for 30s
-        { target: 2000, duration: '60s' },  // continue with 2000 iters/s for 2 minutes
-        { target: 2000, duration: '30s' },  // continue with 2000 iters/s for 2 minutes
+        { target: 500, duration: '10s' },  // linearly go from 10 iters/s to 500 iters/s for 10s
+        { target: 500, duration: '10s' },  // continue with 500 iters/s for 10s
+        { target: 1000, duration: '60s' }, // linearly go from 500 iters/s to 1000 iters/s for 60s
+        { target: 1000, duration: '30s' }, // continue with 1000 iters/s for 30s
+        { target: 1500, duration: '60s' }, // linearly go from 1000 iters/s to 1500 iters/s for 60s
+        { target: 1500, duration: '30s' }, // continue with 1500 iters/s for 30s
+        { target: 2000, duration: '60s' }, // linearly go from 1500 iters/s to 2000 iters/s for 60s
+        { target: 2000, duration: '30s' }, // continue with 2000 iters/s for 30s
+        { target: 3000, duration: '0' },   // immediate to 3000 iters/s
+        { target: 3000, duration: '30s' }, // continue with 3000 iters/s for 2 minutes
     ],
     thresholds: {
         // Assert that 99% of requests finish within 3000ms.
@@ -76,32 +79,26 @@ export default function (authToken) {
         }
     });
 
-    sleep(Math.random() * 30); // Duration, in seconds.
+    sleep(Math.random() * Max_SleepTime_Second); // Duration, in seconds.
 
-    //group('GET with 10 aggregate requests', () => {
-    //    let responses = http.batch([
-    //        ['GET', `${BASE_URL}/${payload.id}`, requestConfigWithTag({ name: 'GET' })],
-    //        ['GET', `${BASE_URL}/${payload.id}`, requestConfigWithTag({ name: 'GET' })],
-    //        ['GET', `${BASE_URL}/${payload.id}`, requestConfigWithTag({ name: 'GET' })],
-    //        ['GET', `${BASE_URL}/${payload.id}`, requestConfigWithTag({ name: 'GET' })],
-    //        ['GET', `${BASE_URL}/${payload.id}`, requestConfigWithTag({ name: 'GET' })],
-    //        ['GET', `${BASE_URL}/${payload.id}`, requestConfigWithTag({ name: 'GET' })],
-    //        ['GET', `${BASE_URL}/${payload.id}`, requestConfigWithTag({ name: 'GET' })],
-    //        ['GET', `${BASE_URL}/${payload.id}`, requestConfigWithTag({ name: 'GET' })],
-    //        ['GET', `${BASE_URL}/${payload.id}`, requestConfigWithTag({ name: 'GET' })],
-    //        ['GET', `${BASE_URL}/${payload.id}`, requestConfigWithTag({ name: 'GET' })],
-    //    ]);
+    group('GET with 10 aggregate requests', () => {
+        let responses = http.batch([
+            ['GET', `${BASE_URL}/${payload.id}`, requestConfigWithTag({ name: 'GET' })],
+            ['GET', `${BASE_URL}/${payload.id}`, requestConfigWithTag({ name: 'GET' })],
+            ['GET', `${BASE_URL}/${payload.id}`, requestConfigWithTag({ name: 'GET' })],
+            ['GET', `${BASE_URL}/${payload.id}`, requestConfigWithTag({ name: 'GET' })],
+            ['GET', `${BASE_URL}/${payload.id}`, requestConfigWithTag({ name: 'GET' })],
+        ]);
 
-    //    const temperatures = Object.values(responses).map((res) => res.json('temperatureC'));
-    //    if (!check(temperatures, {
-    //        'Weathers temperatures are more than 1°C': Math.min(...temperatures) >= 1,
-    //        'Weathers temperatures are less than 40°C': Math.max(...temperatures) <= 40,
-    //    })) {
-    //        console.error(`Unable to get the Weather(id: ${payload.id})! ${res.status} ${res.body}`);
-    //    };
-    //});
-    // sleep(Math.random() * 30); // Duration, in seconds.
-
+        const temperatures = Object.values(responses).map((res) => res.json('temperatureC'));
+        if (!check(temperatures, {
+            'Weathers temperatures are more than 1°C': Math.min(...temperatures) >= 1,
+            'Weathers temperatures are less than 40°C': Math.max(...temperatures) <= 40,
+        })) {
+            console.error(`Unable to get the Weather(id: ${payload.id})! ${res.status} ${res.body}`);
+        };
+    });
+    sleep(Math.random() * Max_SleepTime_Second); // Duration, in seconds.
 
     group('Update weather', () => {
         let res = http.post(BASE_URL, JSON.stringify(newPayload), requestConfigWithTag({ name: 'Update' }));
@@ -110,8 +107,7 @@ export default function (authToken) {
             console.error(`Unable to update the weather(id: ${newPayload.id})! ${res.status} ${res.body}`);
         }
     });
-
-    sleep(Math.random() * 30); // Duration, in seconds.
+    sleep(Math.random() * Max_SleepTime_Second); // Duration, in seconds.
 
     group('Read and verify updated data', () => {
         let res = http.get(`${BASE_URL}/${newPayload.id}`, requestConfigWithTag({ name: 'Read and Verify' }));
@@ -124,8 +120,7 @@ export default function (authToken) {
             console.error(`Verify update the weather(id: ${newPayload.id}) was unsuccess! ${res.status} ${res.body}`);
         }
     });
-
-    sleep(Math.random() * 30); // Duration, in seconds.
+    sleep(Math.random() * Max_SleepTime_Second); // Duration, in seconds.
 
     group('Delete weather', () => {
         let res = http.del(`${BASE_URL}/${newPayload.id}`, null, requestConfigWithTag({ name: 'Delete' }));
@@ -134,8 +129,7 @@ export default function (authToken) {
             console.error(`Weather(id: ${newPayload.id}) was not deleted properly! ${res.status} ${res.body}`);
         }
     });
-
-    sleep(Math.random() * 30); // Duration, in seconds.
+    sleep(Math.random() * Max_SleepTime_Second); // Duration, in seconds.
 }
 
 export function handleSummary(data) {
