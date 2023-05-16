@@ -1,3 +1,4 @@
+using HybirdRedisCache.Sample.WebAPI;
 using HybridRedisCache;
 using Microsoft.OpenApi.Models;
 
@@ -15,6 +16,7 @@ builder.WebHost.ConfigureKestrel(serverOptions =>
 
 // Add services to the container.
 
+builder.Services.AddScoped<LogActionFilter>();
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
