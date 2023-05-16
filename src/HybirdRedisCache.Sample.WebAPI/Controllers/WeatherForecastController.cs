@@ -7,6 +7,7 @@ namespace HybirdRedisCache.Sample.WebAPI.Controllers;
 [Route("[controller]")]
 public class WeatherForecastController : ControllerBase
 {
+    private static long RequestCounter = 0;
     private static readonly string[] Summaries = new[]
     {
         "Freezing", "Bracing", "Chilly", "Cool",
@@ -20,6 +21,8 @@ public class WeatherForecastController : ControllerBase
     {
         _logger = logger;
         _cacheService = cacheService;
+        Interlocked.Increment(ref RequestCounter);
+        _logger.LogInformation($"Request Count: {RequestCounter}");
     }
 
     [HttpGet("{id}")]

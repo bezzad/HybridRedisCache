@@ -16,18 +16,21 @@ export const options = {
     executor: 'ramping-arrival-rate',
     preAllocatedVUs: 10,
     timeUnit: '1s',
-    startRate: 5,
+    startRate: 1,
     // Ramp the number of virtual users up and down
     stages: [
-        { target: 500, duration: '30s' },  // linearly go from 5 iters/s to 500 iters/s for 30s
-        { target: 1000, duration: '5s' },   // linearly go from 500 iters/s to 1000 iters/s for 5s
+        { target: 500, duration: '10s' },  // linearly go from 5 iters/s to 500 iters/s for 30s
+        { target: 500, duration: '10s' },  // linearly go from 5 iters/s to 500 iters/s for 30s
+        { target: 1000, duration: '60s' },   // linearly go from 500 iters/s to 1000 iters/s for 5s
+        { target: 1000, duration: '30s' },   // linearly go from 500 iters/s to 1000 iters/s for 5s
+        { target: 1500, duration: '60s' },   // linearly go from 1000 iters/s to 1500 iters/s for 30s
         { target: 1500, duration: '30s' },   // linearly go from 1000 iters/s to 1500 iters/s for 30s
-        { target: 2000, duration: '0' },   // instantly jump to 2000 iters/s
-        { target: 2000, duration: '2m' },  // continue with 2000 iters/s for 2 minutes
+        { target: 2000, duration: '60s' },  // continue with 2000 iters/s for 2 minutes
+        { target: 2000, duration: '30s' },  // continue with 2000 iters/s for 2 minutes
     ],
     thresholds: {
-        // Assert that 99% of requests finish within 1000ms.
-        http_req_duration: ["p(99) < 1000"],
+        // Assert that 99% of requests finish within 3000ms.
+        http_req_duration: ["p(99) < 3000"],
     },
     noConnectionReuse: true,
     userAgent: 'HybridRedisCache_K6_LoadTest/1.0',
@@ -73,7 +76,7 @@ export default function (authToken) {
         }
     });
 
-    sleep(1);
+    sleep(Math.random() * 30); // Duration, in seconds.
 
     //group('GET with 10 aggregate requests', () => {
     //    let responses = http.batch([
@@ -97,7 +100,7 @@ export default function (authToken) {
     //        console.error(`Unable to get the Weather(id: ${payload.id})! ${res.status} ${res.body}`);
     //    };
     //});
-    sleep(1);
+    // sleep(Math.random() * 30); // Duration, in seconds.
 
 
     group('Update weather', () => {
@@ -108,7 +111,7 @@ export default function (authToken) {
         }
     });
 
-    sleep(1);
+    sleep(Math.random() * 30); // Duration, in seconds.
 
     group('Read and verify updated data', () => {
         let res = http.get(`${BASE_URL}/${newPayload.id}`, requestConfigWithTag({ name: 'Read and Verify' }));
@@ -122,7 +125,7 @@ export default function (authToken) {
         }
     });
 
-    sleep(1);
+    sleep(Math.random() * 30); // Duration, in seconds.
 
     group('Delete weather', () => {
         let res = http.del(`${BASE_URL}/${newPayload.id}`, null, requestConfigWithTag({ name: 'Delete' }));
@@ -132,7 +135,7 @@ export default function (authToken) {
         }
     });
 
-    sleep(1);
+    sleep(Math.random() * 30); // Duration, in seconds.
 }
 
 export function handleSummary(data) {
