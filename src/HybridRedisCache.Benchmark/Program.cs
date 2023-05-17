@@ -25,19 +25,13 @@ public class Program
         var methods = typeof(BenchmarkManager).GetMethods(BindingFlags.Public | BindingFlags.Instance);
         foreach (var method in methods)
         {
-            if (method.GetCustomAttribute(typeof(BenchmarkAttribute)) != null)
+            if (method?.GetCustomAttribute(typeof(BenchmarkAttribute)) != null)
             {
                 sw.Restart();
-                if (method.ReturnType == typeof(Task))
-                {
-                    await (Task)method.Invoke(Manager, null);
-                }
-                else
-                {
-                    method.Invoke(Manager, null);
-                }
+                if (method!.Invoke(Manager, null) is Task task)
+                    await task;
                 sw.Stop();
-                timesOfExecutions.Add(method.Name, sw.ElapsedMilliseconds);
+                timesOfExecutions.Add(method!.Name, sw.ElapsedMilliseconds);
                 PrintBenchmark(method.Name, sw.ElapsedMilliseconds);
             }
         }
