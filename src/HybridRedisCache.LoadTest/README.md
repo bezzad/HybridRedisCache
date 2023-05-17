@@ -29,5 +29,5 @@ For more information about installing: https://k6.io/docs/get-started/installati
 ## How to run load test
 Open CMD and start `start.cmd` file in root folder of load test.
 
-## Load test result with 100 virtual users
+## Load test result with +2000 virtual users with multiple request per user
 ![Redis vs. InMemory](https://raw.githubusercontent.com/bezzad/HybridRedisCache/main/img/LoadTestResult.png)
