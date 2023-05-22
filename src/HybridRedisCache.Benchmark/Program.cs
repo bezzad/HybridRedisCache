@@ -17,6 +17,7 @@ public class Program
         var timesOfExecutions = new Dictionary<string, double>();
         var sw = new System.Diagnostics.Stopwatch();
         Manager.GlobalSetup();
+        Manager.RepeatCount = 1000;
 
         Console.WriteLine($"Repeating each test {Manager.RepeatCount} times");
         Console.WriteLine("\n");
@@ -28,11 +29,12 @@ public class Program
             if (method?.GetCustomAttribute(typeof(BenchmarkAttribute)) != null)
             {
                 sw.Restart();
+                PrintBenchmarkMethod(method.Name);
                 if (method!.Invoke(Manager, null) is Task task)
                     await task;
                 sw.Stop();
                 timesOfExecutions.Add(method!.Name, sw.ElapsedMilliseconds);
-                PrintBenchmark(method.Name, sw.ElapsedMilliseconds);
+                PrintBenchmarkValue(sw.ElapsedMilliseconds);
             }
         }
         PrintSortedResult(timesOfExecutions);
@@ -72,10 +74,21 @@ public class Program
 
     private static void PrintBenchmark(string method, double durMs)
     {
+        PrintBenchmarkMethod(method);
+        PrintBenchmarkValue(durMs);
+    }
+
+    private static void PrintBenchmarkMethod(string method)
+    {
         PrintLine();
         var leftDesc = $"| {method} ".PadRight(50);
+        Console.Write(leftDesc);
+    }
+
+    private static void PrintBenchmarkValue(double durMs)
+    {
         var rightDesc = $"|   {durMs:N0}ms ".PadRight(25);
-        Console.WriteLine(leftDesc + rightDesc + $" |");
+        Console.WriteLine(rightDesc + $" |");
     }
 
     private static void PrintLine()
