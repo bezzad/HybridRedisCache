@@ -17,7 +17,7 @@ public class Program
         var timesOfExecutions = new Dictionary<string, double>();
         var sw = new System.Diagnostics.Stopwatch();
         Manager.GlobalSetup();
-        Manager.RepeatCount = 1000;
+        Manager.RepeatCount = 10000;
 
         Console.WriteLine($"Repeating each test {Manager.RepeatCount} times");
         Console.WriteLine("\n");
