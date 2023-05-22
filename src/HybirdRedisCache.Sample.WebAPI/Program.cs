@@ -1,6 +1,8 @@
 using HybirdRedisCache.Sample.WebAPI;
 using HybridRedisCache;
 using Microsoft.OpenApi.Models;
+using Prometheus;
+using System.Net;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.WebHost.ConfigureKestrel(serverOptions =>
@@ -36,6 +38,13 @@ builder.Services.AddHybridRedisCaching(options =>
     options.FlushLocalCacheOnBusReconnection = false;
 });
 
+// open http://localhost:9091/metrics in web browser to look metrics data
+builder.Services.AddMetricServer(opt =>
+{
+    opt.Port = 9091;
+    opt.Hostname = "localhost";
+});
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -44,6 +53,16 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
+
+// Capture metrics about all received HTTP requests.
+app.UseHttpMetrics(opt =>
+{
+    opt.ConfigureMeasurements(measurementOptions =>
+    {
+        // Only measure exemplar if the HTTP response status code is not "OK".
+        measurementOptions.ExemplarPredicate = context => context.Response.StatusCode != (int)HttpStatusCode.OK;
+    });
+}); 
 app.MapControllers();
 app.Run();
 
