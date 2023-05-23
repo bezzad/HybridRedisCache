@@ -38,10 +38,10 @@ builder.Services.AddHybridRedisCaching(options =>
     options.FlushLocalCacheOnBusReconnection = false;
 });
 
-// open http://localhost:9091/metrics in web browser to look metrics data
+// open http://localhost:5000/metrics in web browser to look metrics data
 builder.Services.AddMetricServer(opt =>
 {
-    opt.Port = 9091;
+    opt.Port = 5000;
     opt.Hostname = "localhost";
 });
 
