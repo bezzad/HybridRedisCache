@@ -54,16 +54,14 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-// Capture metrics about all received HTTP requests.
-app.UseHttpMetrics(opt =>
+app.UseRouting();   
+app.UseHttpMetrics(); // Capture metrics about all received HTTP requests.
+app.UseAuthorization();
+app.UseEndpoints(endpoints =>
 {
-    opt.ConfigureMeasurements(measurementOptions =>
-    {
-        // Only measure exemplar if the HTTP response status code is not "OK".
-        measurementOptions.ExemplarPredicate = context => context.Response.StatusCode != (int)HttpStatusCode.OK;
-    });
-}); 
-app.MapControllers();
+    endpoints.MapMetrics();
+    endpoints.MapControllers();
+});
 app.Run();
 
 // How to reset OS ports reservations
