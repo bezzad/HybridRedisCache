@@ -1,5 +1,7 @@
 # HybridRedisCache.LoadTest
 
+The is the load test project which is use Grafana/k6 to test sample WebAPI and produce stress and load test report.
+To execute this test you must install Grafana/k6. To visualizing real-time SRC data of load test you need to install Grafana and Prometheus.
 
 ## How to install Grafana/K6 on Ubuntu
 ```
