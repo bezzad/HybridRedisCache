@@ -8,7 +8,7 @@ import { Trend } from 'k6/metrics';
 import { randomString, randomIntBetween, uuidv4 } from './helper.js';
 const BASE_URL = "https://localhost:7037/WeatherForecast";
 const myTrend = new Trend('waiting_time');
-const Max_SleepTime_Seconds = 20;
+const Max_SleepTime_Seconds = 10;
 
 console.log('Start HybridCache Load Test with Grafano/K6 instance');
 
@@ -27,7 +27,9 @@ export const options = {
         { target: 1500, duration: '60s' }, // linearly go from 1000 iters/s to 1500 iters/s for 60s
         { target: 1500, duration: '30s' }, // continue with 1500 iters/s for 30s
         { target: 2000, duration: '0' },   // immediate to 2000 iters/s for 60s
-        { target: 2000, duration: '5m' },  // continue with 2000 iters/s for 5 minutes
+        { target: 2000, duration: '1m' },  // continue with 2000 iters/s for 1 minutes
+        { target: 4000, duration: '2m' },  // linearly go from 2000 iters/s to 4000 iters/s for 2 minutes
+        { target: 4000, duration: '5m' },  // continue with 4000 iters/s for 5 minutes
     ],
     thresholds: {
         // Assert that 95% of requests finish within 2000ms.

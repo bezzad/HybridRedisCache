@@ -42,6 +42,7 @@ namespace HybirdRedisCache.Sample.WebAPI
 
         public void OnActionExecuting(ActionExecutingContext context)
         {
+            ProcessedRequestCount.Inc();
             _timer = ResponseLatency.NewTimer();
             RequestsInQueue.Inc();
 
@@ -55,7 +56,6 @@ namespace HybirdRedisCache.Sample.WebAPI
 
         public void OnActionExecuted(ActionExecutedContext context)
         {
-            ProcessedRequestCount.Inc();
             RequestsInQueue.Dec();
             _timer?.Dispose();
         }
