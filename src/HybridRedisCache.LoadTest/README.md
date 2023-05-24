@@ -9,15 +9,20 @@ To execute this test you must install Grafana/k6. To visualizing real-time SRC d
 > docker run --name redis -p 6379:6379 -d redis:latest
 
 2. Run WebAPI as Release mode
+
 > cd "..\HybirdRedisCache.Sample.WebAPI" 
+
 > dotnet run --Configuration Release
 
 3. Run Prometheus with modified configs to read API metrics
+
 > docker run -d --name prometheus --network monitoring -p 9090:9090 prom/prometheus
 
 open docker and go to the view files of prom/prometheus container
 go to file tab and edit below file:
+
 > "etc/prometheus/prometheus.yml"
+
 Append below code to end of prometheus.yml file:
 
 ``` yml
@@ -26,20 +31,27 @@ Append below code to end of prometheus.yml file:
       - targets: ['host.docker.internal:5000']
     metrics_path: /metrics
 ```
-Save and restart Prometheus 
+
+Save and restart Prometheus service
 
 4. Run Grafana and add prometheus to that
+
 > docker run -d --name=grafana --network monitoring -p 3000:3000 grafana/grafana
-Open `Firefax` or `Eadge` browser and go to http://localhost:3000   (`Chrome` not support unsecure URLs)
-Login with default **user**/**pass**:  `admin`/`admin`
-Add a Data Source > Prometheus Type
-Just add prometheus address in docker:
+
+* Open `Firefax` or `Eadge` browser and go to http://localhost:3000   (`Chrome` not support unsecure URLs)
+* Login with default **user**/**pass**:  `admin`/`admin`
+* Add a Data Source > Prometheus Type
+* Just add prometheus address in docker:
+
 > http://host.docker.internal:9090
-Click on Save & Test
+
+* Click on Save & Test
 
 5. Creat Grafana Dashboard for Prometheus incoming data
-go to below address in browser:
+Go to below address in browser:
+
 > http://localhost:3000/dashboard/import
+
 import `GrafanaDashboard.json` from current path.
 
 6. Run Grafana/k6 to start load test 
