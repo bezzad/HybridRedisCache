@@ -18,14 +18,14 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 5,
+  "id": 1,
   "links": [],
   "liveNow": true,
   "panels": [
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "cd77b29a-81f8-4430-ad1c-8f181f7fa216"
+        "uid": "cf7f392e-2d58-43a7-a472-47e9d3e5dd87"
       },
       "fieldConfig": {
         "defaults": {
@@ -83,8 +83,8 @@
             "type": "prometheus",
             "uid": "cd77b29a-81f8-4430-ad1c-8f181f7fa216"
           },
-          "editorMode": "code",
-          "expr": "process_private_memory_bytes{instance=\"host.docker.internal:5000\"}/1024 ",
+          "editorMode": "builder",
+          "expr": "process_private_memory_bytes{job=\"weather_api\"} / 1024",
           "legendFormat": "__auto",
           "range": true,
           "refId": "A"
@@ -96,7 +96,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "cd77b29a-81f8-4430-ad1c-8f181f7fa216"
+        "uid": "cf7f392e-2d58-43a7-a472-47e9d3e5dd87"
       },
       "fieldConfig": {
         "defaults": {
@@ -104,6 +104,8 @@
             "mode": "thresholds"
           },
           "mappings": [],
+          "max": 100,
+          "min": 0,
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -147,7 +149,7 @@
             "uid": "cd77b29a-81f8-4430-ad1c-8f181f7fa216"
           },
           "editorMode": "builder",
-          "expr": "process_cpu_seconds_total{instance=\"host.docker.internal:5000\"}",
+          "expr": "process_cpu_seconds_total{job=\"weather_api\"}",
           "legendFormat": "__auto",
           "range": true,
           "refId": "A"
@@ -159,7 +161,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "cd77b29a-81f8-4430-ad1c-8f181f7fa216"
+        "uid": "cf7f392e-2d58-43a7-a472-47e9d3e5dd87"
       },
       "fieldConfig": {
         "defaults": {
@@ -210,7 +212,7 @@
             "uid": "cd77b29a-81f8-4430-ad1c-8f181f7fa216"
           },
           "editorMode": "builder",
-          "expr": "HybirdRedisCache_requests_queued{job=\"weather_api\"}",
+          "expr": "HybirdRedisCache_requests_queued{instance=\"host.docker.internal:5000\"}",
           "legendFormat": "__auto",
           "range": true,
           "refId": "A"
@@ -222,7 +224,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "cd77b29a-81f8-4430-ad1c-8f181f7fa216"
+        "uid": "cf7f392e-2d58-43a7-a472-47e9d3e5dd87"
       },
       "fieldConfig": {
         "defaults": {
@@ -301,7 +303,7 @@
             "type": "prometheus",
             "uid": "cd77b29a-81f8-4430-ad1c-8f181f7fa216"
           },
-          "editorMode": "code",
+          "editorMode": "builder",
           "expr": "histogram_quantile(0.99, sum by(le) (rate(HybirdRedisCache_response_latency_ms_bucket{job=\"weather_api\"}[1m])))",
           "legendFormat": "__auto",
           "range": true,
@@ -314,7 +316,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "cd77b29a-81f8-4430-ad1c-8f181f7fa216"
+        "uid": "cf7f392e-2d58-43a7-a472-47e9d3e5dd87"
       },
       "fieldConfig": {
         "defaults": {
@@ -340,7 +342,7 @@
       },
       "gridPos": {
         "h": 5,
-        "w": 6,
+        "w": 5,
         "x": 0,
         "y": 4
       },
@@ -367,7 +369,7 @@
             "uid": "cd77b29a-81f8-4430-ad1c-8f181f7fa216"
           },
           "editorMode": "builder",
-          "expr": "changes(HybirdRedisCache_requests_processed_total{job=\"weather_api\"}[1m])",
+          "expr": "changes(HybirdRedisCache_requests_processed_total{instance=\"host.docker.internal:5000\"}[1m])",
           "legendFormat": "__auto",
           "range": true,
           "refId": "A"
@@ -379,7 +381,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "cd77b29a-81f8-4430-ad1c-8f181f7fa216"
+        "uid": "cf7f392e-2d58-43a7-a472-47e9d3e5dd87"
       },
       "fieldConfig": {
         "defaults": {
@@ -396,7 +398,7 @@
               },
               {
                 "color": "red",
-                "value": 80
+                "value": 0
               }
             ]
           }
@@ -405,8 +407,8 @@
       },
       "gridPos": {
         "h": 5,
-        "w": 6,
-        "x": 6,
+        "w": 7,
+        "x": 5,
         "y": 4
       },
       "id": 6,
@@ -429,16 +431,14 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "cd77b29a-81f8-4430-ad1c-8f181f7fa216"
+            "uid": "cf7f392e-2d58-43a7-a472-47e9d3e5dd87"
           },
-          "editorMode": "code",
-          "exemplar": false,
-          "expr": "http_requests_received_total{code!=\"200\"}",
+          "editorMode": "builder",
+          "expr": "http_requests_received_total{action=\"Get\", code!=\"200\"}",
           "hide": false,
-          "instant": true,
           "legendFormat": "__auto",
-          "range": false,
-          "refId": "A"
+          "range": true,
+          "refId": "B"
         }
       ],
       "title": "Total Failed GETs ",
@@ -447,7 +447,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "cd77b29a-81f8-4430-ad1c-8f181f7fa216"
+        "uid": "cf7f392e-2d58-43a7-a472-47e9d3e5dd87"
       },
       "fieldConfig": {
         "defaults": {
@@ -527,7 +527,7 @@
             "uid": "cd77b29a-81f8-4430-ad1c-8f181f7fa216"
           },
           "editorMode": "builder",
-          "expr": "HybirdRedisCache_requests_processed_total{job=\"weather_api\"}",
+          "expr": "increase(HybirdRedisCache_requests_processed_total{job=\"weather_api\", instance=\"host.docker.internal:5000\"}[1m])",
           "legendFormat": "__auto",
           "range": true,
           "refId": "Total Requests"
@@ -539,42 +539,12 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "cd77b29a-81f8-4430-ad1c-8f181f7fa216"
+        "uid": "cf7f392e-2d58-43a7-a472-47e9d3e5dd87"
       },
       "fieldConfig": {
         "defaults": {
           "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 0,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
+            "mode": "thresholds"
           },
           "mappings": [],
           "thresholds": {
@@ -585,8 +555,12 @@
                 "value": null
               },
               {
+                "color": "#EAB839",
+                "value": 1000
+              },
+              {
                 "color": "red",
-                "value": 80
+                "value": 2000
               }
             ]
           }
@@ -601,25 +575,28 @@
       },
       "id": 10,
       "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
         },
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
-        }
+        "textMode": "auto"
       },
+      "pluginVersion": "9.5.2",
       "targets": [
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "cd77b29a-81f8-4430-ad1c-8f181f7fa216"
+            "uid": "cf7f392e-2d58-43a7-a472-47e9d3e5dd87"
           },
-          "editorMode": "builder",
-          "expr": "scrape_duration_seconds{job=\"weather_api\", instance=\"host.docker.internal:5000\"}",
+          "editorMode": "code",
+          "expr": "scrape_duration_seconds{job=\"weather_api\"}*1000\r\n",
           "hide": false,
           "legendFormat": "__auto",
           "range": true,
@@ -627,13 +604,10 @@
         }
       ],
       "title": "Duration",
-      "type": "timeseries"
+      "type": "stat"
     },
     {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "cd77b29a-81f8-4430-ad1c-8f181f7fa216"
-      },
+      "datasource": {},
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -722,10 +696,7 @@
       "type": "timeseries"
     },
     {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "cd77b29a-81f8-4430-ad1c-8f181f7fa216"
-      },
+      "datasource": {},
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -784,97 +755,6 @@
         "x": 0,
         "y": 17
       },
-      "id": 8,
-      "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "cd77b29a-81f8-4430-ad1c-8f181f7fa216"
-          },
-          "editorMode": "code",
-          "expr": "topk(5, max(scrape_duration_seconds) by (job))",
-          "legendFormat": "__auto",
-          "range": true,
-          "refId": "A"
-        }
-      ],
-      "title": "Scrape Duration",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "cd77b29a-81f8-4430-ad1c-8f181f7fa216"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 0,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green"
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 25
-      },
       "id": 5,
       "options": {
         "legend": {
@@ -921,6 +801,6 @@
   "timezone": "",
   "title": "HybridCache_LoadTest",
   "uid": "d46c67cc-48d0-480f-b252-a57014e9d93e",
-  "version": 11,
+  "version": 7,
   "weekStart": ""
 }
