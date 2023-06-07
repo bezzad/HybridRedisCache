@@ -2,7 +2,7 @@ using HybirdRedisCache.Sample.WebAPI;
 using HybridRedisCache;
 using Microsoft.OpenApi.Models;
 using Prometheus;
-using System.Net;
+using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.WebHost.ConfigureKestrel(serverOptions =>
@@ -17,6 +17,23 @@ builder.WebHost.ConfigureKestrel(serverOptions =>
 });
 
 // Add services to the container.
+
+// ---------- Add Serilog Logger -----------------------
+var outPutTemplate = "[{Timestamp:HH:mm:ss} {Level:u3} {ClientIp} {ClientAgent} {MachineName} {EnvironmentName} {CorrelationId} {GlobalLogContext} {UserName}{NewLine} {RequestPath} {Input}]{NewLine} {Message:lj}{NewLine}{Exception}";
+var logger = new LoggerConfiguration()
+    //.ReadFrom.Configuration(builder.Configuration)
+    .MinimumLevel.Debug()
+    .WriteTo.Console(outputTemplate: outPutTemplate)
+    .Enrich.FromLogContext()
+    .Enrich.WithMachineName()
+    .Enrich.WithClientIp()
+    .Enrich.WithClientAgent()
+    .Enrich.WithEnvironmentName()
+    .Enrich.WithCorrelationId()
+    .CreateLogger();
+builder.Logging.ClearProviders();
+builder.Logging.AddSerilog(logger);
+// -----------------------------------------------------
 
 builder.Services.AddScoped<LogActionFilter>();
 builder.Services.AddControllers();
@@ -54,7 +71,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseRouting();   
+app.UseRouting();
 app.UseHttpMetrics(); // Capture metrics about all received HTTP requests.
 app.UseAuthorization();
 app.UseEndpoints(endpoints =>
