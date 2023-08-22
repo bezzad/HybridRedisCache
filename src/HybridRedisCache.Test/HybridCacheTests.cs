@@ -737,4 +737,28 @@ public class HybridCacheTests : IDisposable
         Assert.Equal(value2, value2a); // read from redis
         Assert.Null(value1a); // read from redis, but also redis has been expired
     }
+
+    [Fact]
+    public async Task TestSearchPatternsWhenCacheMultipleSamenessKeys()
+    {
+        // Arrange
+        // TODO: disable local cache for this test
+        var keyPattern = "key_#";
+        var valuePattern = "value_";
+        var keys = new Dictionary<string, string>();
+        for (int i = 0; i < 1000; i++)
+        {
+            keys.Add(keyPattern + i, valuePattern + i);
+        }
+
+        // Act
+        await _cache.SetAllAsync(keys, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(1), false);
+
+        // Assert
+        for (int i = 0; i < 1000; i++)
+        {
+            var value = await _cache.GetAsync<string>(keyPattern + i);
+            Assert.Equal(valuePattern + i, value);
+        }
+    }
 }
