@@ -187,6 +187,45 @@ public class HybridCache : IHybridCache, IDisposable
     }
 
     /// <summary>
+    /// Sets a value in the cache with the specified key.
+    /// </summary>
+    /// <typeparam name="T">The type of the value to cache.</typeparam>
+    /// <param name="key">The cache key.</param>
+    /// <param name="value">The value to cache.</param>
+    /// <param name="localExpiry">The expiration time for the local cache entry. If not specified, the default local expiration time is used.</param>
+    /// <param name="redisExpiry">The expiration time for the redis cache entry. If not specified, the default distributed expiration time is used.</param>
+    /// <param name="fireAndForget">Whether to cache the value in Redis without waiting for the operation to complete.</param>
+    /// <typeparam name="T">The 1st type parameter.</typeparam>
+    public void Set<T>(string key, T value, HybridCacheEntry cacheEntry)
+    {
+        key.NotNullOrWhiteSpace(nameof(key));
+        var cacheKey = GetCacheKey(key);
+
+        try
+        {
+            //SetExpiryTimes(ref cacheEntry.LocalExpiry, ref cacheEntry.RedisExpiry);
+            if (cacheEntry.LocalCacheEnable)
+                _memoryCache.Set(cacheKey, value, cacheEntry.LocalExpiry.Value);
+
+            if (cacheEntry.RedisCacheEnable)
+                _redisDb.StringSet(cacheKey, value.Serialize(), cacheEntry.RedisExpiry.Value,
+                    flags: cacheEntry.FireAndForget ? CommandFlags.FireAndForget : CommandFlags.None);
+        }
+        catch (Exception ex)
+        {
+            LogMessage($"set cache key [{key}] error", ex);
+
+            if (_options.ThrowIfDistributedCacheError)
+            {
+                throw;
+            }
+        }
+
+        // When create/update cache, send message to bus so that other clients can remove it.
+        PublishBus(cacheKey);
+    }
+
+    /// <summary>
     /// Asynchronously sets a value in the cache with the specified key.
     /// </summary>
     /// <typeparam name="T">The type of the value to cache.</typeparam>

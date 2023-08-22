@@ -5,7 +5,9 @@ public interface IHybridCache
     bool Exists(string cacheKey);
     Task<bool> ExistsAsync(string cacheKey);
     void Set<T>(string key, T value, TimeSpan? localExpiry = null, TimeSpan? redisExpiry = null, bool fireAndForget = true);
+    void Set<T>(string key, T value, HybridCacheEntry cacheEntry);
     Task SetAsync<T>(string key, T value, TimeSpan? localExpiry = null, TimeSpan? redisExpiry = null, bool fireAndForget = true);
+    Task SetAsync<T>(string key, T value, HybridCacheEntry cacheEntry);
     void SetAll<T>(IDictionary<string, T> value, TimeSpan? localExpiry = null, TimeSpan? redisExpiry = null, bool fireAndForget = true);
     Task SetAllAsync<T>(IDictionary<string, T> value, TimeSpan? localExpiry = null, TimeSpan? redisExpiry = null, bool fireAndForget = true);
     T Get<T>(string key);
