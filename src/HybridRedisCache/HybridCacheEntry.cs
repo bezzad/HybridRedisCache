@@ -2,8 +2,8 @@
 {
     public record HybridCacheEntry
     {
-        public TimeSpan? LocalExpiry { get; }
-        public TimeSpan? RedisExpiry { get; }
+        public TimeSpan? LocalExpiry { get; set; }
+        public TimeSpan? RedisExpiry { get; set; }
         public bool FireAndForget { get; }
         public bool LocalCacheEnable { get; }
         public bool RedisCacheEnable { get; }
