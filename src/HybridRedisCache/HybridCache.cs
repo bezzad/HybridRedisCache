@@ -162,15 +162,35 @@ public class HybridCache : IHybridCache, IDisposable
     /// <typeparam name="T">The 1st type parameter.</typeparam>
     public void Set<T>(string key, T value, TimeSpan? localExpiry = null, TimeSpan? redisExpiry = null, bool fireAndForget = true)
     {
+        Set(key, value, localExpiry, redisExpiry, fireAndForget, true, true);
+    }
+
+    /// <summary>
+    /// Sets a value in the cache with the specified key.
+    /// </summary>
+    /// <typeparam name="T">The type of the value to cache.</typeparam>
+    /// <param name="key">The cache key</param>
+    /// <param name="value">The value to cache</param>
+    /// <param name="cacheEntry">Parameters of caching an entry like expiration</param>
+    /// <typeparam name="T">The 1st type parameter.</typeparam>
+    public void Set<T>(string key, T value, HybridCacheEntry cacheEntry)
+    {
+        Set(key, value, cacheEntry.LocalExpiry, cacheEntry.RedisExpiry, cacheEntry.FireAndForget, cacheEntry.LocalCacheEnable, cacheEntry.RedisCacheEnable);
+    }
+
+    private void Set<T>(string key, T value, TimeSpan? localExpiry, TimeSpan? redisExpiry, bool fireAndForget, bool localCacheEnable, bool redisCacheEnable)
+    {
         key.NotNullOrWhiteSpace(nameof(key));
         SetExpiryTimes(ref localExpiry, ref redisExpiry);
         var cacheKey = GetCacheKey(key);
-        _memoryCache.Set(cacheKey, value, localExpiry.Value);
+        if (localCacheEnable)
+            _memoryCache.Set(cacheKey, value, localExpiry.Value);
 
         try
         {
-            _redisDb.StringSet(cacheKey, value.Serialize(), redisExpiry.Value,
-                    flags: fireAndForget ? CommandFlags.FireAndForget : CommandFlags.None);
+            if (redisCacheEnable)
+                _redisDb.StringSet(cacheKey, value.Serialize(), redisExpiry.Value,
+                        flags: fireAndForget ? CommandFlags.FireAndForget : CommandFlags.None);
         }
         catch (Exception ex)
         {
@@ -197,17 +217,38 @@ public class HybridCache : IHybridCache, IDisposable
     /// <param name="fireAndForget">Whether to cach1e the value in Redis without waiting for the operation to complete.</param>
     /// <typeparam name="T">The 1st type parameter.</typeparam>
     /// <returns>A task that represents the asynchronous operation.</returns>
-    public async Task SetAsync<T>(string key, T value, TimeSpan? localExpiry = null, TimeSpan? redisExpiry = null, bool fireAndForget = true)
+    public Task SetAsync<T>(string key, T value, TimeSpan? localExpiry = null, TimeSpan? redisExpiry = null, bool fireAndForget = true)
+    {
+        return SetAsync(key, value, localExpiry, redisExpiry, fireAndForget, true, true);
+    }
+
+    /// <summary>
+    /// Asynchronously sets a value in the cache with the specified key.
+    /// </summary>
+    /// <typeparam name="T">The type of the value to cache.</typeparam>
+    /// <param name="key">The cache key.</param>
+    /// <param name="value">The value to cache.</param>
+    /// <param name="cacheEntry">Parameters of caching an entry like expiration</param>
+    /// <typeparam name="T">The 1st type parameter.</typeparam>
+    /// <returns>A task that represents the asynchronous operation.</returns>
+    public Task SetAsync<T>(string key, T value, HybridCacheEntry cacheEntry)
+    {
+        return SetAsync(key, value, cacheEntry.LocalExpiry, cacheEntry.RedisExpiry, cacheEntry.FireAndForget, cacheEntry.LocalCacheEnable, cacheEntry.RedisCacheEnable);
+    }
+
+    private async Task SetAsync<T>(string key, T value, TimeSpan? localExpiry, TimeSpan? redisExpiry, bool fireAndForget, bool localCacheEnable, bool redisCacheEnable)
     {
         key.NotNullOrWhiteSpace(nameof(key));
         SetExpiryTimes(ref localExpiry, ref redisExpiry);
         var cacheKey = GetCacheKey(key);
-        _memoryCache.Set(cacheKey, value, localExpiry.Value);
+        if (localCacheEnable)
+            _memoryCache.Set(cacheKey, value, localExpiry.Value);
 
         try
         {
-            await _redisDb.StringSetAsync(cacheKey, value.Serialize(), redisExpiry.Value,
-                    flags: fireAndForget ? CommandFlags.FireAndForget : CommandFlags.None).ConfigureAwait(false);
+            if (redisCacheEnable)
+                await _redisDb.StringSetAsync(cacheKey, value.Serialize(), redisExpiry.Value,
+                        flags: fireAndForget ? CommandFlags.FireAndForget : CommandFlags.None).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -234,18 +275,37 @@ public class HybridCache : IHybridCache, IDisposable
     /// <typeparam name="T">The 1st type parameter.</typeparam>
     public void SetAll<T>(IDictionary<string, T> value, TimeSpan? localExpiry = null, TimeSpan? redisExpiry = null, bool fireAndForget = true)
     {
+        SetAll(value, localExpiry, redisExpiry, fireAndForget, true, true);
+    }
+
+    /// <summary>
+    /// Sets all.
+    /// </summary>
+    /// <returns>The all async.</returns>
+    /// <param name="value">Value.</param>
+    /// <param name="cacheEntry">Parameters of caching an entry like expiration</param>
+    /// <typeparam name="T">The 1st type parameter.</typeparam>
+    public void SetAll<T>(IDictionary<string, T> value, HybridCacheEntry cacheEntry)
+    {
+        SetAll(value, cacheEntry.LocalExpiry, cacheEntry.RedisExpiry, cacheEntry.FireAndForget, cacheEntry.LocalCacheEnable, cacheEntry.RedisCacheEnable);
+    }
+
+    private void SetAll<T>(IDictionary<string, T> value, TimeSpan? localExpiry, TimeSpan? redisExpiry, bool fireAndForget, bool localCacheEnable, bool redisCacheEnable)
+    {
         value.NotNullAndCountGTZero(nameof(value));
         SetExpiryTimes(ref localExpiry, ref redisExpiry);
 
         foreach (var kvp in value)
         {
             var cacheKey = GetCacheKey(kvp.Key);
-            _memoryCache.Set(cacheKey, kvp.Value, localExpiry.Value);
+            if (localCacheEnable)
+                _memoryCache.Set(cacheKey, kvp.Value, localExpiry.Value);
 
             try
             {
-                _redisDb.StringSet(cacheKey, kvp.Value.Serialize(), redisExpiry.Value,
-                     flags: fireAndForget ? CommandFlags.FireAndForget : CommandFlags.None);
+                if (redisCacheEnable)
+                    _redisDb.StringSet(cacheKey, kvp.Value.Serialize(), redisExpiry.Value,
+                         flags: fireAndForget ? CommandFlags.FireAndForget : CommandFlags.None);
             }
             catch (Exception ex)
             {
@@ -270,7 +330,24 @@ public class HybridCache : IHybridCache, IDisposable
     /// <param name="localExpiry">The expiration time for the local cache entry. If not specified, the default local expiration time is used.</param>
     /// <param name="redisExpiry">The expiration time for the redis cache entry. If not specified, the default distributed expiration time is used.</param>
     /// <typeparam name="T">The 1st type parameter.</typeparam>
-    public async Task SetAllAsync<T>(IDictionary<string, T> value, TimeSpan? localExpiry = null, TimeSpan? redisExpiry = null, bool fireAndForget = true)
+    public Task SetAllAsync<T>(IDictionary<string, T> value, TimeSpan? localExpiry = null, TimeSpan? redisExpiry = null, bool fireAndForget = true)
+    {
+        return SetAllAsync(value, localExpiry, redisExpiry, fireAndForget, true, true);
+    }
+
+    /// <summary>
+    /// Sets all.
+    /// </summary>
+    /// <returns>The all async.</returns>
+    /// <param name="value">Value.</param>
+    /// <param name="cacheEntry">Parameters of caching an entry like expiration</param>
+    /// <typeparam name="T">The 1st type parameter.</typeparam>
+    public Task SetAllAsync<T>(IDictionary<string, T> value, HybridCacheEntry cacheEntry)
+    {
+        return SetAllAsync(value, cacheEntry.LocalExpiry, cacheEntry.RedisExpiry, cacheEntry.FireAndForget, cacheEntry.LocalCacheEnable, cacheEntry.RedisCacheEnable);
+    }
+
+    private async Task SetAllAsync<T>(IDictionary<string, T> value, TimeSpan? localExpiry, TimeSpan? redisExpiry, bool fireAndForget, bool localCacheEnable, bool redisCacheEnable)
     {
         value.NotNullAndCountGTZero(nameof(value));
         SetExpiryTimes(ref localExpiry, ref redisExpiry);
@@ -414,7 +491,7 @@ public class HybridCache : IHybridCache, IDisposable
     {
         key.NotNullOrWhiteSpace(nameof(key));
         var cacheKey = GetCacheKey(key);
-        if(_memoryCache.TryGetValue(cacheKey, out T value))
+        if (_memoryCache.TryGetValue(cacheKey, out T value))
         {
             return value;
         }
