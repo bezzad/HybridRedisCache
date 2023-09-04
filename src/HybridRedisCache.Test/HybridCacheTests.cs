@@ -742,17 +742,20 @@ public class HybridCacheTests : IDisposable
     public async Task TestSearchPatternsWhenCacheMultipleSamenessKeys()
     {
         // Arrange
-        // TODO: disable local cache for this test
         var keyPattern = "key_#";
         var valuePattern = "value_";
-        var keys = new Dictionary<string, string>();
+        var keyValues = new Dictionary<string, string>();
         for (int i = 0; i < 1000; i++)
         {
-            keys.Add(keyPattern + i, valuePattern + i);
+            keyValues.Add(keyPattern + i, valuePattern + i);
         }
 
         // Act
-        await _cache.SetAllAsync(keys, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(1), false);
+        await _cache.SetAllAsync(keyValues, new HybridCacheEntry()
+        {
+            RedisExpiry = TimeSpan.FromMinutes(1),
+            FireAndForget = false
+        });
 
         // Assert
         for (int i = 0; i < 1000; i++)
@@ -761,4 +764,10 @@ public class HybridCacheTests : IDisposable
             Assert.Equal(valuePattern + i, value);
         }
     }
+
+    // TODO: Test LocalCacheEnable=false
+    // TODO: Test RedisCacheEnable=false
+    // TODO: Add Search Pattern
+    // TODO: Delete with Search Pattern key_*
+
 }

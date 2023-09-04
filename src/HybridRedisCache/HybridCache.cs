@@ -330,7 +330,24 @@ public class HybridCache : IHybridCache, IDisposable
     /// <param name="localExpiry">The expiration time for the local cache entry. If not specified, the default local expiration time is used.</param>
     /// <param name="redisExpiry">The expiration time for the redis cache entry. If not specified, the default distributed expiration time is used.</param>
     /// <typeparam name="T">The 1st type parameter.</typeparam>
-    public async Task SetAllAsync<T>(IDictionary<string, T> value, TimeSpan? localExpiry = null, TimeSpan? redisExpiry = null, bool fireAndForget = true)
+    public Task SetAllAsync<T>(IDictionary<string, T> value, TimeSpan? localExpiry = null, TimeSpan? redisExpiry = null, bool fireAndForget = true)
+    {
+        return SetAllAsync(value, localExpiry, redisExpiry, fireAndForget, true, true);
+    }
+
+    /// <summary>
+    /// Sets all.
+    /// </summary>
+    /// <returns>The all async.</returns>
+    /// <param name="value">Value.</param>
+    /// <param name="cacheEntry">Parameters of caching an entry like expiration</param>
+    /// <typeparam name="T">The 1st type parameter.</typeparam>
+    public Task SetAllAsync<T>(IDictionary<string, T> value, HybridCacheEntry cacheEntry)
+    {
+        return SetAllAsync(value, cacheEntry.LocalExpiry, cacheEntry.RedisExpiry, cacheEntry.FireAndForget, cacheEntry.LocalCacheEnable, cacheEntry.RedisCacheEnable);
+    }
+
+    private async Task SetAllAsync<T>(IDictionary<string, T> value, TimeSpan? localExpiry, TimeSpan? redisExpiry, bool fireAndForget, bool localCacheEnable, bool redisCacheEnable)
     {
         value.NotNullAndCountGTZero(nameof(value));
         SetExpiryTimes(ref localExpiry, ref redisExpiry);
