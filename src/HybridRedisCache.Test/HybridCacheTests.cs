@@ -754,7 +754,8 @@ public class HybridCacheTests : IDisposable
         await _cache.SetAllAsync(keyValues, new HybridCacheEntry()
         {
             RedisExpiry = TimeSpan.FromMinutes(1),
-            FireAndForget = false
+            FireAndForget = false,
+            LocalCacheEnable = false
         });
 
         // Assert
@@ -765,8 +766,42 @@ public class HybridCacheTests : IDisposable
         }
     }
 
-    // TODO: Test LocalCacheEnable=false
-    // TODO: Test RedisCacheEnable=false
+    [Fact]
+    public async Task TestCacheOnRedisOnly()
+    {
+        // Arrange
+        var key = uniqueKey;
+        var localValue = "test_local_value";
+        var redisValue = "test_redis_value";
+
+        // Act
+        await _cache.SetAsync(key, localValue, new HybridCacheEntry()
+        {
+            RedisExpiry = TimeSpan.FromMinutes(1),
+            LocalExpiry = TimeSpan.FromMilliseconds(500),
+            FireAndForget = false,
+            LocalCacheEnable = true,
+            RedisCacheEnable = false
+        });
+
+        await _cache.SetAsync(key, redisValue, new HybridCacheEntry()
+        {
+            RedisExpiry = TimeSpan.FromMinutes(1),
+            LocalExpiry = TimeSpan.FromMinutes(1),
+            FireAndForget = false,
+            LocalCacheEnable = false,
+            RedisCacheEnable = true
+        });
+
+        var local = await _cache.GetAsync<object>(key); // get local value
+        await Task.Delay(500);                          // wait to expire local cache
+        var redis = await _cache.GetAsync<object>(key); // Now, get Redis cache
+
+        // Assert
+        Assert.Equal(localValue, local);
+        Assert.Equal(redisValue, redis);
+    }
+
     // TODO: Add Search Pattern
     // TODO: Delete with Search Pattern key_*
 
