@@ -664,6 +664,8 @@ public class HybridCache : IHybridCache, IDisposable
     public async Task RemoveAsync(params string[] keys)
     {
         keys.NotNullAndCountGTZero(nameof(keys));
+
+        // TODO: search keys with pattern *
         var cacheKeys = Array.ConvertAll(keys, GetCacheKey);
         try
         {

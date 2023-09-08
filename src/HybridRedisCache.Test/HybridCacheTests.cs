@@ -802,7 +802,32 @@ public class HybridCacheTests : IDisposable
         Assert.Equal(redisValue, redis);
     }
 
-    // TODO: Add Search Pattern
-    // TODO: Delete with Search Pattern key_*
+    [Fact]
+    public async Task TestDeleteWithSearchPattern()
+    {
+        // Arrange 
+        var key = "key_";
+        var keyPattern = key + "*";
+        var value = "test_value";
+
+        // Act
+        for (var i = 0; i < 10; i++)
+        {
+            await _cache.SetAsync(key + i, value, new HybridCacheEntry()
+            {
+                FireAndForget = false,
+                LocalCacheEnable = false,
+                RedisCacheEnable = true
+            });
+        }
+        await _cache.RemoveAsync(keyPattern);
+
+        // Assert
+        for (var i = 0; i < 10; i++)
+        {
+            var result = await _cache.GetAsync<string>(key + i);
+            Assert.Null(result);
+        }
+    }
 
 }
