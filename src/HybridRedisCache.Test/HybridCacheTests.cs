@@ -803,6 +803,36 @@ public class HybridCacheTests : IDisposable
     }
 
     [Fact]
+    public async Task TestSearchKeysWithPattern()
+    {
+        // Arraneg
+        var keyPattern = "keyPatternX_";
+        var value = "test_value";
+        var foundKeys = new List<string>();
+
+        // Act
+        for (var i = 0; i < 10; i++)
+        {
+            await _cache.SetAsync(keyPattern + i, value, new HybridCacheEntry()
+            {
+                FireAndForget = false,
+                LocalCacheEnable = false,
+                RedisCacheEnable = true
+            });
+        }
+        await foreach (var key in _cache.KeysAsync(keyPattern + "*"))
+        {
+            // Search with pattern
+            foundKeys.Add(key);
+        }
+
+        // Assert
+        Assert.Equal(10, foundKeys.Count);
+        for (var i = 0; i < 10; i++)
+            Assert.True(foundKeys.BinarySearch(keyPattern + i) >= 0);
+    }
+
+    [Fact]
     public async Task TestDeleteWithSearchPattern()
     {
         // Arrange 

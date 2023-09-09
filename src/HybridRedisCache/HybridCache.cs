@@ -795,10 +795,27 @@ public class HybridCache : IHybridCache, IDisposable
         }
     }
 
+    public async IAsyncEnumerable<string> KeysAsync(string pattern)
+    {
+        var servers = GetServers();
+        foreach (var server in servers)
+        {
+            await foreach (var key in server.KeysAsync(pattern: pattern))
+            {
+                yield return key;
+            }
+        }
+    }
+
     private void SetExpiryTimes(ref TimeSpan? localExpiry, ref TimeSpan? redisExpiry)
     {
         localExpiry ??= _options.DefaultLocalExpirationTime;
         redisExpiry ??= _options.DefaultDistributedExpirationTime;
+    }
+
+    private IServer[] GetServers()
+    {
+        return _redisDb.Multiplexer.GetServers();
     }
 
     /// <summary>
