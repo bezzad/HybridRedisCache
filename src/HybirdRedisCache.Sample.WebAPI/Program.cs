@@ -27,7 +27,7 @@ var logger = new LoggerConfiguration()
     .Enrich.FromLogContext()
     .Enrich.WithMachineName()
     .Enrich.WithClientIp()
-    .Enrich.WithClientAgent()
+    .Enrich.WithRequestHeader("User-Agent")
     .Enrich.WithEnvironmentName()
     .Enrich.WithCorrelationId()
     .CreateLogger();

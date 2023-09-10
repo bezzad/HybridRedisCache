@@ -50,7 +50,7 @@ public class HybridCache : IHybridCache, IDisposable
         _logger = loggerFactory?.CreateLogger(nameof(HybridCache));
 
         // Subscribe to Redis key-space events to invalidate cache entries on all instances
-        _redisSubscriber.Subscribe(InvalidationChannel, OnMessage, CommandFlags.FireAndForget);
+        _redisSubscriber.Subscribe(new RedisChannel(InvalidationChannel, RedisChannel.PatternMode.Literal), OnMessage, CommandFlags.FireAndForget);
         redis.ConnectionRestored += OnReconnect;
     }
 
