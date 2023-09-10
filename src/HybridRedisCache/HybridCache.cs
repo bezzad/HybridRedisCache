@@ -2,6 +2,7 @@
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
+using System.Runtime.CompilerServices;
 
 namespace HybridRedisCache;
 
@@ -795,13 +796,19 @@ public class HybridCache : IHybridCache, IDisposable
         }
     }
 
-    public async IAsyncEnumerable<string> KeysAsync(string pattern)
+    public async IAsyncEnumerable<string> KeysAsync(string pattern, [EnumeratorCancellation] CancellationToken token = default)
     {
         var servers = GetServers();
         foreach (var server in servers)
         {
+            if (token.IsCancellationRequested)
+                break;
+
             await foreach (var key in server.KeysAsync(pattern: pattern))
             {
+                if (token.IsCancellationRequested)
+                    break;
+
                 yield return key;
             }
         }

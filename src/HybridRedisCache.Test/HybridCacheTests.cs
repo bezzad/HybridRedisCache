@@ -820,7 +820,7 @@ public class HybridCacheTests : IDisposable
                 RedisCacheEnable = true
             });
         }
-        await foreach (var key in _cache.KeysAsync(keyPattern + "*"))
+        await foreach (var key in _cache.KeysAsync("*" + keyPattern + "*"))
         {
             // Search with pattern
             foundKeys.Add(key);
@@ -829,7 +829,7 @@ public class HybridCacheTests : IDisposable
         // Assert
         Assert.Equal(10, foundKeys.Count);
         for (var i = 0; i < 10; i++)
-            Assert.True(foundKeys.BinarySearch(keyPattern + i) >= 0);
+            Assert.True(foundKeys.IndexOf(_options.InstancesSharedName + ":" + keyPattern + i) >= 0);
     }
 
     [Fact]
