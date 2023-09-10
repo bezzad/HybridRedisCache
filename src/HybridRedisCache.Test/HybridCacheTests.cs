@@ -608,7 +608,7 @@ public class HybridCacheTests : IDisposable
         _cache.Set(key2, value2);
 
         // Act
-        _cache.Remove(key1, key2);
+        _cache.Remove(new[] { key1, key2 });
 
         // Assert
         Assert.Null(_cache.Get<string>(key1));
@@ -629,7 +629,7 @@ public class HybridCacheTests : IDisposable
 
 
         // Act
-        await _cache.RemoveAsync(key1, key2);
+        await _cache.RemoveAsync(new[] { key1, key2 });
 
         // Assert
         Assert.Null(_cache.Get<string>(key1));
@@ -843,7 +843,7 @@ public class HybridCacheTests : IDisposable
         // Act
         for (var i = 0; i < 10; i++)
         {
-            await _cache.SetAsync(string.Format(keyPattern, i), value, new HybridCacheEntry() 
+            await _cache.SetAsync(string.Format(keyPattern, i), value, new HybridCacheEntry()
             {
                 FireAndForget = false,
                 LocalCacheEnable = false,

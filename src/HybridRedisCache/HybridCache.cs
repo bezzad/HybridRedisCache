@@ -190,8 +190,7 @@ public class HybridCache : IHybridCache, IDisposable
         try
         {
             if (redisCacheEnable)
-                _redisDb.StringSet(cacheKey, value.Serialize(), redisExpiry.Value,
-                        flags: fireAndForget ? CommandFlags.FireAndForget : CommandFlags.None);
+                _redisDb.StringSet(cacheKey, value.Serialize(), redisExpiry.Value, flags: GetCommandFlags(fireAndForget));
         }
         catch (Exception ex)
         {
@@ -249,7 +248,7 @@ public class HybridCache : IHybridCache, IDisposable
         {
             if (redisCacheEnable)
                 await _redisDb.StringSetAsync(cacheKey, value.Serialize(), redisExpiry.Value,
-                        flags: fireAndForget ? CommandFlags.FireAndForget : CommandFlags.None).ConfigureAwait(false);
+                        flags: GetCommandFlags(fireAndForget)).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -306,7 +305,7 @@ public class HybridCache : IHybridCache, IDisposable
             {
                 if (redisCacheEnable)
                     _redisDb.StringSet(cacheKey, kvp.Value.Serialize(), redisExpiry.Value,
-                         flags: fireAndForget ? CommandFlags.FireAndForget : CommandFlags.None);
+                         flags: GetCommandFlags(fireAndForget));
             }
             catch (Exception ex)
             {
@@ -361,7 +360,7 @@ public class HybridCache : IHybridCache, IDisposable
             try
             {
                 await _redisDb.StringSetAsync(cacheKey, kvp.Value.Serialize(), redisExpiry.Value,
-                     flags: fireAndForget ? CommandFlags.FireAndForget : CommandFlags.None).ConfigureAwait(false);
+                     flags: GetCommandFlags(fireAndForget)).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -631,15 +630,27 @@ public class HybridCache : IHybridCache, IDisposable
     /// <summary>
     /// Removes a cached value with the specified key.
     /// </summary>
-    /// <param name="key">The cache key.</param>
-    public void Remove(params string[] keys)
+    /// <param name="key">The cache key to remove.</param>
+    /// /// <param name="fireAndForget">Whether to cache the value in Redis without waiting for the operation to complete.</param>
+    public void Remove(string key, bool fireAndForget = false)
+    {
+        Remove(new[] { key }, fireAndForget);
+    }
+
+    /// <summary>
+    /// Removes a cached value with the specified key.
+    /// </summary>
+    /// <param name="keys">Cache keys to remove.</param>
+    /// /// <param name="fireAndForget">Whether to cache the value in Redis without waiting for the operation to complete.</param>
+    public void Remove(string[] keys, bool fireAndForget = false)
     {
         keys.NotNullAndCountGTZero(nameof(keys));
         var cacheKeys = Array.ConvertAll(keys, GetCacheKey);
         try
         {
             // distributed cache at first
-            _redisDb.KeyDelete(Array.ConvertAll(cacheKeys, x => (RedisKey)x));
+            _redisDb.KeyDelete(Array.ConvertAll(cacheKeys, x => (RedisKey)x),
+                flags: GetCommandFlags(fireAndForget));
         }
         catch (Exception ex)
         {
@@ -657,19 +668,26 @@ public class HybridCache : IHybridCache, IDisposable
         PublishBus(cacheKeys);
     }
 
+    public Task RemoveAsync(string key, bool fireAndForget = false)
+    {
+        return RemoveAsync(new[] { key }, fireAndForget);
+    }
+
     /// <summary>
     /// Asynchronously removes a cached value with the specified key.
     /// </summary>
-    /// <param name="keys">The cache key.</param>
+    /// <param name="keys">cache keys</param>
+    /// <param name="fireAndForget">Whether to cache the value in Redis without waiting for the operation to complete.</param>
     /// <returns>A task that represents the asynchronous operation.</returns>
-    public async Task RemoveAsync(params string[] keys)
+    public async Task RemoveAsync(string[] keys, bool fireAndForget = false)
     {
         keys.NotNullAndCountGTZero(nameof(keys));
         var cacheKeys = Array.ConvertAll(keys, GetCacheKey);
         try
         {
             // distributed cache at first
-            await _redisDb.KeyDeleteAsync(Array.ConvertAll(cacheKeys, x => (RedisKey)x)).ConfigureAwait(false);
+            await _redisDb.KeyDeleteAsync(Array.ConvertAll(cacheKeys, x => (RedisKey)x),
+                flags: GetCommandFlags(fireAndForget)).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -691,8 +709,9 @@ public class HybridCache : IHybridCache, IDisposable
     /// Asynchronously removes a cached value with a key pattern.
     /// </summary>
     /// <param name="keys">The cache key pattern. <example>"test_keys_*"</example></param>
+    /// /// <param name="fireAndForget">Whether to cache the value in Redis without waiting for the operation to complete.</param>
     /// <returns>Get all removed keys</returns>
-    public async Task<string[]> RemoveWithPatternAsync(string pattern, CancellationToken token = default)
+    public async Task<string[]> RemoveWithPatternAsync(string pattern, bool fireAndForget = false, CancellationToken token = default)
     {
         pattern.NotNullAndCountGTZero(nameof(pattern));
         var removedKeys = new List<string>();
@@ -702,7 +721,7 @@ public class HybridCache : IHybridCache, IDisposable
 
         try
         {
-            await foreach (var key in KeysAsync(keyPattern, token).ConfigureAwait(false))
+            await foreach (var key in GetKeysAsync(keyPattern, token).ConfigureAwait(false))
             {
                 if (token.IsCancellationRequested)
                     break;
@@ -839,7 +858,21 @@ public class HybridCache : IHybridCache, IDisposable
         }
     }
 
+    /// <summary>
+    /// Search all servers to find all keys which match with the pattern
+    /// </summary>
+    /// <param name="pattern">pattern to search keys</param>
+    /// <param name="token">cancellation token</param>
+    /// <returns>Enumerable of Redis keys</returns>
     public async IAsyncEnumerable<string> KeysAsync(string pattern, [EnumeratorCancellation] CancellationToken token = default)
+    {
+        await foreach (var key in GetKeysAsync(pattern, token).ConfigureAwait(false))
+        {
+            yield return key;
+        }
+    }
+
+    private async IAsyncEnumerable<RedisKey> GetKeysAsync(string pattern, [EnumeratorCancellation] CancellationToken token = default)
     {
         var servers = GetServers();
         foreach (var server in servers)
@@ -896,6 +929,11 @@ public class HybridCache : IHybridCache, IDisposable
                 _logger.LogError(ex, message);
             }
         }
+    }
+
+    private CommandFlags GetCommandFlags(bool fireAndForget)
+    {
+        return fireAndForget ? CommandFlags.FireAndForget : CommandFlags.None;
     }
 
     public void Dispose()

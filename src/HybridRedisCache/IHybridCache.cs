@@ -17,9 +17,18 @@ public interface IHybridCache
     Task<T> GetAsync<T>(string key);
     Task<T> GetAsync<T>(string cacheKey, Func<string, Task<T>> dataRetriever, TimeSpan? localExpiry = null, TimeSpan? redisExpiry = null, bool fireAndForget = true);
     bool TryGetValue<T>(string key, out T value);
-    void Remove(params string[] keys);
-    Task RemoveAsync(params string[] keys);
-    Task<string[]> RemoveWithPatternAsync(string pattern, CancellationToken token = default);
+    void Remove(string[] keys, bool fireAndForget = false);
+    void Remove(string key, bool fireAndForget = false);
+    Task RemoveAsync(string[] keys, bool fireAndForget = false);
+
+    /// <summary>
+    /// Asynchronously removes a cached value with the specified key.
+    /// </summary>
+    /// <param name="key">The cache key</param>
+    /// <param name="fireAndForget">Whether to cache the value in Redis without waiting for the operation to complete.</param>
+    /// <returns>A task that represents the asynchronous operation.</returns>
+    Task RemoveAsync(string key, bool fireAndForget = false);
+    Task<string[]> RemoveWithPatternAsync(string pattern, bool fireAndForget = false, CancellationToken token = default);
     TimeSpan GetExpiration(string cacheKey);
     Task<TimeSpan> GetExpirationAsync(string cacheKey);
     IAsyncEnumerable<string> KeysAsync(string pattern, CancellationToken token = default);
