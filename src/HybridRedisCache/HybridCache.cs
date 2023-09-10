@@ -94,11 +94,6 @@ public class HybridCache : IHybridCache, IDisposable
         }
     }
 
-    /// <summary>
-    /// Exists the specified Key in cache
-    /// </summary>
-    /// <returns>The exists</returns>
-    /// <param name="cacheKey">Cache key</param>
     public bool Exists(string key)
     {
         key.NotNullOrWhiteSpace(nameof(key));
@@ -122,12 +117,6 @@ public class HybridCache : IHybridCache, IDisposable
         return _memoryCache.TryGetValue(cacheKey, out var _);
     }
 
-    /// <summary>
-    /// Exists the specified cacheKey async.
-    /// </summary>
-    /// <returns>The async.</returns>
-    /// <param name="cacheKey">Cache key.</param>
-    /// <param name="cancellationToken">CancellationToken</param>
     public async Task<bool> ExistsAsync(string key)
     {
         key.NotNullOrWhiteSpace(nameof(key));
@@ -151,29 +140,11 @@ public class HybridCache : IHybridCache, IDisposable
         return _memoryCache.TryGetValue(cacheKey, out var _);
     }
 
-    /// <summary>
-    /// Sets a value in the cache with the specified key.
-    /// </summary>
-    /// <typeparam name="T">The type of the value to cache.</typeparam>
-    /// <param name="key">The cache key.</param>
-    /// <param name="value">The value to cache.</param>
-    /// <param name="localExpiry">The expiration time for the local cache entry. If not specified, the default local expiration time is used.</param>
-    /// <param name="redisExpiry">The expiration time for the redis cache entry. If not specified, the default distributed expiration time is used.</param>
-    /// <param name="fireAndForget">Whether to cache the value in Redis without waiting for the operation to complete.</param>
-    /// <typeparam name="T">The 1st type parameter.</typeparam>
     public void Set<T>(string key, T value, TimeSpan? localExpiry = null, TimeSpan? redisExpiry = null, bool fireAndForget = true)
     {
         Set(key, value, localExpiry, redisExpiry, fireAndForget, true, true);
     }
 
-    /// <summary>
-    /// Sets a value in the cache with the specified key.
-    /// </summary>
-    /// <typeparam name="T">The type of the value to cache.</typeparam>
-    /// <param name="key">The cache key</param>
-    /// <param name="value">The value to cache</param>
-    /// <param name="cacheEntry">Parameters of caching an entry like expiration</param>
-    /// <typeparam name="T">The 1st type parameter.</typeparam>
     public void Set<T>(string key, T value, HybridCacheEntry cacheEntry)
     {
         Set(key, value, cacheEntry.LocalExpiry, cacheEntry.RedisExpiry, cacheEntry.FireAndForget, cacheEntry.LocalCacheEnable, cacheEntry.RedisCacheEnable);
@@ -206,31 +177,11 @@ public class HybridCache : IHybridCache, IDisposable
         PublishBus(cacheKey);
     }
 
-    /// <summary>
-    /// Asynchronously sets a value in the cache with the specified key.
-    /// </summary>
-    /// <typeparam name="T">The type of the value to cache.</typeparam>
-    /// <param name="key">The cache key.</param>
-    /// <param name="value">The value to cache.</param>
-    /// <param name="localExpiry">The expiration time for the local cache entry. If not specified, the default local expiration time is used.</param>
-    /// <param name="redisExpiry">The expiration time for the redis cache entry. If not specified, the default distributed expiration time is used.</param>
-    /// <param name="fireAndForget">Whether to cach1e the value in Redis without waiting for the operation to complete.</param>
-    /// <typeparam name="T">The 1st type parameter.</typeparam>
-    /// <returns>A task that represents the asynchronous operation.</returns>
     public Task SetAsync<T>(string key, T value, TimeSpan? localExpiry = null, TimeSpan? redisExpiry = null, bool fireAndForget = true)
     {
         return SetAsync(key, value, localExpiry, redisExpiry, fireAndForget, true, true);
     }
 
-    /// <summary>
-    /// Asynchronously sets a value in the cache with the specified key.
-    /// </summary>
-    /// <typeparam name="T">The type of the value to cache.</typeparam>
-    /// <param name="key">The cache key.</param>
-    /// <param name="value">The value to cache.</param>
-    /// <param name="cacheEntry">Parameters of caching an entry like expiration</param>
-    /// <typeparam name="T">The 1st type parameter.</typeparam>
-    /// <returns>A task that represents the asynchronous operation.</returns>
     public Task SetAsync<T>(string key, T value, HybridCacheEntry cacheEntry)
     {
         return SetAsync(key, value, cacheEntry.LocalExpiry, cacheEntry.RedisExpiry, cacheEntry.FireAndForget, cacheEntry.LocalCacheEnable, cacheEntry.RedisCacheEnable);
@@ -264,27 +215,11 @@ public class HybridCache : IHybridCache, IDisposable
         await PublishBusAsync(cacheKey).ConfigureAwait(false);
     }
 
-    /// <summary>
-    /// Sets all.
-    /// </summary>
-    /// <returns>The all async.</returns>
-    /// <param name="value">Value.</param>
-    /// <param name="localExpiry">The expiration time for the local cache entry. If not specified, the default local expiration time is used.</param>
-    /// <param name="redisExpiry">The expiration time for the redis cache entry. If not specified, the default distributed expiration time is used.</param>
-    /// <param name="fireAndForget">Whether to cache the value in Redis without waiting for the operation to complete.</param>
-    /// <typeparam name="T">The 1st type parameter.</typeparam>
     public void SetAll<T>(IDictionary<string, T> value, TimeSpan? localExpiry = null, TimeSpan? redisExpiry = null, bool fireAndForget = true)
     {
         SetAll(value, localExpiry, redisExpiry, fireAndForget, true, true);
     }
 
-    /// <summary>
-    /// Sets all.
-    /// </summary>
-    /// <returns>The all async.</returns>
-    /// <param name="value">Value.</param>
-    /// <param name="cacheEntry">Parameters of caching an entry like expiration</param>
-    /// <typeparam name="T">The 1st type parameter.</typeparam>
     public void SetAll<T>(IDictionary<string, T> value, HybridCacheEntry cacheEntry)
     {
         SetAll(value, cacheEntry.LocalExpiry, cacheEntry.RedisExpiry, cacheEntry.FireAndForget, cacheEntry.LocalCacheEnable, cacheEntry.RedisCacheEnable);
@@ -322,26 +257,11 @@ public class HybridCache : IHybridCache, IDisposable
         PublishBus(value.Keys.ToArray());
     }
 
-    /// <summary>
-    /// Sets all async.
-    /// </summary>
-    /// <returns>The all async.</returns>
-    /// <param name="value">Value.</param>
-    /// <param name="localExpiry">The expiration time for the local cache entry. If not specified, the default local expiration time is used.</param>
-    /// <param name="redisExpiry">The expiration time for the redis cache entry. If not specified, the default distributed expiration time is used.</param>
-    /// <typeparam name="T">The 1st type parameter.</typeparam>
     public Task SetAllAsync<T>(IDictionary<string, T> value, TimeSpan? localExpiry = null, TimeSpan? redisExpiry = null, bool fireAndForget = true)
     {
         return SetAllAsync(value, localExpiry, redisExpiry, fireAndForget, true, true);
     }
 
-    /// <summary>
-    /// Sets all.
-    /// </summary>
-    /// <returns>The all async.</returns>
-    /// <param name="value">Value.</param>
-    /// <param name="cacheEntry">Parameters of caching an entry like expiration</param>
-    /// <typeparam name="T">The 1st type parameter.</typeparam>
     public Task SetAllAsync<T>(IDictionary<string, T> value, HybridCacheEntry cacheEntry)
     {
         return SetAllAsync(value, cacheEntry.LocalExpiry, cacheEntry.RedisExpiry, cacheEntry.FireAndForget, cacheEntry.LocalCacheEnable, cacheEntry.RedisCacheEnable);
@@ -377,12 +297,6 @@ public class HybridCache : IHybridCache, IDisposable
         await PublishBusAsync(value.Keys.ToArray());
     }
 
-    /// <summary>
-    /// Gets a cached value with the specified key.
-    /// </summary>
-    /// <typeparam name="T">The type of the cached value.</typeparam>
-    /// <param name="key">The cache key.</param>
-    /// <returns>The cached value, or null if the key is not found in the cache.</returns>
     public T Get<T>(string key)
     {
         key.NotNullOrWhiteSpace(nameof(key));
@@ -418,16 +332,6 @@ public class HybridCache : IHybridCache, IDisposable
         return value;
     }
 
-    /// <summary>
-    /// Get the specified cacheKey, dataRetriever and expiration.
-    /// </summary>
-    /// <returns>The get.</returns>
-    /// <param name="key">Cache key.</param>
-    /// <param name="dataRetriever">Data retriever.</param>
-    /// <param name="localExpiry">The expiration time for the local cache entry. If not specified, the default local expiration time is used.</param>
-    /// <param name="redisExpiry">The expiration time for the redis cache entry. If not specified, the default distributed expiration time is used.</param>
-    /// <param name="fireAndForget">Whether to cache the value in Redis without waiting for the operation to complete.</param>
-    /// <typeparam name="T">The 1st type parameter.</typeparam>
     public T Get<T>(string key, Func<string, T> dataRetriever, TimeSpan? localExpiry = null, TimeSpan? redisExpiry = null, bool fireAndForget = true)
     {
         key.NotNullOrWhiteSpace(nameof(key));
@@ -481,12 +385,6 @@ public class HybridCache : IHybridCache, IDisposable
         return value;
     }
 
-    /// <summary>
-    /// Asynchronously gets a cached value with the specified key.
-    /// </summary>
-    /// <typeparam name="T">The type of the cached value.</typeparam>
-    /// <param name="key">The cache key.</param>
-    /// <returns>A task that represents the asynchronous operation. The task result contains the cached value, or null if the key is not found in the cache.</returns>
     public async Task<T> GetAsync<T>(string key)
     {
         key.NotNullOrWhiteSpace(nameof(key));
@@ -522,16 +420,6 @@ public class HybridCache : IHybridCache, IDisposable
         return value;
     }
 
-    /// <summary>
-    /// Asynchronously get the specified cacheKey, dataRetriever and expiration.
-    /// </summary>
-    /// <returns>The get.</returns>
-    /// <param name="key">Cache key.</param>
-    /// <param name="dataRetriever">Data retriever.</param>
-    /// <param name="localExpiry">The expiration time for the local cache entry. If not specified, the default local expiration time is used.</param>
-    /// <param name="redisExpiry">The expiration time for the redis cache entry. If not specified, the default distributed expiration time is used.</param>
-    /// <param name="fireAndForget">Whether to cache the value in Redis without waiting for the operation to complete.</param>
-    /// <typeparam name="T">The 1st type parameter.</typeparam>
     public async Task<T> GetAsync<T>(string key, Func<string, Task<T>> dataRetriever,
         TimeSpan? localExpiry = null, TimeSpan? redisExpiry = null, bool fireAndForget = true)
     {
@@ -586,12 +474,6 @@ public class HybridCache : IHybridCache, IDisposable
         return value;
     }
 
-    /// <summary>
-    /// Try gets a cached value with the specified key.
-    /// </summary>
-    /// <typeparam name="T">The type of the cached value.</typeparam>
-    /// <param name="key">The cache key.</param>
-    /// <returns>The cached value, or null if the key is not found in the cache.</returns>
     public bool TryGetValue<T>(string key, out T value)
     {
         key.NotNullOrWhiteSpace(nameof(key));
@@ -627,21 +509,11 @@ public class HybridCache : IHybridCache, IDisposable
         return false;
     }
 
-    /// <summary>
-    /// Removes a cached value with the specified key.
-    /// </summary>
-    /// <param name="key">The cache key to remove.</param>
-    /// /// <param name="fireAndForget">Whether to cache the value in Redis without waiting for the operation to complete.</param>
     public void Remove(string key, bool fireAndForget = false)
     {
         Remove(new[] { key }, fireAndForget);
     }
 
-    /// <summary>
-    /// Removes a cached value with the specified key.
-    /// </summary>
-    /// <param name="keys">Cache keys to remove.</param>
-    /// /// <param name="fireAndForget">Whether to cache the value in Redis without waiting for the operation to complete.</param>
     public void Remove(string[] keys, bool fireAndForget = false)
     {
         keys.NotNullAndCountGTZero(nameof(keys));
@@ -672,13 +544,7 @@ public class HybridCache : IHybridCache, IDisposable
     {
         return RemoveAsync(new[] { key }, fireAndForget);
     }
-
-    /// <summary>
-    /// Asynchronously removes a cached value with the specified key.
-    /// </summary>
-    /// <param name="keys">cache keys</param>
-    /// <param name="fireAndForget">Whether to cache the value in Redis without waiting for the operation to complete.</param>
-    /// <returns>A task that represents the asynchronous operation.</returns>
+    
     public async Task RemoveAsync(string[] keys, bool fireAndForget = false)
     {
         keys.NotNullAndCountGTZero(nameof(keys));
@@ -704,13 +570,7 @@ public class HybridCache : IHybridCache, IDisposable
         // send message to bus 
         await PublishBusAsync(cacheKeys).ConfigureAwait(false);
     }
-
-    /// <summary>
-    /// Asynchronously removes a cached value with a key pattern.
-    /// </summary>
-    /// <param name="keys">The cache key pattern. <example>"test_keys_*"</example></param>
-    /// /// <param name="fireAndForget">Whether to cache the value in Redis without waiting for the operation to complete.</param>
-    /// <returns>Get all removed keys</returns>
+    
     public async Task<string[]> RemoveWithPatternAsync(string pattern, bool fireAndForget = false, CancellationToken token = default)
     {
         pattern.NotNullAndCountGTZero(nameof(pattern));
@@ -858,12 +718,6 @@ public class HybridCache : IHybridCache, IDisposable
         }
     }
 
-    /// <summary>
-    /// Search all servers to find all keys which match with the pattern
-    /// </summary>
-    /// <param name="pattern">pattern to search keys</param>
-    /// <param name="token">cancellation token</param>
-    /// <returns>Enumerable of Redis keys</returns>
     public async IAsyncEnumerable<string> KeysAsync(string pattern, [EnumeratorCancellation] CancellationToken token = default)
     {
         await foreach (var key in GetKeysAsync(pattern, token).ConfigureAwait(false))
@@ -911,11 +765,6 @@ public class HybridCache : IHybridCache, IDisposable
         return endpoints.Select(ep => _redisDb.Multiplexer.GetServer(ep)).ToArray();
     }
 
-    /// <summary>
-    /// Logs the message.
-    /// </summary>
-    /// <param name="message">Message.</param>
-    /// <param name="ex">Ex.</param>
     private void LogMessage(string message, Exception ex = null)
     {
         if (_options.EnableLogging && _logger is not null)
