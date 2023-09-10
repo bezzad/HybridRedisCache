@@ -833,7 +833,7 @@ public class HybridCacheTests : IDisposable
     }
 
     [Fact]
-    public async Task TestDeleteWithSearchPattern()
+    public async Task TestRemoveWithPatternAsync()
     {
         // Arrange 
         var key = "key_";
@@ -850,7 +850,7 @@ public class HybridCacheTests : IDisposable
                 RedisCacheEnable = true
             });
         }
-        await _cache.RemoveAsync(keyPattern);
+        await _cache.RemoveWithPatternAsync(keyPattern);
 
         // Assert
         for (var i = 0; i < 10; i++)
@@ -859,5 +859,4 @@ public class HybridCacheTests : IDisposable
             Assert.Null(result);
         }
     }
-
 }

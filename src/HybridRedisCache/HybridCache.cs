@@ -689,6 +689,48 @@ public class HybridCache : IHybridCache, IDisposable
         await PublishBusAsync(cacheKeys).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// Asynchronously removes a cached value with a key pattern.
+    /// </summary>
+    /// <param name="keys">The cache key pattern. <example>"test_keys_*"</example></param>
+    /// <returns>Get all removed keys</returns>
+    public async Task<string[]> RemoveWithPatternAsync(string pattern)
+    {
+        pattern.NotNullAndCountGTZero(nameof(pattern));
+        var removedKeys = new List<string>();
+        var keyPattern = "*" + GetCacheKey(pattern);
+        if (keyPattern.EndsWith("*") == false)
+            keyPattern += "*";
+
+        try
+        {
+            await foreach (var key in KeysAsync(keyPattern)) 
+            {
+                if(await _redisDb.KeyDeleteAsync(key).ConfigureAwait(false))
+                {
+                    removedKeys.Add(key);
+                }
+            }
+            LogMessage($"{removedKeys.Count} matching keys found and removed with `{keyPattern}` pattern");
+        }
+        catch (Exception ex)
+        {
+            LogMessage($"remove cache key [{string.Join(" | ", removedKeys)}] error", ex);
+
+            if (_options.ThrowIfDistributedCacheError)
+            {
+                throw;
+            }
+        }
+
+        var keys = removedKeys.ToArray();
+        Array.ForEach(keys, _memoryCache.Remove);
+
+        // send message to bus 
+        await PublishBusAsync(keys).ConfigureAwait(false);
+        return keys;
+    }
+
     public void ClearAll()
     {
         _redisDb.Execute(FlushDb);

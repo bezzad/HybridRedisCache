@@ -19,6 +19,7 @@ public interface IHybridCache
     bool TryGetValue<T>(string key, out T value);
     void Remove(params string[] keys);
     Task RemoveAsync(params string[] keys);
+    Task<string[]> RemoveWithPatternAsync(string pattern);
     TimeSpan GetExpiration(string cacheKey);
     Task<TimeSpan> GetExpirationAsync(string cacheKey);
     IAsyncEnumerable<string> KeysAsync(string pattern, CancellationToken token = default);
