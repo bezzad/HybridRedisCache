@@ -833,6 +833,36 @@ public class HybridCacheTests : IDisposable
     }
 
     [Fact]
+    public async Task TestSearchKeysWithInnerPattern()
+    {
+        // Arraneg
+        var keyPattern = "keyPattern_{0}_X";
+        var value = "test_value";
+        var foundKeys = new List<string>();
+
+        // Act
+        for (var i = 0; i < 10; i++)
+        {
+            await _cache.SetAsync(string.Format(keyPattern, i), value, new HybridCacheEntry() 
+            {
+                FireAndForget = false,
+                LocalCacheEnable = false,
+                RedisCacheEnable = true
+            });
+        }
+        await foreach (var key in _cache.KeysAsync("*" + string.Format(keyPattern, "*"))) // "*keyPattern_*_X"
+        {
+            // Search with pattern
+            foundKeys.Add(key);
+        }
+
+        // Assert
+        Assert.Equal(10, foundKeys.Count);
+        for (var i = 0; i < 10; i++)
+            Assert.True(foundKeys.IndexOf(_options.InstancesSharedName + ":" + string.Format(keyPattern, i)) >= 0);
+    }
+
+    [Fact]
     public async Task TestRemoveWithPatternAsync()
     {
         // Arrange 

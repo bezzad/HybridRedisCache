@@ -665,8 +665,6 @@ public class HybridCache : IHybridCache, IDisposable
     public async Task RemoveAsync(params string[] keys)
     {
         keys.NotNullAndCountGTZero(nameof(keys));
-
-        // TODO: search keys with pattern *
         var cacheKeys = Array.ConvertAll(keys, GetCacheKey);
         try
         {
@@ -694,7 +692,7 @@ public class HybridCache : IHybridCache, IDisposable
     /// </summary>
     /// <param name="keys">The cache key pattern. <example>"test_keys_*"</example></param>
     /// <returns>Get all removed keys</returns>
-    public async Task<string[]> RemoveWithPatternAsync(string pattern)
+    public async Task<string[]> RemoveWithPatternAsync(string pattern, CancellationToken token = default)
     {
         pattern.NotNullAndCountGTZero(nameof(pattern));
         var removedKeys = new List<string>();
@@ -704,9 +702,12 @@ public class HybridCache : IHybridCache, IDisposable
 
         try
         {
-            await foreach (var key in KeysAsync(keyPattern)) 
+            await foreach (var key in KeysAsync(keyPattern, token).ConfigureAwait(false))
             {
-                if(await _redisDb.KeyDeleteAsync(key).ConfigureAwait(false))
+                if (token.IsCancellationRequested)
+                    break;
+
+                if (await _redisDb.KeyDeleteAsync(key).ConfigureAwait(false))
                 {
                     removedKeys.Add(key);
                 }
@@ -843,15 +844,21 @@ public class HybridCache : IHybridCache, IDisposable
         var servers = GetServers();
         foreach (var server in servers)
         {
-            if (token.IsCancellationRequested)
-                break;
-
-            await foreach (var key in server.KeysAsync(pattern: pattern))
+            // it would be *better* to try and find a single replica per
+            // primary and run the SCAN on the replica, but... let's
+            // keep it relatively simple
+            if (server.IsConnected && !server.IsReplica)
             {
                 if (token.IsCancellationRequested)
                     break;
 
-                yield return key;
+                await foreach (var key in server.KeysAsync(pattern: pattern).ConfigureAwait(false))
+                {
+                    if (token.IsCancellationRequested)
+                        break;
+
+                    yield return key;
+                }
             }
         }
     }
@@ -864,7 +871,11 @@ public class HybridCache : IHybridCache, IDisposable
 
     private IServer[] GetServers()
     {
-        return _redisDb.Multiplexer.GetServers();
+        // there may be multiple endpoints behind a multiplexer
+        var endpoints = _redisDb.Multiplexer.GetEndPoints();
+
+        // SCAN is on the server API per endpoint
+        return endpoints.Select(ep => _redisDb.Multiplexer.GetServer(ep)).ToArray();
     }
 
     /// <summary>
