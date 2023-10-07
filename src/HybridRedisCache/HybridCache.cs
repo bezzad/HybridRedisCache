@@ -714,7 +714,7 @@ public class HybridCache : IHybridCache, IDisposable
         }
         catch
         {
-            return TimeSpan.Zero;
+            return _options.DefaultDistributedExpirationTime;
         }
     }
 
