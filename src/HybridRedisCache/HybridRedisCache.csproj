@@ -16,10 +16,10 @@ It provides a way to cache frequently accessed data in memory for fast access an
     <RepositoryUrl>https://github.com/bezzad/HybridRedisCache</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageTags>redis; cache; in-memory; memcache; RedisMemoryCache; HybridCachePlus; InRedisCache; MemRedisCache; RedisFusionCache; RedisMemCache; RedisInMemoryCache; MemHybridCache; RedisHybridStore; HybridRedisCache</PackageTags>
-    <PackageReleaseNotes>add remove with pattern; add search keys with pattern on all servers;</PackageReleaseNotes>
+    <PackageReleaseNotes>add remove with pattern; add search keys with pattern on all servers; fixed fetch redis entry expiration;</PackageReleaseNotes>
     <IncludeSymbols>True</IncludeSymbols>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
-    <Version>1.3.0</Version>
+    <Version>1.3.1</Version>
   </PropertyGroup>
 
   <ItemGroup>
