@@ -53,6 +53,7 @@ builder.Services.AddHybridRedisCaching(options =>
     options.ConnectRetry = int.MaxValue;
     options.EnableLogging = true;
     options.FlushLocalCacheOnBusReconnection = false;
+    options.RedisBackChannelName="RedisCacheSystem.Sample.Channel.WebAPI";
 });
 
 // open http://localhost:5000/metrics in web browser to look metrics data

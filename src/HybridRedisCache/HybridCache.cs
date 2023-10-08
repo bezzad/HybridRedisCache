@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
+using Newtonsoft.Json.Linq;
 using StackExchange.Redis;
 using System.Runtime.CompilerServices;
 
@@ -50,8 +51,24 @@ public class HybridCache : IHybridCache, IDisposable
         _logger = loggerFactory?.CreateLogger(nameof(HybridCache));
 
         // Subscribe to Redis key-space events to invalidate cache entries on all instances
-        _redisSubscriber.Subscribe(new RedisChannel(InvalidationChannel, RedisChannel.PatternMode.Literal), OnMessage, CommandFlags.FireAndForget);
+        _redisSubscriber.Subscribe(new RedisChannel(InvalidationChannel, RedisChannel.PatternMode.Literal), OnInvalidationMessage, CommandFlags.FireAndForget);
+        _redisSubscriber.Subscribe(new RedisChannel(_options.RedisBackChannelName, RedisChannel.PatternMode.Literal), OnCacheUpdate, CommandFlags.FireAndForget);
         redis.ConnectionRestored += OnReconnect;
+    }
+
+    private void OnCacheUpdate(RedisChannel channel, RedisValue value)
+    {
+        lock (_memoryCache)
+        {
+            var message = value.ToString().Deserialize<SyncCacheEventModel>();
+
+            if (message.EventCreatorIdentifier.Equals(_instanceId,
+                    StringComparison.InvariantCultureIgnoreCase))
+                return;
+
+
+            _memoryCache.Set(message.Key, message.Value, message.ExpiryDate);
+        }
     }
 
     private void CreateLocalCache()
@@ -59,7 +76,7 @@ public class HybridCache : IHybridCache, IDisposable
         _memoryCache = new MemoryCache(new MemoryCacheOptions());
     }
 
-    private void OnMessage(RedisChannel channel, RedisValue value)
+    private void OnInvalidationMessage(RedisChannel channel, RedisValue value)
     {
         // With this implementation, when a key is updated or removed in Redis,
         // all instances of HybridCache that are subscribed to the pub/sub channel will receive a message
@@ -173,8 +190,8 @@ public class HybridCache : IHybridCache, IDisposable
             }
         }
 
-        // When create/update cache, send message to bus so that other clients can remove it.
-        PublishBus(cacheKey);
+        // When create/update cache, send message to bus so that other clients can update it.
+        PublishBus(new SyncCacheEventModel() { ExpiryDate = localExpiry.Value, Key = cacheKey, Value = value.Serialize(), EventCreatorIdentifier = _instanceId });
     }
 
     public Task SetAsync<T>(string key, T value, TimeSpan? localExpiry = null, TimeSpan? redisExpiry = null, bool fireAndForget = true)
@@ -211,8 +228,8 @@ public class HybridCache : IHybridCache, IDisposable
             }
         }
 
-        // When create/update cache, send message to bus so that other clients can remove it.
-        await PublishBusAsync(cacheKey).ConfigureAwait(false);
+        // When create/update cache, send message to bus so that other clients can update it.
+        await PublishBusAsync(new SyncCacheEventModel() { ExpiryDate = localExpiry.Value, Key = cacheKey, Value = value.Serialize(), EventCreatorIdentifier = _instanceId }).ConfigureAwait(false);
     }
 
     public void SetAll<T>(IDictionary<string, T> value, TimeSpan? localExpiry = null, TimeSpan? redisExpiry = null, bool fireAndForget = true)
@@ -241,6 +258,17 @@ public class HybridCache : IHybridCache, IDisposable
                 if (redisCacheEnable)
                     _redisDb.StringSet(cacheKey, kvp.Value.Serialize(), redisExpiry.Value,
                          flags: GetCommandFlags(fireAndForget));
+
+                PublishBus(new SyncCacheEventModel()
+                {
+                    ExpiryDate = localExpiry.Value
+                    ,
+                    Key = cacheKey
+                    ,
+                    Value = kvp.Value.Serialize()
+                    ,
+                    EventCreatorIdentifier = _instanceId
+                });
             }
             catch (Exception ex)
             {
@@ -254,7 +282,7 @@ public class HybridCache : IHybridCache, IDisposable
         }
 
         // send message to bus 
-        PublishBus(value.Keys.ToArray());
+        // PublishBus(value.Keys.ToArray());
     }
 
     public Task SetAllAsync<T>(IDictionary<string, T> value, TimeSpan? localExpiry = null, TimeSpan? redisExpiry = null, bool fireAndForget = true)
@@ -281,6 +309,8 @@ public class HybridCache : IHybridCache, IDisposable
             {
                 await _redisDb.StringSetAsync(cacheKey, kvp.Value.Serialize(), redisExpiry.Value,
                      flags: GetCommandFlags(fireAndForget)).ConfigureAwait(false);
+
+                await PublishBusAsync(new SyncCacheEventModel() { ExpiryDate = localExpiry.Value, Key = cacheKey, Value = kvp.Value.Serialize(), EventCreatorIdentifier = _instanceId }).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -294,13 +324,19 @@ public class HybridCache : IHybridCache, IDisposable
         }
 
         // send message to bus 
-        await PublishBusAsync(value.Keys.ToArray());
+        //await PublishBusAsync(value.Keys.ToArray());
+
+
     }
 
     public T Get<T>(string key)
     {
         key.NotNullOrWhiteSpace(nameof(key));
         var cacheKey = GetCacheKey(key);
+
+        if (TryGetStringValueFromCache(cacheKey, out T cacheValue))
+            return cacheValue;
+
         if (_memoryCache.TryGetValue(cacheKey, out T value))
         {
             return value;
@@ -338,10 +374,16 @@ public class HybridCache : IHybridCache, IDisposable
         SetExpiryTimes(ref localExpiry, ref redisExpiry);
         var cacheKey = GetCacheKey(key);
 
+
+        if (TryGetStringValueFromCache(cacheKey, out T cacheValue))
+            return cacheValue;
+
         if (_memoryCache.TryGetValue(cacheKey, out T value))
         {
             return value;
         }
+
+      
 
         try
         {
@@ -389,10 +431,16 @@ public class HybridCache : IHybridCache, IDisposable
     {
         key.NotNullOrWhiteSpace(nameof(key));
         var cacheKey = GetCacheKey(key);
+
+        if (TryGetStringValueFromCache(cacheKey, out T cacheValue))
+            return cacheValue;
+
         if (_memoryCache.TryGetValue(cacheKey, out T value))
         {
             return value;
         }
+
+       
 
         try
         {
@@ -427,10 +475,15 @@ public class HybridCache : IHybridCache, IDisposable
         SetExpiryTimes(ref localExpiry, ref redisExpiry);
         var cacheKey = GetCacheKey(key);
 
+        if (TryGetStringValueFromCache(cacheKey, out T cacheValue))
+            return cacheValue;
+
         if (_memoryCache.TryGetValue(cacheKey, out T value))
         {
             return value;
         }
+
+       
 
         try
         {
@@ -478,10 +531,16 @@ public class HybridCache : IHybridCache, IDisposable
     {
         key.NotNullOrWhiteSpace(nameof(key));
         var cacheKey = GetCacheKey(key);
+
+        if (TryGetStringValueFromCache(cacheKey, out value))
+            return true;
+
         if (_memoryCache.TryGetValue(cacheKey, out value))
         {
             return true;
         }
+
+       
 
         try
         {
@@ -544,7 +603,7 @@ public class HybridCache : IHybridCache, IDisposable
     {
         return RemoveAsync(new[] { key }, fireAndForget);
     }
-    
+
     public async Task RemoveAsync(string[] keys, bool fireAndForget = false)
     {
         keys.NotNullAndCountGTZero(nameof(keys));
@@ -570,7 +629,7 @@ public class HybridCache : IHybridCache, IDisposable
         // send message to bus 
         await PublishBusAsync(cacheKeys).ConfigureAwait(false);
     }
-    
+
     public async Task<string[]> RemoveWithPatternAsync(string pattern, bool fireAndForget = false, CancellationToken token = default)
     {
         pattern.NotNullAndCountGTZero(nameof(pattern));
@@ -667,6 +726,26 @@ public class HybridCache : IHybridCache, IDisposable
             }
         }
     }
+
+    private async Task PublishBusAsync(SyncCacheEventModel cacheEventModel)
+    {
+
+        try
+        {
+            // include the instance ID in the pub/sub message payload to update another instances
+            await _redisDb.PublishAsync(_options.RedisBackChannelName, cacheEventModel.Serialize(), CommandFlags.FireAndForget).ConfigureAwait(false);
+        }
+        catch
+        {
+            // Retry to publish message
+            if (retryPublishCounter++ < _options.ConnectRetry)
+            {
+                await Task.Delay(exponentialRetryMilliseconds * retryPublishCounter).ConfigureAwait(false);
+                await PublishBusAsync(cacheEventModel).ConfigureAwait(false);
+            }
+        }
+    }
+
     private void PublishBus(params string[] cacheKeys)
     {
         cacheKeys.NotNullAndCountGTZero(nameof(cacheKeys));
@@ -684,6 +763,27 @@ public class HybridCache : IHybridCache, IDisposable
             {
                 Thread.Sleep(exponentialRetryMilliseconds * retryPublishCounter);
                 PublishBus(cacheKeys);
+            }
+        }
+    }
+
+    private void PublishBus(SyncCacheEventModel cacheEventModel)
+    {
+
+
+        try
+        {
+            // include the instance ID in the pub/sub message payload to update another instances
+
+            _redisDb.Publish(_options.RedisBackChannelName, cacheEventModel.Serialize(), CommandFlags.FireAndForget);
+        }
+        catch
+        {
+            // Retry to publish message
+            if (retryPublishCounter++ < _options.ConnectRetry)
+            {
+                Thread.Sleep(exponentialRetryMilliseconds * retryPublishCounter);
+                PublishBus(cacheEventModel);
             }
         }
     }
@@ -763,6 +863,26 @@ public class HybridCache : IHybridCache, IDisposable
 
         // SCAN is on the server API per endpoint
         return endpoints.Select(ep => _redisDb.Multiplexer.GetServer(ep)).ToArray();
+    }
+
+    private bool TryGetStringValueFromCache<TValue>(string cacheKey, out TValue value)
+    {
+        if (_memoryCache.TryGetValue(cacheKey, out string stringValue))
+        {
+            try
+            {
+
+                value = stringValue.Deserialize<TValue>();
+                return true;
+            }
+            catch
+            {
+                _logger.LogWarning("Invalid String Cache Value for cache key {cacheKey}", cacheKey);
+            }
+        }
+
+        value = default(TValue);
+        return false;
     }
 
     private void LogMessage(string message, Exception ex = null)

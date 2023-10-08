@@ -26,6 +26,7 @@ public class HybridCacheTests : IDisposable
             AbortOnConnectFail = true,
             ConnectRetry = 1,
             FlushLocalCacheOnBusReconnection = false,
+            RedisBackChannelName = "my-test-app-bus"
         };
         _cache = new HybridCache(_options, _loggerFactory);
     }
@@ -284,7 +285,10 @@ public class HybridCacheTests : IDisposable
         var value2 = "newValue2";
 
         // create two instances of HybridCache that share the same Redis cache
+      
         var instance1 = new HybridCache(_options);
+
+
         var instance2 = new HybridCache(_options);
 
         // set a value in the shared cache using instance1

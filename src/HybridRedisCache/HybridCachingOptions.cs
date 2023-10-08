@@ -1,4 +1,6 @@
-﻿namespace HybridRedisCache;
+﻿using System.Reflection;
+
+namespace HybridRedisCache;
 
 public class HybridCachingOptions
 {
@@ -34,6 +36,12 @@ public class HybridCachingOptions
     /// Gets or sets a expiry time of redis cache
     /// </summary>        
     public TimeSpan DefaultDistributedExpirationTime { get; set; } = TimeSpan.FromDays(1);
+
+    /// <summary>
+    /// Configures channel name for communicating between redis and memory cache instances 
+    /// </summary>
+    public string RedisBackChannelName { get; set; }
+
 
     /// <summary>
     /// Gets or sets a expiry time of local cache
