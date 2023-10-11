@@ -188,10 +188,10 @@ public interface IHybridCache
     Task<string[]> RemoveWithPatternAsync(string pattern, bool fireAndForget = false, CancellationToken token = default);
     
     
-    TimeSpan GetExpiration(string cacheKey);
+    TimeSpan? GetExpiration(string cacheKey);
     
     
-    Task<TimeSpan> GetExpirationAsync(string cacheKey);
+    Task<TimeSpan?> GetExpirationAsync(string cacheKey);
 
     /// <summary>
     /// Search all servers to find all keys which match with the pattern

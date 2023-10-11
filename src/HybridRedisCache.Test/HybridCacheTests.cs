@@ -190,7 +190,7 @@ public class HybridCacheTests : IDisposable
     }
 
     [Theory]
-    [InlineData(100, 200)] // local cache expired before redis cache
+    [InlineData(1000, 1000)] // local cache expired before redis cache
     [InlineData(200, 100)] // redis cache expired before local cache
     public async Task SetAsync_LocalCacheEntryIsRemoved_RedisCacheIsExist_AfterExpiration(int localExpiry, int redisExpiry)
     {
@@ -200,9 +200,9 @@ public class HybridCacheTests : IDisposable
 
         // Act
         await _cache.SetAsync(key, value, TimeSpan.FromMilliseconds(localExpiry), TimeSpan.FromMilliseconds(redisExpiry), false);
-        await Task.Delay(Math.Min(localExpiry, redisExpiry));
+        await Task.Delay(Math.Min(localExpiry,redisExpiry));
         var valueAfterLocalExpiration = await _cache.GetAsync<string>(key);
-        await Task.Delay(Math.Abs(redisExpiry - localExpiry));
+        await Task.Delay(localExpiry+redisExpiry);
         var valueAfterRedisExpiration = await _cache.GetAsync<string>(key);
 
         // Assert
@@ -223,7 +223,7 @@ public class HybridCacheTests : IDisposable
         var expiration = await _cache.GetExpirationAsync(key);
 
         // Assert
-        Assert.Equal(expiryTimeMin, Math.Round(expiration.TotalMinutes));
+        Assert.Equal(expiryTimeMin, Math.Round(expiration.Value.TotalMinutes));
     }
 
     [Fact]
@@ -239,7 +239,7 @@ public class HybridCacheTests : IDisposable
         var expiration = _cache.GetExpiration(key);
 
         // Assert
-        Assert.Equal(expiryTimeMin, Math.Round(expiration.TotalMinutes));
+        Assert.Equal(expiryTimeMin, Math.Round(expiration.Value.TotalMinutes));
     }
 
     [Theory]
