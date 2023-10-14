@@ -190,7 +190,7 @@ public class HybridCacheTests : IDisposable
     }
 
     [Theory]
-    [InlineData(1000, 1000)] // local cache expired before redis cache
+    [InlineData(1500, 1700)] // local cache expired before redis cache
     [InlineData(200, 100)] // redis cache expired before local cache
     public async Task SetAsync_LocalCacheEntryIsRemoved_RedisCacheIsExist_AfterExpiration(int localExpiry, int redisExpiry)
     {
