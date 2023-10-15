@@ -1,7 +1,6 @@
 ﻿using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
-using Newtonsoft.Json.Linq;
 using StackExchange.Redis;
 using System.Runtime.CompilerServices;
 
@@ -648,7 +647,7 @@ public class HybridCache : IHybridCache, IDisposable
         var servers = GetServers();
         foreach (var server in servers)
         {
-           
+
             if (server.IsConnected)
             {
                 await server.ExecuteAsync(FlushDb);
