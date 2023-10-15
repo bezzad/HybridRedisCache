@@ -14,18 +14,18 @@ Basically, there are two types of caching .NET Core supports
 1. In-Memory Caching
 2. Distributed Caching
 
-When we use In-Memory Cache then in that case data is stored in the application server memory and whenever we need then we fetch data from that and use it wherever we need it. And in Distributed Caching there are many third-party mechanisms like Redis and many others. But in this section, we look into the Redis Cache in detail and how it works in the .NET Core
+When we use In-Memory Cache then in that case data is stored in the application server memory and whenever we need then we fetch data from that and use it wherever we need it. And in Distributed Caching there are many third-party mechanisms like Redis and many others. But in this section, we work with the Redis Cache in the .NET Core.
 
 ## Distributed Caching
-Basically, in the distributed cachin,g data are stored and shared between multiple servers
-Also, it’s easy to improve scalability and performance of the application after managing the load between multiple servers when we use multi-tenant application
-Suppose, In the future, if one server is crashed and restarted then the application does not have any impact because multiple servers are as per our need if we want
-Redis is the most popular cache which is used by many companies nowadays to improve the performance and scalability of the application. So, we are going to discuss Redis and usage one by one.
+Basically, in distributed caching data are stored and shared between multiple servers
+Also, itâ€™s easy to improve the scalability and performance of the application after managing the load between multiple servers when we use a multi-tenant application
+Suppose, In the future, if one server crashes and restarts then the application does not have any impact because multiple servers are as per our need if we want
+Redis is the most popular cache which is used by many companies nowadays to improve the performance and scalability of the application. So, we are going to discuss Redis and its usage one by one.
 
 ## Redis Cache
 Redis is an Open Source (BSD Licensed) in-memory Data Structure store used as a database.
 Basically, it is used to store the frequently used and some static data inside the cache and use and reserve that as per user requirement.
-There are many data structures present in the Redis which we are able to use like List, Set, Hashing, Stream, and many more to store the data.
+There are many data structures present in the Redis that we are able to use like List, Set, Hashing, Stream, and many more to store the data.
 
 ## Redis vs. In-Memory caching in single instance benchmark
 
@@ -67,14 +67,14 @@ var options = new HybridCachingOptions()
 };
 var cache = new HybridCache(options);
 
-// Cache a string value with key "mykey" for 1 minute
+// Cache a string value with the key "mykey" for 1 minute
 cache.Set("mykey", "myvalue", TimeSpan.FromMinutes(1));
 
-// Retrieve the cached value with key "mykey"
+// Retrieve the cached value with the key "mykey"
 var value = cache.Get<string>("mykey");
 
-// Retrieve the cached value with key "mykey" 
-// if not exist create one by dataRetriever method
+// Retrieve the cached value with the key "mykey" 
+// If not exist create one by dataRetriever method
 var value = await cache.GetAsync("mykey", 
         dataRetriever: async key => await CreateValueTaskAsync(key, ...), 
         localExpiry: TimeSpan.FromMinutes(1), 
@@ -163,7 +163,7 @@ Other features of HybridCache include:
 * Support for fire-and-forget caching, which allows you to quickly set a value in the cache without waiting for a response
 * Support for asynchronous caching operations, which allows you to perform cache operations asynchronously and improve the responsiveness of your application
 
-Overall, `HybridCache` provides a powerful and flexible caching solution that can help you improve the performance and scalability of your applications, while ensuring that the cached data is consistent across all instances.
+Overall, `HybridCache` provides a powerful and flexible caching solution that can help you improve the performance and scalability of your applications while ensuring that the cached data is consistent across all instances.
 
 ## Installation of Redis Cache with docker
 
