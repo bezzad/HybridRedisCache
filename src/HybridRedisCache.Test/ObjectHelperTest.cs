@@ -207,9 +207,9 @@ namespace HybridRedisCache.Test
 
             // Assert
             // verify that the retrieved object is equal to the original object
-            Assert.Equal(16, time.Days);
-            Assert.Equal(8, time.Hours);
-            Assert.Equal(40, time.Minutes);
+            Assert.Equal(16, time.Value.Days);
+            Assert.Equal(8, time.Value.Hours);
+            Assert.Equal(40, time.Value.Minutes);
         }
     }
 }

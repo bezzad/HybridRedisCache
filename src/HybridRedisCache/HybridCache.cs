@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
+using Newtonsoft.Json.Linq;
 using StackExchange.Redis;
 using System.Runtime.CompilerServices;
 
@@ -324,7 +325,9 @@ public class HybridCache : IHybridCache, IDisposable
         if (value != null)
         {
             var expiry = GetExpiration(key);
-            _memoryCache.Set(cacheKey, value, expiry);
+
+            if (expiry.HasValue)
+                _memoryCache.Set(cacheKey, value, expiry.Value);
             return value;
         }
 
@@ -412,7 +415,11 @@ public class HybridCache : IHybridCache, IDisposable
         if (value != null)
         {
             var expiry = await GetExpirationAsync(key);
-            _memoryCache.Set(cacheKey, value, expiry);
+
+
+            if (expiry.HasValue)
+                _memoryCache.Set(cacheKey, value, expiry.Value);
+
             return value;
         }
 
@@ -501,7 +508,9 @@ public class HybridCache : IHybridCache, IDisposable
         if (value != null)
         {
             var expiry = GetExpiration(key);
-            _memoryCache.Set(cacheKey, value, expiry);
+
+            if (expiry.HasValue)
+                _memoryCache.Set(cacheKey, value, expiry.Value);
             return true;
         }
 
@@ -520,9 +529,14 @@ public class HybridCache : IHybridCache, IDisposable
         var cacheKeys = Array.ConvertAll(keys, GetCacheKey);
         try
         {
+            foreach (var cacheKey in cacheKeys)
+            {
+                _redisDb.KeyDelete(cacheKey,
+                    flags: GetCommandFlags(fireAndForget));
+            }
+
             // distributed cache at first
-            _redisDb.KeyDelete(Array.ConvertAll(cacheKeys, x => (RedisKey)x),
-                flags: GetCommandFlags(fireAndForget));
+
         }
         catch (Exception ex)
         {
@@ -544,16 +558,21 @@ public class HybridCache : IHybridCache, IDisposable
     {
         return RemoveAsync(new[] { key }, fireAndForget);
     }
-    
+
     public async Task RemoveAsync(string[] keys, bool fireAndForget = false)
     {
         keys.NotNullAndCountGTZero(nameof(keys));
         var cacheKeys = Array.ConvertAll(keys, GetCacheKey);
         try
         {
+            foreach (var cacheKey in cacheKeys)
+            {
+                await _redisDb.KeyDeleteAsync(cacheKey,
+                    flags: GetCommandFlags(fireAndForget)).ConfigureAwait(false);
+            }
+
             // distributed cache at first
-            await _redisDb.KeyDeleteAsync(Array.ConvertAll(cacheKeys, x => (RedisKey)x),
-                flags: GetCommandFlags(fireAndForget)).ConfigureAwait(false);
+
         }
         catch (Exception ex)
         {
@@ -570,7 +589,7 @@ public class HybridCache : IHybridCache, IDisposable
         // send message to bus 
         await PublishBusAsync(cacheKeys).ConfigureAwait(false);
     }
-    
+
     public async Task<string[]> RemoveWithPatternAsync(string pattern, bool fireAndForget = false, CancellationToken token = default)
     {
         pattern.NotNullAndCountGTZero(nameof(pattern));
@@ -613,13 +632,29 @@ public class HybridCache : IHybridCache, IDisposable
 
     public void ClearAll()
     {
-        _redisDb.Execute(FlushDb);
+        var servers = GetServers();
+
+        foreach (var server in servers)
+        {
+            if (server.IsConnected)
+                server.Execute(FlushDb);
+        }
+
         FlushLocalCaches();
     }
 
     public async Task ClearAllAsync()
     {
-        await _redisDb.ExecuteAsync(FlushDb);
+        var servers = GetServers();
+        foreach (var server in servers)
+        {
+           
+            if (server.IsConnected)
+            {
+                await server.ExecuteAsync(FlushDb);
+            }
+        }
+
         await FlushLocalCachesAsync();
     }
 
@@ -688,7 +723,7 @@ public class HybridCache : IHybridCache, IDisposable
         }
     }
 
-    public TimeSpan GetExpiration(string cacheKey)
+    public TimeSpan? GetExpiration(string cacheKey)
     {
         cacheKey.NotNullOrWhiteSpace(nameof(cacheKey));
 
@@ -699,22 +734,23 @@ public class HybridCache : IHybridCache, IDisposable
         }
         catch
         {
-            return _options.DefaultDistributedExpirationTime;
+            return null;
         }
     }
 
-    public async Task<TimeSpan> GetExpirationAsync(string cacheKey)
+    public async Task<TimeSpan?> GetExpirationAsync(string cacheKey)
     {
         cacheKey.NotNullOrWhiteSpace(nameof(cacheKey));
 
         try
         {
             var time = await _redisDb.KeyExpireTimeAsync(GetCacheKey(cacheKey));
+
             return time.ToTimeSpan();
         }
         catch
         {
-            return _options.DefaultDistributedExpirationTime;
+            return null;
         }
     }
 

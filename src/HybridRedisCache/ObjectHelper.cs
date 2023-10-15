@@ -17,9 +17,9 @@ namespace HybridRedisCache
             Formatting = Formatting.None,
         };
 
-        public static TimeSpan ToTimeSpan(this DateTime? time)
+        public static TimeSpan? ToTimeSpan(this DateTime? time)
         {
-            TimeSpan duration = TimeSpan.Zero;
+            TimeSpan? duration = null;
 
             if (time.HasValue)
             {
