@@ -211,5 +211,5 @@ public interface IHybridCache
     void ClearAll();
     
     
-    Task ClearAllAsync();
+    Task ClearAllAsync(bool fireAndForget = false);
 }

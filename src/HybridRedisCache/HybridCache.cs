@@ -642,7 +642,7 @@ public class HybridCache : IHybridCache, IDisposable
         FlushLocalCaches();
     }
 
-    public async Task ClearAllAsync()
+    public async Task ClearAllAsync(bool fireAndForget = false)
     {
         var servers = GetServers();
         foreach (var server in servers)
@@ -650,7 +650,7 @@ public class HybridCache : IHybridCache, IDisposable
 
             if (server.IsConnected)
             {
-                await server.ExecuteAsync(FlushDb);
+                await server.ExecuteAsync(FlushDb , default , GetCommandFlags(fireAndForget)).ConfigureAwait(false);
             }
         }
 
