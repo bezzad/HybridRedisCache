@@ -187,9 +187,7 @@ public interface IHybridCache
     /// <returns>Get all removed keys</returns>
     Task<string[]> RemoveWithPatternAsync(string pattern, bool fireAndForget = false, CancellationToken token = default);
     
-    
     TimeSpan? GetExpiration(string cacheKey);
-    
     
     Task<TimeSpan?> GetExpirationAsync(string cacheKey);
 
@@ -201,15 +199,11 @@ public interface IHybridCache
     /// <returns>Enumerable of Redis keys</returns>
     IAsyncEnumerable<string> KeysAsync(string pattern, CancellationToken token = default);
     
-    
     void FlushLocalCaches();
-    
     
     Task FlushLocalCachesAsync();
     
-    
     void ClearAll();
-    
     
     Task ClearAllAsync(bool fireAndForget = false);
 }

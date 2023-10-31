@@ -18,9 +18,9 @@ public class HybridCache : IHybridCache, IDisposable
     private readonly HybridCachingOptions _options;
     private readonly ISubscriber _redisSubscriber;
     private readonly ILogger _logger;
+    private readonly RedisChannel _invalidationChannel;
 
     private IMemoryCache _memoryCache;
-    private string InvalidationChannel => _options.InstancesSharedName + ":invalidate";
     private int retryPublishCounter = 0;
     private int exponentialRetryMilliseconds = 100;
     private string ClearAllKey => GetCacheKey($"*{FlushDb}*");
@@ -48,9 +48,10 @@ public class HybridCache : IHybridCache, IDisposable
         _redisDb = redis.GetDatabase();
         _redisSubscriber = redis.GetSubscriber();
         _logger = loggerFactory?.CreateLogger(nameof(HybridCache));
+        _invalidationChannel = new RedisChannel(_options.InstancesSharedName + ":invalidate", RedisChannel.PatternMode.Literal);
 
         // Subscribe to Redis key-space events to invalidate cache entries on all instances
-        _redisSubscriber.Subscribe(new RedisChannel(InvalidationChannel, RedisChannel.PatternMode.Literal), OnMessage, CommandFlags.FireAndForget);
+        _redisSubscriber.Subscribe(_invalidationChannel, OnMessage, CommandFlags.FireAndForget);
         redis.ConnectionRestored += OnReconnect;
     }
 
@@ -647,11 +648,7 @@ public class HybridCache : IHybridCache, IDisposable
         var servers = GetServers();
         foreach (var server in servers)
         {
-
-            if (server.IsConnected)
-            {
-                await server.ExecuteAsync(FlushDb , default , GetCommandFlags(fireAndForget)).ConfigureAwait(false);
-            }
+            await FlushServer(server, fireAndForget);
         }
 
         await FlushLocalCachesAsync();
@@ -689,7 +686,7 @@ public class HybridCache : IHybridCache, IDisposable
         {
             // include the instance ID in the pub/sub message payload to update another instances
             var message = new CacheInvalidationMessage(_instanceId, cacheKeys);
-            await _redisDb.PublishAsync(InvalidationChannel, message.Serialize(), CommandFlags.FireAndForget).ConfigureAwait(false);
+            await _redisDb.PublishAsync(_invalidationChannel, message.Serialize(), CommandFlags.FireAndForget).ConfigureAwait(false);
         }
         catch
         {
@@ -709,7 +706,7 @@ public class HybridCache : IHybridCache, IDisposable
         {
             // include the instance ID in the pub/sub message payload to update another instances
             var message = new CacheInvalidationMessage(_instanceId, cacheKeys);
-            _redisDb.Publish(InvalidationChannel, message.Serialize(), CommandFlags.FireAndForget);
+            _redisDb.Publish(_invalidationChannel, message.Serialize(), CommandFlags.FireAndForget);
         }
         catch
         {
@@ -744,7 +741,6 @@ public class HybridCache : IHybridCache, IDisposable
         try
         {
             var time = await _redisDb.KeyExpireTimeAsync(GetCacheKey(cacheKey));
-
             return time.ToTimeSpan();
         }
         catch
@@ -800,6 +796,19 @@ public class HybridCache : IHybridCache, IDisposable
         return endpoints.Select(ep => _redisDb.Multiplexer.GetServer(ep)).ToArray();
     }
 
+    private async Task FlushServer(IServer server, bool fireAndForget = true)
+    {
+        if (server.IsConnected)
+        {
+            await server.ExecuteAsync(FlushDb, args: default, flags: GetCommandFlags(fireAndForget)).ConfigureAwait(false);
+        }
+    }
+
+    private CommandFlags GetCommandFlags(bool fireAndForget)
+    {
+        return fireAndForget ? CommandFlags.FireAndForget : CommandFlags.None;
+    }
+
     private void LogMessage(string message, Exception ex = null)
     {
         if (_options.EnableLogging && _logger is not null)
@@ -813,11 +822,6 @@ public class HybridCache : IHybridCache, IDisposable
                 _logger.LogError(ex, message);
             }
         }
-    }
-
-    private CommandFlags GetCommandFlags(bool fireAndForget)
-    {
-        return fireAndForget ? CommandFlags.FireAndForget : CommandFlags.None;
     }
 
     public void Dispose()
