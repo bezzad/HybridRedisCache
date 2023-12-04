@@ -1,13 +1,9 @@
 # This workflow will build a .NET project
 # For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-net
 
-name: .NET
+name: .NET Ubuntu x64
 
-on:
-  push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
+on: [push]
 
 jobs:
   build:
@@ -32,16 +28,21 @@ jobs:
           
     steps:
     - uses: actions/checkout@v3
-    - name: Setup .NET
+  
+    - name: Setup .NET 6.0
       uses: actions/setup-dotnet@v3
       with:
         dotnet-version: 6.0.x
+
     - name: Restore dependencies
-      run: dotnet restore
+      run: dotnet restore ./src/HybridRedisCache/HybridRedisCache.csproj
+
     - name: Build
-      run: dotnet build --no-restore
+      run: dotnet build ./src/HybridRedisCache/HybridRedisCache.csproj --no-restore
+
     - name: Test
-      run: dotnet test --no-build --verbosity normal
+      run: dotnet test ./src/HybridRedisCache.Test/HybridRedisCache.Test.csproj  --no-build --verbosity normal
+
       # a new Redis client.
       env:
           # The hostname used to communicate with the Redis service container
