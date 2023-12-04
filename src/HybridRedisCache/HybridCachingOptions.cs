@@ -55,4 +55,20 @@ public class HybridCachingOptions
     /// Flushing the local cache will avoid using stale data but may cause app jitters until the local cache get's re-populated.
     /// </remarks>
     public bool FlushLocalCacheOnBusReconnection { get; set; } = false;
+
+    /// <summary>
+    /// The timeout amount of Redis sync operations. Default is 5000ms
+    /// </summary>
+    public int SyncTimeout { get; set; } = 5000;
+
+    /// <summary>
+    /// The timeout amount of Redis Async operations. Default is 5000ms
+    /// </summary>
+    public int AsyncTimeout { get; set; } = 5000;
+
+    /// <summary>
+    /// The timeout amount of making a connection to Redis. Default is 5000ms 
+    /// </summary>
+    public int ConnectionTimeout { get; set; } = 5000;
+
 }
