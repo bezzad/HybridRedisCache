@@ -44,7 +44,7 @@ public class HybridCache : IHybridCache, IDisposable
         redisConfig.ConnectRetry = option.ConnectRetry;
         redisConfig.ClientName = option.InstancesSharedName + ":" + _instanceId;
         redisConfig.AsyncTimeout = option.AsyncTimeout;
-        redisConfig.SyncTimeout=option.SyncTimeout;
+        redisConfig.SyncTimeout = option.SyncTimeout;
         redisConfig.ConnectTimeout = option.ConnectionTimeout;
 
         var redis = ConnectionMultiplexer.Connect(redisConfig);
