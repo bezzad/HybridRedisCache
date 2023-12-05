@@ -834,4 +834,18 @@ public class HybridCache : IHybridCache, IDisposable
         _redisDb?.Multiplexer?.Dispose();
         _memoryCache?.Dispose();
     }
+
+    public async Task<bool> CheckRedisConnectionAsync()
+    {
+        try
+        {
+            await using var connection = await ConnectionMultiplexer.ConnectAsync(_options.RedisConnectString);
+            return true;
+        }
+        catch (OperationCanceledException)
+        {
+            return false;
+        }
+
+    }
 }
