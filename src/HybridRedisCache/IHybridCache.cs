@@ -206,4 +206,7 @@ public interface IHybridCache
     void ClearAll();
     
     Task ClearAllAsync(bool fireAndForget = false);
+
+    Task<bool> CheckRedisConnectionAsync();
+
 }
