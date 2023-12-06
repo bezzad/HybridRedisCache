@@ -26,6 +26,11 @@ public class HybridCacheTests : IDisposable
             AbortOnConnectFail = true,
             ConnectRetry = 1,
             FlushLocalCacheOnBusReconnection = false,
+            AllowAdmin = true,
+            SyncTimeout = 2000,
+            AsyncTimeout = 2000,
+            KeepAlive = 15,
+            ConnectionTimeout = 2000,
         };
         _cache = new HybridCache(_options, _loggerFactory);
     }
