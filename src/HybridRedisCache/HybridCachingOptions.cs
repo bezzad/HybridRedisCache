@@ -71,4 +71,14 @@ public class HybridCachingOptions
     /// </summary>
     public int ConnectionTimeout { get; set; } = 5000;
 
+    /// <summary>
+    /// Flag to set whether administrator operations are allowed. Default is false
+    /// </summary>
+    public bool AllowAdmin { get; set; } = false;
+
+    /// <summary>
+    /// Set the connection keep alive value in seconds. Default is 60s
+    /// </summary>
+    public int KeepAlive { get; set; } = 60;
+
 }
