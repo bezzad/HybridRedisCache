@@ -186,7 +186,7 @@ public class HybridCacheTests : IDisposable
         var value = "myvalue";
 
         // Act
-        await _cache.SetAsync(key, value, TimeSpan.FromSeconds(localExpiry), TimeSpan.FromSeconds(redisExpiry));
+        await _cache.SetAsync(key, value, TimeSpan.FromSeconds(localExpiry), TimeSpan.FromSeconds(redisExpiry), fireAndForget: false);
         await Task.Delay(TimeSpan.FromSeconds(Math.Max(localExpiry, redisExpiry)));
         var result = await _cache.GetAsync<string>(key);
 
