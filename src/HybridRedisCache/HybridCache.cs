@@ -46,6 +46,8 @@ public class HybridCache : IHybridCache, IDisposable
         redisConfig.AsyncTimeout = option.AsyncTimeout;
         redisConfig.SyncTimeout = option.SyncTimeout;
         redisConfig.ConnectTimeout = option.ConnectionTimeout;
+        redisConfig.KeepAlive=option.KeepAlive;
+        redisConfig.AllowAdmin=option.AllowAdmin;
 
         var redis = ConnectionMultiplexer.Connect(redisConfig);
 
