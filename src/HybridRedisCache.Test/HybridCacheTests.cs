@@ -495,7 +495,7 @@ public class HybridCacheTests : IDisposable
         // Arrange
         var key = uniqueKey;
         var value = "myvalue";
-        string dataRetriever(string key)
+        string dataRetriever()
         {
             Task.Delay(100).Wait();
             return value;
@@ -518,7 +518,7 @@ public class HybridCacheTests : IDisposable
         // Arrange
         var key = uniqueKey;
         var value = "myvalue";
-        async Task<string> dataRetriever(string key)
+        async Task<string> dataRetriever()
         {
             await Task.Delay(100);
             return value;
