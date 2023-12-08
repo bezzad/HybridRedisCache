@@ -894,4 +894,14 @@ public class HybridCacheTests : IDisposable
             Assert.Null(result);
         }
     }
+
+    [Fact]
+    public async Task PingAsyncTest()
+    {
+        // act
+        var duration = await _cache.PingAsync();
+
+        // assert
+        Assert.True(duration.TotalMilliseconds > 0);
+    }
 }

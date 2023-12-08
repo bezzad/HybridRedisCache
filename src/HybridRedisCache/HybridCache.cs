@@ -2,6 +2,7 @@
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
+using System.Net;
 using System.Runtime.CompilerServices;
 
 namespace HybridRedisCache;
@@ -535,14 +536,12 @@ public class HybridCache : IHybridCache, IDisposable
         var cacheKeys = Array.ConvertAll(keys, GetCacheKey);
         try
         {
+            // distributed cache at first
             foreach (var cacheKey in cacheKeys)
             {
                 _redisDb.KeyDelete(cacheKey,
                     flags: GetCommandFlags(fireAndForget));
             }
-
-            // distributed cache at first
-
         }
         catch (Exception ex)
         {
@@ -658,6 +657,39 @@ public class HybridCache : IHybridCache, IDisposable
         }
 
         await FlushLocalCachesAsync();
+    }
+
+    public async Task<TimeSpan> PingAsync()
+    {
+        TimeSpan duration = TimeSpan.Zero;
+        var servers = GetServers();
+        foreach (var server in servers)
+        {
+            if(server.ServerType == ServerType.Cluster)
+            {
+                var clusterInfo = await server.ExecuteAsync("CLUSTER", "INFO").ConfigureAwait(false);
+                if (clusterInfo is object && !clusterInfo.IsNull)
+                {
+                    if (!clusterInfo.ToString()!.Contains("cluster_state:ok"))
+                    {
+                        // cluster info is not ok!
+                        throw new RedisException($"INFO CLUSTER is not on OK state for endpoint {server.EndPoint}");
+                    }
+                }
+                else
+                {
+                    // cluster info cannot be read for this cluster node
+                    throw new RedisException($"INFO CLUSTER is null or can't be read for endpoint {server.EndPoint}");
+                }
+            }
+            else
+            {
+                duration += await _redisDb.Multiplexer.GetDatabase().PingAsync().ConfigureAwait(false);
+                duration += await server.PingAsync().ConfigureAwait(false);
+            }
+        }
+
+        return duration;
     }
 
     public void FlushLocalCaches()
