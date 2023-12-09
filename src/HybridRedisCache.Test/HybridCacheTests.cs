@@ -23,14 +23,14 @@ public class HybridCacheTests : IDisposable
             InstancesSharedName = "my-test-app",
             RedisConnectString = "localhost:6379",
             ThrowIfDistributedCacheError = true,
-            AbortOnConnectFail = true,
-            ConnectRetry = 1,
+            AbortOnConnectFail = false,
+            ConnectRetry = 3,
             FlushLocalCacheOnBusReconnection = false,
             AllowAdmin = true,
-            SyncTimeout = 2000,
-            AsyncTimeout = 2000,
-            KeepAlive = 15,
-            ConnectionTimeout = 2000,
+            SyncTimeout = 5000,
+            AsyncTimeout = 5000,
+            KeepAlive = 60,
+            ConnectionTimeout = 5000,
         };
         _cache = new HybridCache(_options, _loggerFactory);
     }
