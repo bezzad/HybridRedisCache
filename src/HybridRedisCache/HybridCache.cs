@@ -2,6 +2,7 @@
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
+using System.Diagnostics;
 using System.Net;
 using System.Runtime.CompilerServices;
 
@@ -47,9 +48,9 @@ public class HybridCache : IHybridCache, IDisposable
         redisConfig.AsyncTimeout = option.AsyncTimeout;
         redisConfig.SyncTimeout = option.SyncTimeout;
         redisConfig.ConnectTimeout = option.ConnectionTimeout;
-        redisConfig.KeepAlive=option.KeepAlive;
-        redisConfig.AllowAdmin=option.AllowAdmin;
-
+        redisConfig.KeepAlive = option.KeepAlive;
+        redisConfig.AllowAdmin = option.AllowAdmin;
+        new ConfigurationOptions();
         var redis = ConnectionMultiplexer.Connect(redisConfig);
 
         _redisDb = redis.GetDatabase();
@@ -661,11 +662,11 @@ public class HybridCache : IHybridCache, IDisposable
 
     public async Task<TimeSpan> PingAsync()
     {
-        TimeSpan duration = TimeSpan.Zero;
+        var stopWatch = Stopwatch.StartNew();
         var servers = GetServers();
         foreach (var server in servers)
         {
-            if(server.ServerType == ServerType.Cluster)
+            if (server.ServerType == ServerType.Cluster)
             {
                 var clusterInfo = await server.ExecuteAsync("CLUSTER", "INFO").ConfigureAwait(false);
                 if (clusterInfo is object && !clusterInfo.IsNull)
@@ -684,12 +685,12 @@ public class HybridCache : IHybridCache, IDisposable
             }
             else
             {
-                duration += await _redisDb.Multiplexer.GetDatabase().PingAsync().ConfigureAwait(false);
-                duration += await server.PingAsync().ConfigureAwait(false);
+                await _redisDb.Multiplexer.GetDatabase().PingAsync().ConfigureAwait(false);
+                await server.PingAsync().ConfigureAwait(false);
             }
         }
-
-        return duration;
+        stopWatch.Stop();
+        return stopWatch.Elapsed;
     }
 
     public void FlushLocalCaches()
@@ -828,7 +829,7 @@ public class HybridCache : IHybridCache, IDisposable
     private IServer[] GetServers()
     {
         // there may be multiple endpoints behind a multiplexer
-        var endpoints = _redisDb.Multiplexer.GetEndPoints();
+        var endpoints = _redisDb.Multiplexer.GetEndPoints(configuredOnly: true);
 
         // SCAN is on the server API per endpoint
         return endpoints.Select(ep => _redisDb.Multiplexer.GetServer(ep)).ToArray();
