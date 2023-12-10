@@ -2,6 +2,8 @@
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
+using System.Diagnostics;
+using System.Net;
 using System.Runtime.CompilerServices;
 
 namespace HybridRedisCache;
@@ -46,9 +48,9 @@ public class HybridCache : IHybridCache, IDisposable
         redisConfig.AsyncTimeout = option.AsyncTimeout;
         redisConfig.SyncTimeout = option.SyncTimeout;
         redisConfig.ConnectTimeout = option.ConnectionTimeout;
-        redisConfig.KeepAlive=option.KeepAlive;
-        redisConfig.AllowAdmin=option.AllowAdmin;
-
+        redisConfig.KeepAlive = option.KeepAlive;
+        redisConfig.AllowAdmin = option.AllowAdmin;
+        new ConfigurationOptions();
         var redis = ConnectionMultiplexer.Connect(redisConfig);
 
         _redisDb = redis.GetDatabase();
@@ -535,14 +537,12 @@ public class HybridCache : IHybridCache, IDisposable
         var cacheKeys = Array.ConvertAll(keys, GetCacheKey);
         try
         {
+            // distributed cache at first
             foreach (var cacheKey in cacheKeys)
             {
                 _redisDb.KeyDelete(cacheKey,
                     flags: GetCommandFlags(fireAndForget));
             }
-
-            // distributed cache at first
-
         }
         catch (Exception ex)
         {
@@ -658,6 +658,39 @@ public class HybridCache : IHybridCache, IDisposable
         }
 
         await FlushLocalCachesAsync();
+    }
+
+    public async Task<TimeSpan> PingAsync()
+    {
+        var stopWatch = Stopwatch.StartNew();
+        var servers = GetServers();
+        foreach (var server in servers)
+        {
+            if (server.ServerType == ServerType.Cluster)
+            {
+                var clusterInfo = await server.ExecuteAsync("CLUSTER", "INFO").ConfigureAwait(false);
+                if (clusterInfo is object && !clusterInfo.IsNull)
+                {
+                    if (!clusterInfo.ToString()!.Contains("cluster_state:ok"))
+                    {
+                        // cluster info is not ok!
+                        throw new RedisException($"INFO CLUSTER is not on OK state for endpoint {server.EndPoint}");
+                    }
+                }
+                else
+                {
+                    // cluster info cannot be read for this cluster node
+                    throw new RedisException($"INFO CLUSTER is null or can't be read for endpoint {server.EndPoint}");
+                }
+            }
+            else
+            {
+                await _redisDb.Multiplexer.GetDatabase().PingAsync().ConfigureAwait(false);
+                await server.PingAsync().ConfigureAwait(false);
+            }
+        }
+        stopWatch.Stop();
+        return stopWatch.Elapsed;
     }
 
     public void FlushLocalCaches()
@@ -796,7 +829,7 @@ public class HybridCache : IHybridCache, IDisposable
     private IServer[] GetServers()
     {
         // there may be multiple endpoints behind a multiplexer
-        var endpoints = _redisDb.Multiplexer.GetEndPoints();
+        var endpoints = _redisDb.Multiplexer.GetEndPoints(configuredOnly: true);
 
         // SCAN is on the server API per endpoint
         return endpoints.Select(ep => _redisDb.Multiplexer.GetServer(ep)).ToArray();

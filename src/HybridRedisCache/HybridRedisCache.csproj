@@ -16,10 +16,10 @@ It provides a way to cache frequently accessed data in memory for fast access an
     <RepositoryUrl>https://github.com/bezzad/HybridRedisCache</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageTags>redis; cache; in-memory; memcache; RedisMemoryCache; HybridCachePlus; InRedisCache; MemRedisCache; RedisFusionCache; RedisMemCache; RedisInMemoryCache; MemHybridCache; RedisHybridStore; HybridRedisCache</PackageTags>
-    <PackageReleaseNotes>Support .Net 8; Added timeouts to Redis option;</PackageReleaseNotes>
+    <PackageReleaseNotes>Fixed ConfiduredOnly options in GetServers of clusters method</PackageReleaseNotes>
     <IncludeSymbols>True</IncludeSymbols>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
-    <Version>1.7.0</Version>
+    <Version>2.0.0</Version>
   </PropertyGroup>
 
   <ItemGroup>

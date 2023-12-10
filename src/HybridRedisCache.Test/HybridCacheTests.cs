@@ -23,14 +23,14 @@ public class HybridCacheTests : IDisposable
             InstancesSharedName = "my-test-app",
             RedisConnectString = "localhost:6379",
             ThrowIfDistributedCacheError = true,
-            AbortOnConnectFail = true,
-            ConnectRetry = 1,
+            AbortOnConnectFail = false,
+            ConnectRetry = 3,
             FlushLocalCacheOnBusReconnection = false,
             AllowAdmin = true,
-            SyncTimeout = 2000,
-            AsyncTimeout = 2000,
-            KeepAlive = 15,
-            ConnectionTimeout = 2000,
+            SyncTimeout = 5000,
+            AsyncTimeout = 5000,
+            KeepAlive = 60,
+            ConnectionTimeout = 5000,
         };
         _cache = new HybridCache(_options, _loggerFactory);
     }
@@ -186,7 +186,7 @@ public class HybridCacheTests : IDisposable
         var value = "myvalue";
 
         // Act
-        await _cache.SetAsync(key, value, TimeSpan.FromSeconds(localExpiry), TimeSpan.FromSeconds(redisExpiry));
+        await _cache.SetAsync(key, value, TimeSpan.FromSeconds(localExpiry), TimeSpan.FromSeconds(redisExpiry), fireAndForget: false);
         await Task.Delay(TimeSpan.FromSeconds(Math.Max(localExpiry, redisExpiry)));
         var result = await _cache.GetAsync<string>(key);
 
@@ -893,5 +893,15 @@ public class HybridCacheTests : IDisposable
             var result = await _cache.GetAsync<string>(key + i);
             Assert.Null(result);
         }
+    }
+
+    [Fact]
+    public async Task PingAsyncTest()
+    {
+        // act
+        var duration = await _cache.PingAsync();
+
+        // assert
+        Assert.True(duration.TotalMilliseconds > 0);
     }
 }

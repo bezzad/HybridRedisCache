@@ -206,4 +206,10 @@ public interface IHybridCache
     void ClearAll();
 
     Task ClearAllAsync(bool fireAndForget = false);
+
+    /// <summary>
+    /// Ping all servers and clusters to health checking of Redis server
+    /// </summary>
+    /// <returns>Sum of pings durations</returns>
+    Task<TimeSpan> PingAsync();
 }

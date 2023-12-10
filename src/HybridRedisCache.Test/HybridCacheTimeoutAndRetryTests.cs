@@ -1,5 +1,4 @@
-﻿using System;
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using Xunit;
 
 namespace HybridRedisCache.Test;
@@ -29,11 +28,11 @@ public class HybridCacheTimeoutAndRetryTests
             var cache = new HybridCache(_cachingOptions, new LoggerFactoryMock());
 
         }
-        catch(Exception e)
+        catch
         {
             stopWatch.Stop();
         }
 
-        Assert.True(stopWatch.ElapsedMilliseconds >= 3000,$"Actual value {stopWatch.ElapsedMilliseconds}");
+        Assert.True(stopWatch.ElapsedMilliseconds >= 3000, $"Actual value {stopWatch.ElapsedMilliseconds}");
     }
 }
