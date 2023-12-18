@@ -50,7 +50,6 @@ public class HybridCache : IHybridCache, IDisposable
         redisConfig.ConnectTimeout = option.ConnectionTimeout;
         redisConfig.KeepAlive = option.KeepAlive;
         redisConfig.AllowAdmin = option.AllowAdmin;
-        new ConfigurationOptions();
         var redis = ConnectionMultiplexer.Connect(redisConfig);
 
         _redisDb = redis.GetDatabase();
@@ -101,6 +100,8 @@ public class HybridCache : IHybridCache, IDisposable
             LogMessage("Flushing local cache due to bus reconnection");
             ClearLocalMemory();
         }
+
+        LogMessage($"Redis reconnected to {e?.EndPoint} endpoint");
     }
 
     public bool Exists(string key)
