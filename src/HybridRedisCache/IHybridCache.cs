@@ -119,7 +119,7 @@ public interface IHybridCache
     /// <param name="redisExpiry">The expiration time for the redis cache entry. If not specified, the default distributed expiration time is used.</param>
     /// <param name="fireAndForget">Whether to cache the value in Redis without waiting for the operation to complete.</param>
     /// <typeparam name="T">The 1st type parameter.</typeparam>
-    T Get<T>(string cacheKey, Func<string, T> dataRetriever, TimeSpan? localExpiry = null, TimeSpan? redisExpiry = null, bool fireAndForget = true);
+    T Get<T>(string cacheKey, Func<string,T> dataRetriever, TimeSpan? localExpiry = null, TimeSpan? redisExpiry = null, bool fireAndForget = true);
 
     /// <summary>
     /// Asynchronously gets a cached value with the specified key.
@@ -139,7 +139,7 @@ public interface IHybridCache
     /// <param name="redisExpiry">The expiration time for the redis cache entry. If not specified, the default distributed expiration time is used.</param>
     /// <param name="fireAndForget">Whether to cache the value in Redis without waiting for the operation to complete.</param>
     /// <typeparam name="T">The 1st type parameter.</typeparam>
-    Task<T> GetAsync<T>(string cacheKey, Func<string, Task<T>> dataRetriever, TimeSpan? localExpiry = null, TimeSpan? redisExpiry = null, bool fireAndForget = true);
+    Task<T> GetAsync<T>(string cacheKey, Func<string,Task<T>> dataRetriever, TimeSpan? localExpiry = null, TimeSpan? redisExpiry = null, bool fireAndForget = true);
 
     /// <summary>
     /// Try gets a cached value with the specified key.
