@@ -344,7 +344,7 @@ public class HybridCache : IHybridCache, IDisposable
         return value;
     }
 
-    public T Get<T>(string key, Func<string, T> dataRetriever, TimeSpan? localExpiry = null, TimeSpan? redisExpiry = null, bool fireAndForget = true)
+    public T Get<T>(string key, Func<string,T> dataRetriever, TimeSpan? localExpiry = null, TimeSpan? redisExpiry = null, bool fireAndForget = true)
     {
         key.NotNullOrWhiteSpace(nameof(key));
         SetExpiryTimes(ref localExpiry, ref redisExpiry);
@@ -436,7 +436,7 @@ public class HybridCache : IHybridCache, IDisposable
         return value;
     }
 
-    public async Task<T> GetAsync<T>(string key, Func<string, Task<T>> dataRetriever,
+    public async Task<T> GetAsync<T>(string key, Func<string,Task<T>> dataRetriever,
         TimeSpan? localExpiry = null, TimeSpan? redisExpiry = null, bool fireAndForget = true)
     {
         key.NotNullOrWhiteSpace(nameof(key));
@@ -482,7 +482,7 @@ public class HybridCache : IHybridCache, IDisposable
 
         if (value is not null)
         {
-            Set(key, value, localExpiry, redisExpiry, fireAndForget);
+            await SetAsync(key, value, localExpiry, redisExpiry, fireAndForget);
             return value;
         }
 
