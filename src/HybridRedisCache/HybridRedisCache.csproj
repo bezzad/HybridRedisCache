@@ -16,10 +16,10 @@ It provides a way to cache frequently accessed data in memory for fast access an
     <RepositoryUrl>https://github.com/bezzad/HybridRedisCache</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageTags>redis; cache; in-memory; memcache; RedisMemoryCache; HybridCachePlus; InRedisCache; MemRedisCache; RedisFusionCache; RedisMemCache; RedisInMemoryCache; MemHybridCache; RedisHybridStore; HybridRedisCache</PackageTags>
-    <PackageReleaseNotes>added redis reconnection log in to OnReconnect event</PackageReleaseNotes>
+    <PackageReleaseNotes>Fix small Feature Where Sync method of Set was called in GetAsync with dataretreiver overload</PackageReleaseNotes>
     <IncludeSymbols>True</IncludeSymbols>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
-    <Version>2.0.1</Version>
+    <Version>2.0.2</Version>
   </PropertyGroup>
 
   <ItemGroup>
