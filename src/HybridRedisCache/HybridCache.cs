@@ -3,7 +3,6 @@ using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
 using System.Diagnostics;
-using System.Net;
 using System.Runtime.CompilerServices;
 
 namespace HybridRedisCache;
