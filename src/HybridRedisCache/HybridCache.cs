@@ -464,6 +464,8 @@ public class HybridCache : IHybridCache, IDisposable
 
         if (value is not null)
         {
+            // TODO: fetch redis Expiration date
+            // TODO: set local cache exp as Min(redisExpiry, localExpiry)
             _memoryCache.Set(cacheKey, value, localExpiry.Value);
             return value;
         }
