@@ -205,9 +205,9 @@ public class HybridCacheTests : IDisposable
 
         // Act
         await _cache.SetAsync(key, value, TimeSpan.FromMilliseconds(localExpiry), TimeSpan.FromMilliseconds(redisExpiry), false);
-        await Task.Delay(Math.Min(localExpiry,redisExpiry));
+        await Task.Delay(Math.Min(localExpiry, redisExpiry));
         var valueAfterLocalExpiration = await _cache.GetAsync<string>(key);
-        await Task.Delay(localExpiry+redisExpiry);
+        await Task.Delay(localExpiry + redisExpiry);
         var valueAfterRedisExpiration = await _cache.GetAsync<string>(key);
 
         // Assert
@@ -893,6 +893,20 @@ public class HybridCacheTests : IDisposable
             var result = await _cache.GetAsync<string>(key + i);
             Assert.Null(result);
         }
+    }
+
+    [Fact]
+    public async Task TestRemoveWithNotExistPatternAsync()
+    {
+        // Arrange 
+        var key = "key_" + Guid.NewGuid().ToString("N");
+
+        // Act
+        await _cache.RemoveWithPatternAsync(key);
+        var result = await _cache.GetAsync<string>(key);
+
+        // Assert
+        Assert.Null(result);
     }
 
     [Fact]

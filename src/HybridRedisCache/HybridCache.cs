@@ -344,7 +344,7 @@ public class HybridCache : IHybridCache, IDisposable
         return value;
     }
 
-    public T Get<T>(string key, Func<string,T> dataRetriever, TimeSpan? localExpiry = null, TimeSpan? redisExpiry = null, bool fireAndForget = true)
+    public T Get<T>(string key, Func<string, T> dataRetriever, TimeSpan? localExpiry = null, TimeSpan? redisExpiry = null, bool fireAndForget = true)
     {
         key.NotNullOrWhiteSpace(nameof(key));
         SetExpiryTimes(ref localExpiry, ref redisExpiry);
@@ -436,7 +436,7 @@ public class HybridCache : IHybridCache, IDisposable
         return value;
     }
 
-    public async Task<T> GetAsync<T>(string key, Func<string,Task<T>> dataRetriever,
+    public async Task<T> GetAsync<T>(string key, Func<string, Task<T>> dataRetriever,
         TimeSpan? localExpiry = null, TimeSpan? redisExpiry = null, bool fireAndForget = true)
     {
         key.NotNullOrWhiteSpace(nameof(key));
@@ -629,12 +629,18 @@ public class HybridCache : IHybridCache, IDisposable
             }
         }
 
-        var keys = removedKeys.ToArray();
-        Array.ForEach(keys, _memoryCache.Remove);
+        if (removedKeys.Count > 0)
+        {
+            var keys = removedKeys.ToArray();
+            Array.ForEach(keys, _memoryCache.Remove);
 
-        // send message to bus 
-        await PublishBusAsync(keys).ConfigureAwait(false);
-        return keys;
+            // send message to bus 
+            await PublishBusAsync(keys).ConfigureAwait(false);
+
+            return keys;
+        }
+
+        return [];
     }
 
     public void ClearAll()
