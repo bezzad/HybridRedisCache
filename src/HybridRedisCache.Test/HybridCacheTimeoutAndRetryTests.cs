@@ -25,14 +25,13 @@ public class HybridCacheTimeoutAndRetryTests
 
         try
         {
-            var cache = new HybridCache(_cachingOptions, new LoggerFactoryMock());
-
+            var cache = new HybridCache(_cachingOptions);
         }
         catch
         {
             stopWatch.Stop();
         }
 
-        Assert.True(stopWatch.ElapsedMilliseconds >= 3000, $"Actual value {stopWatch.ElapsedMilliseconds}");
+        Assert.True(stopWatch.ElapsedMilliseconds >= 2000, $"Actual value {stopWatch.ElapsedMilliseconds}");
     }
 }

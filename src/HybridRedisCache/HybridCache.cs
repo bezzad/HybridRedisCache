@@ -357,10 +357,19 @@ public class HybridCache : IHybridCache, IDisposable
 
         try
         {
-            var redisValue = _redisDb.StringGet(cacheKey);
-            if (redisValue.HasValue)
+            var redisValue = _redisDb.StringGetWithExpiry(cacheKey);
+            if (redisValue.Expiry.HasValue)
             {
-                value = redisValue.ToString().Deserialize<T>();
+                value = redisValue.Value.ToString().Deserialize<T>();
+                if (value is not null)
+                {
+                    var newLocalExpiry = localExpiry.Value > redisValue.Expiry.Value
+                        ? redisValue.Expiry.Value
+                        : localExpiry.Value;
+
+                    _memoryCache.Set(cacheKey, value, newLocalExpiry);
+                    return value;
+                }
             }
         }
         catch (Exception ex)
@@ -368,12 +377,6 @@ public class HybridCache : IHybridCache, IDisposable
             LogMessage($"Redis cache get error, [{key}]", ex);
             if (_options.ThrowIfDistributedCacheError)
                 throw;
-        }
-
-        if (value is not null)
-        {
-            _memoryCache.Set(cacheKey, value, localExpiry.Value);
-            return value;
         }
 
         try
@@ -450,10 +453,19 @@ public class HybridCache : IHybridCache, IDisposable
 
         try
         {
-            var redisValue = await _redisDb.StringGetAsync(cacheKey).ConfigureAwait(false);
-            if (redisValue.HasValue)
+            var redisValue = await _redisDb.StringGetWithExpiryAsync(cacheKey).ConfigureAwait(false);
+            if (redisValue.Expiry.HasValue)
             {
-                value = redisValue.ToString().Deserialize<T>();
+                value = redisValue.Value.ToString().Deserialize<T>();
+                if (value is not null)
+                {
+                    var newLocalExpiry = localExpiry.Value > redisValue.Expiry.Value
+                        ? redisValue.Expiry.Value
+                        : localExpiry.Value;
+
+                    _memoryCache.Set(cacheKey, value, newLocalExpiry);
+                    return value;
+                }
             }
         }
         catch (Exception ex)
@@ -461,13 +473,7 @@ public class HybridCache : IHybridCache, IDisposable
             LogMessage($"Redis cache get error, [{key}]", ex);
             if (_options.ThrowIfDistributedCacheError)
                 throw;
-        }
-
-        if (value is not null)
-        {
-            _memoryCache.Set(cacheKey, value, localExpiry.Value);
-            return value;
-        }
+        }        
 
         try
         {
