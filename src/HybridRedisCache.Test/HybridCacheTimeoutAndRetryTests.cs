@@ -25,7 +25,7 @@ public class HybridCacheTimeoutAndRetryTests
 
         try
         {
-            var cache = new HybridCache(_cachingOptions);
+            var cache = new HybridCache(_cachingOptions, new LoggerFactoryMock());
         }
         catch
         {
