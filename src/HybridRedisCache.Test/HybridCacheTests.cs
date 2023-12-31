@@ -931,4 +931,16 @@ public class HybridCacheTests : IDisposable
         // assert
         Assert.Equal(value, cachedValue);
     }
+
+    [Fact]
+    public void TryGetWhenValueIsPremitiveTypeTest()
+    {
+        var key = uniqueKey;
+
+        // act
+        var isSuccess = _cache.TryGetValue(key, out int _);
+
+        // assert
+        Assert.False(isSuccess);
+    }
 }
