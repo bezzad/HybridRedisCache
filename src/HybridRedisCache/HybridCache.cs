@@ -632,8 +632,11 @@ public class HybridCache : IHybridCache, IDisposable
         var keys = removedKeys.ToArray();
         Array.ForEach(keys, _memoryCache.Remove);
 
-        // send message to bus 
-        await PublishBusAsync(keys).ConfigureAwait(false);
+        // send message to bus if any key exists by pattern
+
+        if (keys.Length > 0)
+            await PublishBusAsync(keys).ConfigureAwait(false);
+       
         return keys;
     }
 

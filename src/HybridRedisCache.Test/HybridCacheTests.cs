@@ -896,6 +896,18 @@ public class HybridCacheTests : IDisposable
     }
 
     [Fact]
+    public async Task Remove_Non_Exist_Key_Patterns_Should_Not_Throw_Exception()
+    {
+        //Arrange
+        var keyPattern = "This_Key_Does_Not_Exist_";
+
+        //Act
+        var removedKeys = await _cache.RemoveWithPatternAsync(keyPattern);
+
+        Assert.Equal(0,removedKeys.Length);
+    }
+
+    [Fact]
     public async Task PingAsyncTest()
     {
         // act
