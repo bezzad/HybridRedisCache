@@ -918,4 +918,17 @@ public class HybridCacheTests : IDisposable
         // assert
         Assert.True(duration.TotalMilliseconds > 0);
     }
+
+    [Fact]
+    public async Task DataRetriverWhenValueIsPremitiveTypeTest()
+    {
+        var key = uniqueKey;
+        var value = 12345;
+
+        // act
+        var cachedValue = await _cache.GetAsync<int>(key, _=> Task.FromResult(value));
+
+        // assert
+        Assert.Equal(value, cachedValue);
+    }
 }
