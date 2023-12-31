@@ -19,10 +19,10 @@
     <RepositoryType>git</RepositoryType>
     <PackageTags>redis; cache; in-memory; memcache; RedisMemoryCache; HybridCachePlus; InRedisCache; MemRedisCache; RedisFusionCache; RedisMemCache; RedisInMemoryCache; MemHybridCache; RedisHybridStore; HybridRedisCache</PackageTags>
     <PackageReleaseNotes>
-      check remove keys length before publish signal;
-      fetch redis expiration same time with get value;
-      fixed data retriver issue when value is premitive type;
-      fixed local recatch expiry time when redis is exist;
+      check the key count in the remove method before publishing the signal.
+      fetch Redis expiration at the same time with get value.
+      fixed data retriever issue when the value is a primitive type.
+      fixed local recatch expiry time when Redis exists.
     </PackageReleaseNotes>
     <IncludeSymbols>True</IncludeSymbols>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
