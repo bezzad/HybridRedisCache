@@ -3,7 +3,6 @@ using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
 using System.Diagnostics;
-using System.Net;
 using System.Runtime.CompilerServices;
 
 namespace HybridRedisCache;
@@ -318,10 +317,10 @@ public class HybridCache : IHybridCache, IDisposable
 
         try
         {
-            var redisValue = _redisDb.StringGet(cacheKey);
-            if (redisValue.HasValue)
+            var redisValue = _redisDb.StringGetWithExpiry(cacheKey);
+            if (TryUpdateLocalCache(cacheKey, redisValue, null, out value))
             {
-                value = redisValue.ToString().Deserialize<T>();
+                return value;
             }
         }
         catch (Exception ex)
@@ -331,20 +330,11 @@ public class HybridCache : IHybridCache, IDisposable
                 throw;
         }
 
-        if (value != null)
-        {
-            var expiry = GetExpiration(key);
-
-            if (expiry.HasValue)
-                _memoryCache.Set(cacheKey, value, expiry.Value);
-            return value;
-        }
-
         LogMessage($"distributed cache can not get the value of `{key}` key");
         return value;
     }
 
-    public T Get<T>(string key, Func<string,T> dataRetriever, TimeSpan? localExpiry = null, TimeSpan? redisExpiry = null, bool fireAndForget = true)
+    public T Get<T>(string key, Func<string, T> dataRetriever, TimeSpan? localExpiry = null, TimeSpan? redisExpiry = null, bool fireAndForget = true)
     {
         key.NotNullOrWhiteSpace(nameof(key));
         SetExpiryTimes(ref localExpiry, ref redisExpiry);
@@ -358,18 +348,9 @@ public class HybridCache : IHybridCache, IDisposable
         try
         {
             var redisValue = _redisDb.StringGetWithExpiry(cacheKey);
-            if (redisValue.Expiry.HasValue)
+            if (TryUpdateLocalCache(cacheKey, redisValue, localExpiry, out value))
             {
-                value = redisValue.Value.ToString().Deserialize<T>();
-                if (value is not null)
-                {
-                    var newLocalExpiry = localExpiry.Value > redisValue.Expiry.Value
-                        ? redisValue.Expiry.Value
-                        : localExpiry.Value;
-
-                    _memoryCache.Set(cacheKey, value, newLocalExpiry);
-                    return value;
-                }
+                return value;
             }
         }
         catch (Exception ex)
@@ -382,18 +363,17 @@ public class HybridCache : IHybridCache, IDisposable
         try
         {
             value = dataRetriever(key);
+            if (value is not null)
+            {
+                Set(key, value, localExpiry, redisExpiry, fireAndForget);
+                return value;
+            }
         }
         catch (Exception ex)
         {
             LogMessage($"get with data retriever error [{key}]", ex);
             if (_options.ThrowIfDistributedCacheError)
                 throw;
-        }
-
-        if (value is not null)
-        {
-            Set(key, value, localExpiry, redisExpiry, fireAndForget);
-            return value;
         }
 
         LogMessage($"distributed cache can not get the value of `{key}` key. Data retriver also had problem.");
@@ -411,10 +391,10 @@ public class HybridCache : IHybridCache, IDisposable
 
         try
         {
-            var redisValue = await _redisDb.StringGetAsync(cacheKey).ConfigureAwait(false);
-            if (redisValue.HasValue)
+            var redisValue = await _redisDb.StringGetWithExpiryAsync(cacheKey).ConfigureAwait(false);
+            if (TryUpdateLocalCache(cacheKey, redisValue, null, out value))
             {
-                value = redisValue.ToString().Deserialize<T>();
+                return value;
             }
         }
         catch (Exception ex)
@@ -424,22 +404,11 @@ public class HybridCache : IHybridCache, IDisposable
                 throw;
         }
 
-        if (value != null)
-        {
-            var expiry = await GetExpirationAsync(key);
-
-
-            if (expiry.HasValue)
-                _memoryCache.Set(cacheKey, value, expiry.Value);
-
-            return value;
-        }
-
         LogMessage($"distributed cache can not get the value of `{key}` key");
         return value;
     }
 
-    public async Task<T> GetAsync<T>(string key, Func<string,Task<T>> dataRetriever,
+    public async Task<T> GetAsync<T>(string key, Func<string, Task<T>> dataRetriever,
         TimeSpan? localExpiry = null, TimeSpan? redisExpiry = null, bool fireAndForget = true)
     {
         key.NotNullOrWhiteSpace(nameof(key));
@@ -454,18 +423,9 @@ public class HybridCache : IHybridCache, IDisposable
         try
         {
             var redisValue = await _redisDb.StringGetWithExpiryAsync(cacheKey).ConfigureAwait(false);
-            if (redisValue.Expiry.HasValue)
+            if (TryUpdateLocalCache(cacheKey, redisValue, localExpiry, out value))
             {
-                value = redisValue.Value.ToString().Deserialize<T>();
-                if (value is not null)
-                {
-                    var newLocalExpiry = localExpiry.Value > redisValue.Expiry.Value
-                        ? redisValue.Expiry.Value
-                        : localExpiry.Value;
-
-                    _memoryCache.Set(cacheKey, value, newLocalExpiry);
-                    return value;
-                }
+                return value;
             }
         }
         catch (Exception ex)
@@ -473,23 +433,22 @@ public class HybridCache : IHybridCache, IDisposable
             LogMessage($"Redis cache get error, [{key}]", ex);
             if (_options.ThrowIfDistributedCacheError)
                 throw;
-        }        
+        }
 
         try
         {
             value = await dataRetriever(key);
+            if (value is not null)
+            {
+                await SetAsync(key, value, localExpiry, redisExpiry, fireAndForget);
+                return value;
+            }
         }
         catch (Exception ex)
         {
             LogMessage($"get with data retriever error [{key}]", ex);
             if (_options.ThrowIfDistributedCacheError)
                 throw;
-        }
-
-        if (value is not null)
-        {
-            await SetAsync(key, value, localExpiry, redisExpiry, fireAndForget);
-            return value;
         }
 
         LogMessage($"distributed cache can not get the value of `{key}` key. Data retriver also had a problem.");
@@ -507,10 +466,10 @@ public class HybridCache : IHybridCache, IDisposable
 
         try
         {
-            var redisValue = _redisDb.StringGet(cacheKey);
-            if (redisValue.HasValue)
+            var redisValue = _redisDb.StringGetWithExpiry(cacheKey);
+            if (TryUpdateLocalCache(cacheKey, redisValue, null, out value))
             {
-                value = redisValue.ToString().Deserialize<T>();
+                return true;
             }
         }
         catch (Exception ex)
@@ -518,15 +477,6 @@ public class HybridCache : IHybridCache, IDisposable
             LogMessage($"Redis cache get error, [{key}]", ex);
             if (_options.ThrowIfDistributedCacheError)
                 throw;
-        }
-
-        if (value != null)
-        {
-            var expiry = GetExpiration(key);
-
-            if (expiry.HasValue)
-                _memoryCache.Set(cacheKey, value, expiry.Value);
-            return true;
         }
 
         LogMessage($"distributed cache can not get the value of `{key}` key");
@@ -635,12 +585,18 @@ public class HybridCache : IHybridCache, IDisposable
             }
         }
 
-        var keys = removedKeys.ToArray();
-        Array.ForEach(keys, _memoryCache.Remove);
+        if (removedKeys.Count > 0)
+        {
+            var keys = removedKeys.ToArray();
+            Array.ForEach(keys, _memoryCache.Remove);
 
-        // send message to bus 
-        await PublishBusAsync(keys).ConfigureAwait(false);
-        return keys;
+            // send message to bus 
+            await PublishBusAsync(keys).ConfigureAwait(false);
+
+            return keys;
+        }
+
+        return [];
     }
 
     public void ClearAll()
@@ -831,6 +787,26 @@ public class HybridCache : IHybridCache, IDisposable
     {
         localExpiry ??= _options.DefaultLocalExpirationTime;
         redisExpiry ??= _options.DefaultDistributedExpirationTime;
+    }
+
+    private bool TryUpdateLocalCache<T>(string cacheKey, RedisValueWithExpiry redisValue, TimeSpan? localExpiry, out T value)
+    {
+        value = default;
+        if (redisValue.Expiry.HasValue)
+        {
+            value = redisValue.Value.ToString().Deserialize<T>();
+            if (value is not null)
+            {
+                localExpiry = localExpiry ?? _options.DefaultLocalExpirationTime;
+                if (localExpiry > redisValue.Expiry.Value)
+                    localExpiry = redisValue.Expiry.Value;
+
+                _memoryCache.Set(cacheKey, value, localExpiry.Value);
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private IServer[] GetServers()
