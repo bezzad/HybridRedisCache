@@ -946,7 +946,7 @@ public class HybridCacheTests : IDisposable
     }
 
     [Fact]
-    public async Task Should_Retry_On_ConnectionFailure()
+    public async Task ShouldRetryOnConnectionFailure()
     {
         // arrange 
         var delayPerRetry = 1000;
@@ -969,5 +969,33 @@ public class HybridCacheTests : IDisposable
 
         // assert
         Assert.True(stopWatch.ElapsedMilliseconds >= delayPerRetry * retryCount, $"Actual value {stopWatch.ElapsedMilliseconds}");
+    }
+
+    [Fact]
+    public async Task TestLocalExpirationAfterSecondRecacheFromRedisWithNewExpiry()
+    {
+        var key = uniqueKey;
+        var value = 1213;
+        var localExpire = TimeSpan.FromSeconds(1);
+        var nearToRedisExpire = TimeSpan.FromSeconds(3);
+        var redisExpire = TimeSpan.FromSeconds(4);
+
+        // act
+        await Cache.SetAsync(key, value, localExpire, redisExpire, false);
+        
+        // wait 3sec to near to redis expiry time (local cache expired)
+        await Task.Delay(nearToRedisExpire); 
+        
+        // fetch redis value and update local cache with new expiration time
+        var isSuccess = Cache.TryGetValue(key, out int _);
+
+        // Wait 1 second to make sure that Redis has also expired and
+        // the local cache should not be alive.
+        await Task.Delay(localExpire);
+        var isFailed = Cache.TryGetValue(key, out int _);
+
+        // assert
+        Assert.True(isSuccess);
+        Assert.False(isFailed);
     }
 }
