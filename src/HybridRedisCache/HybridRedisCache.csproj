@@ -24,7 +24,7 @@
     </PackageReleaseNotes>
     <IncludeSymbols>True</IncludeSymbols>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
-    <Version>2.2.2</Version>
+    <Version>2.2.3</Version>
   </PropertyGroup>
 
   <ItemGroup>
