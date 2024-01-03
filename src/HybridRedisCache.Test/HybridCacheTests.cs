@@ -998,4 +998,28 @@ public class HybridCacheTests : IDisposable
         Assert.True(isSuccess);
         Assert.False(isFailed);
     }
+
+    [Fact]
+    public async Task TestSetRedisExpiryTime()
+    {
+        var key = uniqueKey;
+        var value = 1213;
+        var entry = new HybridCacheEntry()
+        {
+            LocalCacheEnable = false,
+            RedisCacheEnable = true,
+            FireAndForget = false
+        };
+        entry.SetRedisExpiryTime(DateTime.UtcNow.AddSeconds(1).ToString("T"));
+
+        // act
+        await Cache.SetAsync(key, value, entry);
+
+        // wait 1sec 
+        await Task.Delay(TimeSpan.FromSeconds(1));
+        var isSuccess = Cache.TryGetValue(key, out int _);
+
+        // assert
+        Assert.False(isSuccess);
+    }
 }
