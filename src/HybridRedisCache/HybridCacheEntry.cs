@@ -8,7 +8,24 @@
         public bool LocalCacheEnable { get; set; }
         public bool RedisCacheEnable { get; set; }
 
-        public HybridCacheEntry(TimeSpan? localExpiry = null, TimeSpan? redisExpiry = null, bool fireAndForget = true, bool localCacheEnable = true, bool redisCacheEnable = true) =>
-            (LocalExpiry, RedisExpiry, FireAndForget, LocalCacheEnable, RedisCacheEnable) = (localExpiry, redisExpiry, fireAndForget, localCacheEnable, redisCacheEnable);
+        public HybridCacheEntry(
+            TimeSpan? localExpiry = null,
+            TimeSpan? redisExpiry = null,
+            bool fireAndForget = true,
+            bool localCacheEnable = true,
+            bool redisCacheEnable = true)
+        {
+
+            LocalExpiry = localExpiry;
+            RedisExpiry = redisExpiry;
+            FireAndForget = fireAndForget;
+            LocalCacheEnable = localCacheEnable;
+            RedisCacheEnable = redisCacheEnable;
+        }
+
+        public void SetRedisExpiryTime(string time24H)
+        {
+            RedisExpiry = time24H.GetNextUtcDateTime().GetNonZeroDurationFromNow();
+        }
     }
 }
