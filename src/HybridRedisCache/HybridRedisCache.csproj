@@ -20,10 +20,11 @@
     <PackageTags>redis; cache; in-memory; memcache; RedisMemoryCache; HybridCachePlus; InRedisCache; MemRedisCache; RedisFusionCache; RedisMemCache; RedisInMemoryCache; MemHybridCache; RedisHybridStore; HybridRedisCache</PackageTags>
     <PackageReleaseNotes>
       added expire Redis cache by an occurrence time (24H) instead of duration
+      added HybridRedisCacheEntry option to get methods
     </PackageReleaseNotes>
     <IncludeSymbols>True</IncludeSymbols>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
-    <Version>2.2.0</Version>
+    <Version>2.2.2</Version>
   </PropertyGroup>
 
   <ItemGroup>
@@ -40,7 +41,7 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="8.0.0" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
-    <PackageReference Include="StackExchange.Redis" Version="2.7.4" />
+    <PackageReference Include="StackExchange.Redis" Version="2.7.10" />
   </ItemGroup>
 
 </Project>

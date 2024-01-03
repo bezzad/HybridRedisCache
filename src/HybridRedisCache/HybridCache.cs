@@ -284,12 +284,14 @@ public class HybridCache : IHybridCache, IDisposable
         foreach (var kvp in value)
         {
             var cacheKey = GetCacheKey(kvp.Key);
-            _memoryCache.Set(cacheKey, kvp.Value, localExpiry.Value);
+            if (localCacheEnable)
+                _memoryCache.Set(cacheKey, kvp.Value, localExpiry.Value);
 
             try
             {
-                await _redisDb.StringSetAsync(cacheKey, kvp.Value.Serialize(), redisExpiry.Value,
-                     flags: GetCommandFlags(fireAndForget)).ConfigureAwait(false);
+                if (redisCacheEnable)
+                    await _redisDb.StringSetAsync(cacheKey, kvp.Value.Serialize(), redisExpiry.Value,
+                         flags: GetCommandFlags(fireAndForget)).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -332,6 +334,11 @@ public class HybridCache : IHybridCache, IDisposable
 
         LogMessage($"distributed cache can not get the value of `{key}` key");
         return value;
+    }
+
+    public T Get<T>(string key, Func<string, T> dataRetriever, HybridCacheEntry cacheEntry)
+    {
+        return Get<T>(key, dataRetriever, cacheEntry.LocalExpiry, cacheEntry.RedisExpiry, cacheEntry.FireAndForget);
     }
 
     public T Get<T>(string key, Func<string, T> dataRetriever, TimeSpan? localExpiry = null, TimeSpan? redisExpiry = null, bool fireAndForget = true)
@@ -406,6 +413,11 @@ public class HybridCache : IHybridCache, IDisposable
 
         LogMessage($"distributed cache can not get the value of `{key}` key");
         return value;
+    }
+
+    public Task<T> GetAsync<T>(string key, Func<string, Task<T>> dataRetriever, HybridCacheEntry cacheEntry)
+    {
+        return GetAsync<T>(key, dataRetriever, cacheEntry.LocalExpiry, cacheEntry.RedisExpiry, cacheEntry.FireAndForget);
     }
 
     public async Task<T> GetAsync<T>(string key, Func<string, Task<T>> dataRetriever,
