@@ -122,6 +122,16 @@ public interface IHybridCache
     T Get<T>(string cacheKey, Func<string,T> dataRetriever, TimeSpan? localExpiry = null, TimeSpan? redisExpiry = null, bool fireAndForget = true);
 
     /// <summary>
+    /// Get the specified cacheKey, dataRetriever and expiration.
+    /// </summary>
+    /// <returns>The get.</returns>
+    /// <param name="key">Cache key.</param>
+    /// <param name="dataRetriever">Data retriever.</param>
+    /// <param name="cacheEntry">Parameters of caching an entry like expiration</param>
+    /// <typeparam name="T">The 1st type parameter.</typeparam>
+    T Get<T>(string cacheKey, Func<string, T> dataRetriever, HybridCacheEntry cacheEntry);
+
+    /// <summary>
     /// Asynchronously gets a cached value with the specified key.
     /// </summary>
     /// <typeparam name="T">The type of the cached value.</typeparam>
@@ -140,6 +150,16 @@ public interface IHybridCache
     /// <param name="fireAndForget">Whether to cache the value in Redis without waiting for the operation to complete.</param>
     /// <typeparam name="T">The 1st type parameter.</typeparam>
     Task<T> GetAsync<T>(string cacheKey, Func<string,Task<T>> dataRetriever, TimeSpan? localExpiry = null, TimeSpan? redisExpiry = null, bool fireAndForget = true);
+
+    /// <summary>
+    /// Asynchronously get the specified cacheKey, dataRetriever and expiration.
+    /// </summary>
+    /// <returns>The get.</returns>
+    /// <param name="key">Cache key.</param>
+    /// <param name="dataRetriever">Data retriever.</param>
+    /// <param name="cacheEntry">Parameters of caching an entry like expiration</param>
+    /// <typeparam name="T">The 1st type parameter.</typeparam>
+    Task<T> GetAsync<T>(string cacheKey, Func<string, Task<T>> dataRetriever, HybridCacheEntry cacheEntry);
 
     /// <summary>
     /// Try gets a cached value with the specified key.

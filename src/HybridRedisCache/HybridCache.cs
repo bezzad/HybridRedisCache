@@ -20,7 +20,6 @@ public class HybridCache : IHybridCache, IDisposable
     private readonly ISubscriber _redisSubscriber;
     private readonly ILogger _logger;
     private readonly RedisChannel _invalidationChannel;
-
     private IMemoryCache _memoryCache;
     private int retryPublishCounter = 0;
     private int exponentialRetryMilliseconds = 100;
