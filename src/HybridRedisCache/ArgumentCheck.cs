@@ -1,9 +1,12 @@
-﻿namespace HybridRedisCache;
+﻿using System;
+using System.Globalization;
+
+namespace HybridRedisCache;
 
 /// <summary>
 /// Argument check.
 /// </summary>
-public static class ArgumentCheck
+internal static class ArgumentCheck
 {
     /// <summary>
     /// Validates that <paramref name="argument"/> is not null , otherwise throws an exception.
@@ -86,5 +89,34 @@ public static class ArgumentCheck
         {
             throw new ArgumentNullException(argumentName);
         }
+    }
+
+    public static TimeSpan GetNonZeroDurationFromNow(this DateTimeOffset dateTimeOffset, DateTime? nowUtc = null)
+    {
+        var now = nowUtc ?? DateTimeOffset.UtcNow;
+        if (dateTimeOffset.UtcDateTime > now)
+            return dateTimeOffset.UtcDateTime - now;
+
+        return TimeSpan.FromMinutes(1);
+    }
+
+    public static DateTimeOffset GetNextUtcDateTime(this TimeOnly time, DateTime? nowUtc = null)
+    {
+        var now = nowUtc ?? DateTime.UtcNow;
+        if (time.ToTimeSpan() >= now.TimeOfDay) 
+        {
+            return new DateTime(now.Year, now.Month, now.Day, time.Hour, time.Minute, time.Second, DateTimeKind.Utc);
+        }
+        else
+        {
+            // it's too late to today, so go to tomarrow
+            now = now.AddDays(1);
+            return new DateTime(now.Year, now.Month, now.Day, time.Hour, time.Minute, time.Second, DateTimeKind.Utc);
+        }
+    }
+
+    public static DateTimeOffset GetNextUtcDateTime(this string time, DateTime? nowUtc = null)
+    {
+        return GetNextUtcDateTime(TimeOnly.Parse(time), nowUtc);
     }
 }

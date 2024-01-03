@@ -115,4 +115,92 @@ public class ArgumentCheckTest
 
         Assert.Null(ex);
     }
+
+    [Theory]
+    [InlineData("00:49:00")]
+    [InlineData("01:29:19")]
+    [InlineData("02:01:00")]
+    [InlineData("03:59:59")]
+    [InlineData("04:55:55")]
+    [InlineData("05:44:00")]
+    [InlineData("06:33:33")]
+    [InlineData("07:22:00")]
+    [InlineData("08:11:11")]
+    [InlineData("09:00:00")]
+    [InlineData("10:11:00")]
+    [InlineData("11:15")]
+    [InlineData("12:22:59")]
+    [InlineData("13:32:22")]
+    [InlineData("14:42:11")]
+    [InlineData("15:52:01")]
+    [InlineData("16:02:00")]
+    [InlineData("17:00:50")]
+    [InlineData("18:20:40")]
+    [InlineData("19:39:30")]
+    [InlineData("20:20:20")]
+    [InlineData("21:14:10")]
+    [InlineData("22:22:00")]
+    [InlineData("23:59:59")]
+    public void TestGetNextUtcDateTime(string time)
+    {
+        // arrange 
+        var now = DateTime.UtcNow;
+        var fromDateTime = new DateTime(now.Year, now.Month, now.Day, 12, 0, 0, DateTimeKind.Utc);
+        var timeObj = TimeOnly.Parse(time);
+        if (timeObj.ToTimeSpan() <= fromDateTime.TimeOfDay)
+            now = now.AddDays(1);
+
+        // act
+        var nextDateTime = time.GetNextUtcDateTime(fromDateTime);
+
+        // assert
+        Assert.Equal(timeObj.Second, nextDateTime.Second);
+        Assert.Equal(timeObj.Minute, nextDateTime.Minute);
+        Assert.Equal(timeObj.Second, nextDateTime.Second);
+        Assert.Equal(now.Day, nextDateTime.Day);
+        Assert.Equal(now.Month, nextDateTime.Month);
+        Assert.Equal(now.Year, nextDateTime.Year);
+        Assert.Equal(now.Year, nextDateTime.Year);
+    }
+
+    [Theory]
+    [InlineData("00:49:00")]
+    [InlineData("01:29:19")]
+    [InlineData("02:01:00")]
+    [InlineData("03:59:59")]
+    [InlineData("04:55:55")]
+    [InlineData("05:44:00")]
+    [InlineData("06:33:33")]
+    [InlineData("07:22:00")]
+    [InlineData("08:11:11")]
+    [InlineData("09:00:00")]
+    [InlineData("10:11:00")]
+    [InlineData("11:15")]
+    [InlineData("12:22:59")]
+    [InlineData("13:32:22")]
+    [InlineData("14:42:11")]
+    [InlineData("15:52:01")]
+    [InlineData("16:02:00")]
+    [InlineData("17:00:50")]
+    [InlineData("18:20:40")]
+    [InlineData("19:39:30")]
+    [InlineData("20:20:20")]
+    [InlineData("21:14:10")]
+    [InlineData("22:22:00")]
+    [InlineData("23:59:59")]
+    public void TestGetNonZeroDurationFromNow(string time)
+    {
+        // arrange 
+        var now = DateTime.UtcNow;
+        var fromDateTime = new DateTime(now.Year, now.Month, now.Day, 0, 0, 0, DateTimeKind.Utc);
+        var timeObj = TimeOnly.Parse(time);
+        var expectedSeconds = timeObj.ToTimeSpan().TotalSeconds;
+
+        // act
+        var duration = time.GetNextUtcDateTime(fromDateTime).GetNonZeroDurationFromNow(fromDateTime);
+        var seconds = duration.TotalSeconds;
+
+        // assert
+        Assert.Equal(expectedSeconds, seconds);
+    }
 }
