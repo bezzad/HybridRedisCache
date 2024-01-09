@@ -753,7 +753,7 @@ public class HybridCache : IHybridCache, IDisposable
 
         try
         {
-            var time = await _redisDb.KeyExpireTimeAsync(GetCacheKey(cacheKey));
+            var time = await _redisDb.KeyExpireTimeAsync(GetCacheKey(cacheKey)).ConfigureAwait(false);
             return time.ToTimeSpan();
         }
         catch
