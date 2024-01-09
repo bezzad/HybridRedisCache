@@ -676,7 +676,7 @@ public class HybridCache : IHybridCache, IDisposable
     public async Task FlushLocalCachesAsync()
     {
         ClearLocalMemory();
-        await PublishBusAsync(ClearAllKey);
+        await PublishBusAsync(ClearAllKey).ConfigureAwait(false);
     }
 
     private void ClearLocalMemory()
