@@ -133,7 +133,7 @@ public class HybridCache : IHybridCache, IDisposable
         // Circuit Breaker may be more better
         try
         {
-            if (await _redisDb.KeyExistsAsync(cacheKey))
+            if (await _redisDb.KeyExistsAsync(cacheKey).ConfigureAwait(false))
                 return true;
         }
         catch (Exception ex)
