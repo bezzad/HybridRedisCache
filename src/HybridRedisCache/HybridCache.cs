@@ -448,10 +448,10 @@ public class HybridCache : IHybridCache, IDisposable
 
         try
         {
-            value = await dataRetriever(key);
+            value = await dataRetriever(key).ConfigureAwait(false);
             if (value is not null)
             {
-                await SetAsync(key, value, localExpiry, redisExpiry, fireAndForget);
+                await SetAsync(key, value, localExpiry, redisExpiry, fireAndForget).ConfigureAwait(false);
                 return value;
             }
         }
