@@ -628,10 +628,10 @@ public class HybridCache : IHybridCache, IDisposable
         var servers = GetServers();
         foreach (var server in servers)
         {
-            await FlushServer(server, fireAndForget);
+            await FlushServer(server, fireAndForget).ConfigureAwait(false);
         }
 
-        await FlushLocalCachesAsync();
+        await FlushLocalCachesAsync().ConfigureAwait(false);
     }
 
     public async Task<TimeSpan> PingAsync()
