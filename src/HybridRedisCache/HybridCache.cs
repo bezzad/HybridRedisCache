@@ -72,7 +72,7 @@ public class HybridCache : IHybridCache, IDisposable
         // and invalidate the corresponding key in their local MemoryCache.
 
         var message = value.ToString().Deserialize<CacheInvalidationMessage>();
-        if (message.InstanceId != _instanceId) // filter out messages from the current instance
+        if (!string.Equals(message.InstanceId, _instanceId, StringComparison.Ordinal)) // filter out messages from the current instance
         {
             if (message.CacheKeys.FirstOrDefault().Equals(ClearAllKey))
             {
