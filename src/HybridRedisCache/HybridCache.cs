@@ -304,7 +304,7 @@ public class HybridCache : IHybridCache, IDisposable
         }
 
         // send message to bus 
-        await PublishBusAsync(value.Keys.ToArray());
+        await PublishBusAsync(value.Keys.ToArray()).ConfigureAwait(false);
     }
 
     public T Get<T>(string key)
