@@ -21,10 +21,11 @@
     <PackageReleaseNotes>
       added expire Redis cache by an occurrence time (24H) instead of duration
       added HybridRedisCacheEntry option to get methods
+      refactored some async methods
     </PackageReleaseNotes>
     <IncludeSymbols>True</IncludeSymbols>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
-    <Version>2.2.3</Version>
+    <Version>2.2.4</Version>
   </PropertyGroup>
 
   <ItemGroup>
