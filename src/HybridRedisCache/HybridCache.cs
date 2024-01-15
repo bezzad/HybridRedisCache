@@ -133,7 +133,7 @@ public class HybridCache : IHybridCache, IDisposable
         // Circuit Breaker may be more better
         try
         {
-            if (await _redisDb.KeyExistsAsync(cacheKey))
+            if (await _redisDb.KeyExistsAsync(cacheKey).ConfigureAwait(false))
                 return true;
         }
         catch (Exception ex)
@@ -304,7 +304,7 @@ public class HybridCache : IHybridCache, IDisposable
         }
 
         // send message to bus 
-        await PublishBusAsync(value.Keys.ToArray());
+        await PublishBusAsync(value.Keys.ToArray()).ConfigureAwait(false);
     }
 
     public T Get<T>(string key)
@@ -448,10 +448,10 @@ public class HybridCache : IHybridCache, IDisposable
 
         try
         {
-            value = await dataRetriever(key);
+            value = await dataRetriever(key).ConfigureAwait(false);
             if (value is not null)
             {
-                await SetAsync(key, value, localExpiry, redisExpiry, fireAndForget);
+                await SetAsync(key, value, localExpiry, redisExpiry, fireAndForget).ConfigureAwait(false);
                 return value;
             }
         }
@@ -628,10 +628,10 @@ public class HybridCache : IHybridCache, IDisposable
         var servers = GetServers();
         foreach (var server in servers)
         {
-            await FlushServer(server, fireAndForget);
+            await FlushServer(server, fireAndForget).ConfigureAwait(false);
         }
 
-        await FlushLocalCachesAsync();
+        await FlushLocalCachesAsync().ConfigureAwait(false);
     }
 
     public async Task<TimeSpan> PingAsync()
@@ -676,7 +676,7 @@ public class HybridCache : IHybridCache, IDisposable
     public async Task FlushLocalCachesAsync()
     {
         ClearLocalMemory();
-        await PublishBusAsync(ClearAllKey);
+        await PublishBusAsync(ClearAllKey).ConfigureAwait(false);
     }
 
     private void ClearLocalMemory()
@@ -753,7 +753,7 @@ public class HybridCache : IHybridCache, IDisposable
 
         try
         {
-            var time = await _redisDb.KeyExpireTimeAsync(GetCacheKey(cacheKey));
+            var time = await _redisDb.KeyExpireTimeAsync(GetCacheKey(cacheKey)).ConfigureAwait(false);
             return time.ToTimeSpan();
         }
         catch
