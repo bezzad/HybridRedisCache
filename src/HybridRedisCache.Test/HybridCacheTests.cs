@@ -1010,7 +1010,7 @@ public class HybridCacheTests : IDisposable
             RedisCacheEnable = true,
             FireAndForget = false
         };
-        entry.SetRedisExpiryTime(DateTime.UtcNow.AddSeconds(1).ToString("T"));
+        entry.SetRedisExpiryUtcTime(DateTime.UtcNow.AddSeconds(1).ToString("T"));
 
         // act
         await Cache.SetAsync(key, value, entry);
