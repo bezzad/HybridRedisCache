@@ -23,7 +23,7 @@
             RedisCacheEnable = redisCacheEnable;
         }
 
-        public void SetRedisExpiryTime(string time24H)
+        public void SetRedisExpiryUtcTime(string time24H)
         {
             RedisExpiry = time24H.GetNextUtcDateTime().GetNonZeroDurationFromNow();
         }
