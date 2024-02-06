@@ -1,4 +1,6 @@
-﻿namespace HybridRedisCache;
+﻿using Microsoft.Extensions.Logging;
+
+namespace HybridRedisCache;
 
 public class HybridCachingOptions
 {
@@ -80,5 +82,10 @@ public class HybridCachingOptions
     /// Set the connection keep alive value in seconds. Default is 60s
     /// </summary>
     public int KeepAlive { get; set; } = 60;
+
+    /// <summary>
+    /// Sets the level of logs that are without exceptions. Default is debug 
+    /// </summary>
+    public LogLevel TracingLogLevel { get; set; } = LogLevel.Debug;
 
 }

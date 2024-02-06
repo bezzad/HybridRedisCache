@@ -848,7 +848,7 @@ public class HybridCache : IHybridCache, IDisposable
         {
             if (ex is null)
             {
-                _logger.LogInformation(message);
+                _logger.Log(_options.TracingLogLevel, message);
             }
             else
             {
