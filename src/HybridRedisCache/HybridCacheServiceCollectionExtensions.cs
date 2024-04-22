@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
+using StackExchange.Redis;
 
 namespace HybridRedisCache;
 
@@ -23,8 +24,15 @@ public static class HybridCacheServiceCollectionExtensions
         var options = new HybridCachingOptions();
         setupAction(options);
 
+
+        var redisConnection =
+            ConnectionMultiplexer.Connect(options.ConvertHybridCacheOptionsToRedisOptions());
+
+        services.AddSingleton<IConnectionMultiplexer>(redisConnection);
+
+
         services.AddSingleton(options);
-        services.Add(ServiceDescriptor.Singleton<IHybridCache, HybridCache>());
+        services.AddSingleton<IHybridCache, HybridCache>();
 
         return services;
     }

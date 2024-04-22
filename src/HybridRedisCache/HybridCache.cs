@@ -15,7 +15,6 @@ public class HybridCache : IHybridCache, IDisposable
 {
     private const string FlushDb = "FLUSHDB";
     private readonly IDatabase _redisDb;
-    private readonly string _instanceId;
     private readonly HybridCachingOptions _options;
     private readonly ISubscriber _redisSubscriber;
     private readonly ILogger _logger;
@@ -32,23 +31,16 @@ public class HybridCache : IHybridCache, IDisposable
     /// <param name="redisConnectionString">Redis connection string</param>
     /// <param name="instanceName">Application unique name for redis indexes</param>
     /// <param name="defaultExpiryTime">default caching expiry time</param>
-    public HybridCache(HybridCachingOptions option, ILoggerFactory loggerFactory = null)
+    /// <param name="redis">an instance of IConnectionMultiplexer already registered as singleton</param>
+    public HybridCache(HybridCachingOptions option,IConnectionMultiplexer redis=null, ILoggerFactory loggerFactory = null)
     {
         option.NotNull(nameof(option));
 
-        _instanceId = Guid.NewGuid().ToString("N");
         _options = option;
         CreateLocalCache();
-        var redisConfig = ConfigurationOptions.Parse(option.RedisConnectString, true);
-        redisConfig.AbortOnConnectFail = option.AbortOnConnectFail;
-        redisConfig.ConnectRetry = option.ConnectRetry;
-        redisConfig.ClientName = option.InstancesSharedName + ":" + _instanceId;
-        redisConfig.AsyncTimeout = option.AsyncTimeout;
-        redisConfig.SyncTimeout = option.SyncTimeout;
-        redisConfig.ConnectTimeout = option.ConnectionTimeout;
-        redisConfig.KeepAlive = option.KeepAlive;
-        redisConfig.AllowAdmin = option.AllowAdmin;
-        var redis = ConnectionMultiplexer.Connect(redisConfig);
+
+
+        redis ??= ConnectionMultiplexer.Connect(option.ConvertHybridCacheOptionsToRedisOptions());
 
         _redisDb = redis.GetDatabase();
         _redisSubscriber = redis.GetSubscriber();
@@ -72,7 +64,7 @@ public class HybridCache : IHybridCache, IDisposable
         // and invalidate the corresponding key in their local MemoryCache.
 
         var message = value.ToString().Deserialize<CacheInvalidationMessage>();
-        if (message.InstanceId != _instanceId) // filter out messages from the current instance
+        if (message.InstanceId != _options.InstanceId) // filter out messages from the current instance
         {
             if (message.CacheKeys.FirstOrDefault().Equals(ClearAllKey))
             {
@@ -698,7 +690,7 @@ public class HybridCache : IHybridCache, IDisposable
         try
         {
             // include the instance ID in the pub/sub message payload to update another instances
-            var message = new CacheInvalidationMessage(_instanceId, cacheKeys);
+            var message = new CacheInvalidationMessage(_options.InstanceId, cacheKeys);
             await _redisDb.PublishAsync(_invalidationChannel, message.Serialize(), CommandFlags.FireAndForget).ConfigureAwait(false);
         }
         catch
@@ -718,7 +710,7 @@ public class HybridCache : IHybridCache, IDisposable
         try
         {
             // include the instance ID in the pub/sub message payload to update another instances
-            var message = new CacheInvalidationMessage(_instanceId, cacheKeys);
+            var message = new CacheInvalidationMessage(_options.InstanceId, cacheKeys);
             _redisDb.Publish(_invalidationChannel, message.Serialize(), CommandFlags.FireAndForget);
         }
         catch

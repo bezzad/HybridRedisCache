@@ -15,7 +15,7 @@ public class HybridCacheTests : IDisposable
     private HybridCache _cache;
     private HybridCachingOptions _options;
     private string uniqueKey => "test_Key_" + Guid.NewGuid().ToString("N");
-    protected HybridCache Cache => _cache ?? (_cache = new HybridCache(_options, _loggerFactory));
+    protected HybridCache Cache => _cache ?? (_cache = new HybridCache(_options, loggerFactory:_loggerFactory));
 
     public HybridCacheTests()
     {
@@ -289,9 +289,14 @@ public class HybridCacheTests : IDisposable
         var value1 = "myValue1";
         var value2 = "newValue2";
 
-        // create two instances of HybridCache that share the same Redis cache
+        // create first instance of HybridCache that share the same Redis cache
         var instance1 = new HybridCache(_options);
-        var instance2 = new HybridCache(_options);
+
+        //Because we want to simulate two different applications, their options must be two different object references as well
+        var options2 = _options.DeepCopyCachingOptions();
+
+        // create second instance of HybridCache that share the same Redis cache
+        var instance2 = new HybridCache(options2);
 
         // set a value in the shared cache using instance1
         await instance1.SetAsync(key, value1, fireAndForget: false);

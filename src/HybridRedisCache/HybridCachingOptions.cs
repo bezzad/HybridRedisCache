@@ -1,4 +1,9 @@
-﻿namespace HybridRedisCache;
+﻿
+using System.Runtime.CompilerServices;
+
+[assembly: InternalsVisibleTo("HybridRedisCache.Test")]
+namespace HybridRedisCache;
+
 
 public class HybridCachingOptions
 {
@@ -80,5 +85,10 @@ public class HybridCachingOptions
     /// Set the connection keep alive value in seconds. Default is 60s
     /// </summary>
     public int KeepAlive { get; set; } = 60;
+
+    /// <summary>
+    /// an id specified for application using hybrid cache. 
+    /// </summary>
+    internal string InstanceId { get; }= Guid.NewGuid().ToString("N");
 
 }
