@@ -1,6 +1,8 @@
 using HybirdRedisCache.Sample.WebAPI;
 using HybridRedisCache;
 using Microsoft.OpenApi.Models;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
 using Prometheus;
 using Serilog;
 
@@ -61,6 +63,15 @@ builder.Services.AddMetricServer(opt =>
     opt.Port = 5000;
     opt.Hostname = "localhost";
 });
+
+builder.Services.AddOpenTelemetry()
+    .WithTracing(tracingBuilder =>
+    {
+        tracingBuilder.SetResourceBuilder(ResourceBuilder.CreateDefault().AddService("HybridCacheWebApiSample"))
+            .AddAspNetCoreInstrumentation()
+            .AddSource(HybridCacheConstants.DefaultListenerName)
+            .AddConsoleExporter();
+    });
 
 var app = builder.Build();
 
