@@ -1,7 +1,6 @@
 [![NuGet](https://img.shields.io/nuget/dt/HybridRedisCache.svg)](https://www.nuget.org/packages/HybridRedisCache)
 [![NuGet](https://img.shields.io/nuget/vpre/HybridRedisCache.svg)](https://www.nuget.org/packages/HybridRedisCache)
 [![Generic badge](https://img.shields.io/badge/support-.Net_Core-blue.svg)](https://github.com/bezzad/HybridRedisCache)
-[![Generic badge](https://img.shields.io/badge/support-.Net_Standard-blue.svg)](https://github.com/bezzad/HybridRedisCache)
 
 # HybridRedisCache
 
@@ -63,6 +62,7 @@ var options = new HybridCachingOptions()
     RedisConnectString = "localhost",
     BusRetryCount = 10,
     EnableLogging = true,
+    EnableTracing = true,
     FlushLocalCacheOnBusReconnection = true,
 };
 var cache = new HybridCache(options);

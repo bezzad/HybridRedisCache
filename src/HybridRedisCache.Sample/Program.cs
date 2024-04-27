@@ -13,6 +13,7 @@ var options = new HybridCachingOptions()
     RedisConnectString = "localhost:6379,allowAdmin=true,keepAlive=180,defaultDatabase=0",
     ConnectRetry = 10,
     EnableLogging = true,
+    EnableTracing = true,
     FlushLocalCacheOnBusReconnection = true,
 };
 var cache = new HybridCache(options);
