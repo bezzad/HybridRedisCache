@@ -2,5 +2,5 @@
 
 public class HybridCacheConstants
 {
-    public const string DefaultListenerName = "HybridCache";
+    public const string DefaultListenerName = nameof(HybridRedisCache);
 }

@@ -9,10 +9,16 @@ public class HybridCachingOptions
     public bool AbortOnConnectFail { get; set; } = true;
     
     /// <summary>
-    /// Gets or sets a value indicating whether loggin is enable or not.
+    /// Gets or sets a value indicating whether logging is enable or not.
     /// </summary>
     /// <value><c>true</c> if enable logging; otherwise, <c>false</c>.</value>
     public bool EnableLogging { get; set; } = false;
+
+    /// <summary>
+    /// Gets or sets a value indicating whether tracing is enable or not.
+    /// </summary>
+    /// <value><c>true</c> if enable tracing; otherwise, <c>false</c>.</value>
+    public bool EnableTracing { get; set; } = false;
 
     /// <summary>
     /// Gets or sets a value indicating whether an exception should be thrown if an error on the distributed cache has occurred
@@ -80,5 +86,4 @@ public class HybridCachingOptions
     /// Set the connection keep alive value in seconds. Default is 60s
     /// </summary>
     public int KeepAlive { get; set; } = 60;
-
 }

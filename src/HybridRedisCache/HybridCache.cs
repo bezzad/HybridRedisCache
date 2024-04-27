@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Caching.Distributed;
+﻿using HybridRedisCache.Utilities;
+using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
@@ -65,20 +66,15 @@ public class HybridCache : IHybridCache, IDisposable
         _memoryCache = new MemoryCache(new MemoryCacheOptions());
     }
 
-    private Activity PopulateActivity(InternalUtils.OperationTypes operationType)
+    private Activity PopulateActivity(OperationTypes operationType)
     {
-         var activity =
-            InternalUtils.Cached.Source.Value.StartActivity(nameof(HybridCache), ActivityKind.Internal);
+        if (!_options.EnableTracing)
+            return null;
 
-        activity?.SetTag("HybridCache.OperationType", operationType.ToString("G"));
+        var activity = ActivityInstance.Source.StartActivity(nameof(HybridCache), ActivityKind.Internal);
+        activity?.SetTag(nameof(HybridRedisCache) + ".OperationType", operationType.ToString("G"));
         return activity;
     }
-
-    private void SetRetrievalStrategyActivity(Activity activity, InternalUtils.RetrievalStrategy retrievalStrategy)
-        => activity?.SetTag("HybridCache.RetrievalStrategy", retrievalStrategy.ToString("G"));
-
-    private void SetCacheHitActivity(Activity activity, InternalUtils.CacheResult cacheResult, string cacheKey)
-        => activity?.SetTag("HybridCache.CacheResult", cacheResult.ToString("G"))?.SetTag("HybridCache.CacheKey", cacheKey);
 
     private void OnMessage(RedisChannel channel, RedisValue value)
     {
@@ -119,7 +115,7 @@ public class HybridCache : IHybridCache, IDisposable
 
     public bool Exists(string key)
     {
-        using var activity = PopulateActivity(InternalUtils.OperationTypes.KeyLookup);
+        using var activity = PopulateActivity(OperationTypes.KeyLookup);
 
         key.NotNullOrWhiteSpace(nameof(key));
         var cacheKey = GetCacheKey(key);
@@ -144,8 +140,7 @@ public class HybridCache : IHybridCache, IDisposable
 
     public async Task<bool> ExistsAsync(string key)
     {
-        using var activity = PopulateActivity(InternalUtils.OperationTypes.KeyLookup);
-
+        using var activity = PopulateActivity(OperationTypes.KeyLookupAsync);
         key.NotNullOrWhiteSpace(nameof(key));
         var cacheKey = GetCacheKey(key);
 
@@ -169,18 +164,17 @@ public class HybridCache : IHybridCache, IDisposable
 
     public void Set<T>(string key, T value, TimeSpan? localExpiry = null, TimeSpan? redisExpiry = null, bool fireAndForget = true)
     {
-        using var activity = PopulateActivity(InternalUtils.OperationTypes.SetCache);
         Set(key, value, localExpiry, redisExpiry, fireAndForget, true, true);
     }
 
     public void Set<T>(string key, T value, HybridCacheEntry cacheEntry)
     {
-        using var activity = PopulateActivity(InternalUtils.OperationTypes.SetCache);
         Set(key, value, cacheEntry.LocalExpiry, cacheEntry.RedisExpiry, cacheEntry.FireAndForget, cacheEntry.LocalCacheEnable, cacheEntry.RedisCacheEnable);
     }
 
     private void Set<T>(string key, T value, TimeSpan? localExpiry, TimeSpan? redisExpiry, bool fireAndForget, bool localCacheEnable, bool redisCacheEnable)
     {
+        using var activity = PopulateActivity(OperationTypes.SetCache);
         key.NotNullOrWhiteSpace(nameof(key));
         SetExpiryTimes(ref localExpiry, ref redisExpiry);
         var cacheKey = GetCacheKey(key);
@@ -208,18 +202,17 @@ public class HybridCache : IHybridCache, IDisposable
 
     public Task SetAsync<T>(string key, T value, TimeSpan? localExpiry = null, TimeSpan? redisExpiry = null, bool fireAndForget = true)
     {
-        using var activity = PopulateActivity(InternalUtils.OperationTypes.SetCache);
         return SetAsync(key, value, localExpiry, redisExpiry, fireAndForget, true, true);
     }
 
     public Task SetAsync<T>(string key, T value, HybridCacheEntry cacheEntry)
     {
-        using var activity = PopulateActivity(InternalUtils.OperationTypes.SetCache);
         return SetAsync(key, value, cacheEntry.LocalExpiry, cacheEntry.RedisExpiry, cacheEntry.FireAndForget, cacheEntry.LocalCacheEnable, cacheEntry.RedisCacheEnable);
     }
 
     private async Task SetAsync<T>(string key, T value, TimeSpan? localExpiry, TimeSpan? redisExpiry, bool fireAndForget, bool localCacheEnable, bool redisCacheEnable)
     {
+        using var activity = PopulateActivity(OperationTypes.SetCache);
         key.NotNullOrWhiteSpace(nameof(key));
         SetExpiryTimes(ref localExpiry, ref redisExpiry);
         var cacheKey = GetCacheKey(key);
@@ -248,18 +241,17 @@ public class HybridCache : IHybridCache, IDisposable
 
     public void SetAll<T>(IDictionary<string, T> value, TimeSpan? localExpiry = null, TimeSpan? redisExpiry = null, bool fireAndForget = true)
     {
-        using var activity = PopulateActivity(InternalUtils.OperationTypes.SetBatchCache);
         SetAll(value, localExpiry, redisExpiry, fireAndForget, true, true);
     }
 
     public void SetAll<T>(IDictionary<string, T> value, HybridCacheEntry cacheEntry)
     {
-        using var activity = PopulateActivity(InternalUtils.OperationTypes.SetBatchCache);
         SetAll(value, cacheEntry.LocalExpiry, cacheEntry.RedisExpiry, cacheEntry.FireAndForget, cacheEntry.LocalCacheEnable, cacheEntry.RedisCacheEnable);
     }
 
     private void SetAll<T>(IDictionary<string, T> value, TimeSpan? localExpiry, TimeSpan? redisExpiry, bool fireAndForget, bool localCacheEnable, bool redisCacheEnable)
     {
+        using var activity = PopulateActivity(OperationTypes.SetBatchCache);
         value.NotNullAndCountGTZero(nameof(value));
         SetExpiryTimes(ref localExpiry, ref redisExpiry);
 
@@ -292,18 +284,17 @@ public class HybridCache : IHybridCache, IDisposable
 
     public Task SetAllAsync<T>(IDictionary<string, T> value, TimeSpan? localExpiry = null, TimeSpan? redisExpiry = null, bool fireAndForget = true)
     {
-        using var activity = PopulateActivity(InternalUtils.OperationTypes.SetBatchCache);
         return SetAllAsync(value, localExpiry, redisExpiry, fireAndForget, true, true);
     }
 
     public Task SetAllAsync<T>(IDictionary<string, T> value, HybridCacheEntry cacheEntry)
     {
-        using var activity = PopulateActivity(InternalUtils.OperationTypes.SetBatchCache);
         return SetAllAsync(value, cacheEntry.LocalExpiry, cacheEntry.RedisExpiry, cacheEntry.FireAndForget, cacheEntry.LocalCacheEnable, cacheEntry.RedisCacheEnable);
     }
 
     private async Task SetAllAsync<T>(IDictionary<string, T> value, TimeSpan? localExpiry, TimeSpan? redisExpiry, bool fireAndForget, bool localCacheEnable, bool redisCacheEnable)
     {
+        using var activity = PopulateActivity(OperationTypes.SetBatchCache);
         value.NotNullAndCountGTZero(nameof(value));
         SetExpiryTimes(ref localExpiry, ref redisExpiry);
 
@@ -336,14 +327,13 @@ public class HybridCache : IHybridCache, IDisposable
 
     public T Get<T>(string key)
     {
-        using var activity = PopulateActivity(InternalUtils.OperationTypes.GetCache);
-
+        using var activity = PopulateActivity(OperationTypes.GetCache);
         key.NotNullOrWhiteSpace(nameof(key));
         var cacheKey = GetCacheKey(key);
         if (_memoryCache.TryGetValue(cacheKey, out T value))
         {
-            SetRetrievalStrategyActivity(activity,InternalUtils.RetrievalStrategy.MemoryCache);
-            SetCacheHitActivity(activity,InternalUtils.CacheResult.Hit,cacheKey);
+            activity?.SetRetrievalStrategyActivity(RetrievalStrategy.MemoryCache);
+            activity?.SetCacheHitActivity(CacheResultType.Hit, cacheKey);
             return value;
         }
 
@@ -352,8 +342,8 @@ public class HybridCache : IHybridCache, IDisposable
             var redisValue = _redisDb.StringGetWithExpiry(cacheKey);
             if (TryUpdateLocalCache(cacheKey, redisValue, null, out value))
             {
-                SetRetrievalStrategyActivity(activity, InternalUtils.RetrievalStrategy.RedisCache);
-                SetCacheHitActivity(activity, InternalUtils.CacheResult.Hit, cacheKey);
+                activity?.SetRetrievalStrategyActivity(RetrievalStrategy.RedisCache);
+                activity?.SetCacheHitActivity(CacheResultType.Hit, cacheKey);
                 return value;
             }
         }
@@ -375,15 +365,15 @@ public class HybridCache : IHybridCache, IDisposable
 
     public T Get<T>(string key, Func<string, T> dataRetriever, TimeSpan? localExpiry = null, TimeSpan? redisExpiry = null, bool fireAndForget = true)
     {
-        using var activity = PopulateActivity(InternalUtils.OperationTypes.GetCache);
+        using var activity = PopulateActivity(OperationTypes.GetCache);
         key.NotNullOrWhiteSpace(nameof(key));
         SetExpiryTimes(ref localExpiry, ref redisExpiry);
         var cacheKey = GetCacheKey(key);
 
         if (_memoryCache.TryGetValue(cacheKey, out T value))
         {
-            SetRetrievalStrategyActivity(activity, InternalUtils.RetrievalStrategy.MemoryCache);
-            SetCacheHitActivity(activity, InternalUtils.CacheResult.Hit, cacheKey);
+            activity?.SetRetrievalStrategyActivity(RetrievalStrategy.MemoryCache);
+            activity?.SetCacheHitActivity(CacheResultType.Hit, cacheKey);
             return value;
         }
 
@@ -392,8 +382,8 @@ public class HybridCache : IHybridCache, IDisposable
             var redisValue = _redisDb.StringGetWithExpiry(cacheKey);
             if (TryUpdateLocalCache(cacheKey, redisValue, localExpiry, out value))
             {
-                SetRetrievalStrategyActivity(activity, InternalUtils.RetrievalStrategy.RedisCache);
-                SetCacheHitActivity(activity, InternalUtils.CacheResult.Hit, cacheKey);
+                activity?.SetRetrievalStrategyActivity(RetrievalStrategy.RedisCache);
+                activity?.SetCacheHitActivity(CacheResultType.Hit, cacheKey);
                 return value;
             }
         }
@@ -410,8 +400,8 @@ public class HybridCache : IHybridCache, IDisposable
             if (value is not null)
             {
                 Set(key, value, localExpiry, redisExpiry, fireAndForget);
-                SetRetrievalStrategyActivity(activity, InternalUtils.RetrievalStrategy.DataRetrieverExecution);
-                SetCacheHitActivity(activity, InternalUtils.CacheResult.Miss, cacheKey);
+                activity?.SetRetrievalStrategyActivity(RetrievalStrategy.DataRetrieverExecution);
+                activity?.SetCacheHitActivity(CacheResultType.Miss, cacheKey);
                 return value;
             }
         }
@@ -428,13 +418,13 @@ public class HybridCache : IHybridCache, IDisposable
 
     public async Task<T> GetAsync<T>(string key)
     {
-        using var activity = PopulateActivity(InternalUtils.OperationTypes.GetCache);
+        using var activity = PopulateActivity(OperationTypes.GetCache);
         key.NotNullOrWhiteSpace(nameof(key));
         var cacheKey = GetCacheKey(key);
         if (_memoryCache.TryGetValue(cacheKey, out T value))
         {
-            SetRetrievalStrategyActivity(activity,InternalUtils.RetrievalStrategy.MemoryCache);
-            SetCacheHitActivity(activity, InternalUtils.CacheResult.Hit, cacheKey);
+            activity?.SetRetrievalStrategyActivity(RetrievalStrategy.MemoryCache);
+            activity?.SetCacheHitActivity(CacheResultType.Hit, cacheKey);
             return value;
         }
 
@@ -443,8 +433,8 @@ public class HybridCache : IHybridCache, IDisposable
             var redisValue = await _redisDb.StringGetWithExpiryAsync(cacheKey).ConfigureAwait(false);
             if (TryUpdateLocalCache(cacheKey, redisValue, null, out value))
             {
-                SetRetrievalStrategyActivity(activity,InternalUtils.RetrievalStrategy.RedisCache);
-                SetCacheHitActivity(activity, InternalUtils.CacheResult.Hit, cacheKey);
+                activity?.SetRetrievalStrategyActivity(RetrievalStrategy.RedisCache);
+                activity?.SetCacheHitActivity(CacheResultType.Hit, cacheKey);
                 return value;
             }
         }
@@ -456,7 +446,7 @@ public class HybridCache : IHybridCache, IDisposable
         }
 
         LogMessage($"distributed cache can not get the value of `{key}` key");
-        SetCacheHitActivity(activity, InternalUtils.CacheResult.Miss, cacheKey);
+        activity?.SetCacheHitActivity(CacheResultType.Miss, cacheKey);
         return value;
     }
 
@@ -468,15 +458,15 @@ public class HybridCache : IHybridCache, IDisposable
     public async Task<T> GetAsync<T>(string key, Func<string, Task<T>> dataRetriever,
         TimeSpan? localExpiry = null, TimeSpan? redisExpiry = null, bool fireAndForget = true)
     {
-        using var activity = PopulateActivity(InternalUtils.OperationTypes.GetCache);
+        using var activity = PopulateActivity(OperationTypes.GetCache);
         key.NotNullOrWhiteSpace(nameof(key));
         SetExpiryTimes(ref localExpiry, ref redisExpiry);
         var cacheKey = GetCacheKey(key);
 
         if (_memoryCache.TryGetValue(cacheKey, out T value))
         {
-            SetRetrievalStrategyActivity(activity,InternalUtils.RetrievalStrategy.MemoryCache);
-            SetCacheHitActivity(activity, InternalUtils.CacheResult.Hit, cacheKey);
+            activity?.SetRetrievalStrategyActivity(RetrievalStrategy.MemoryCache);
+            activity?.SetCacheHitActivity(CacheResultType.Hit, cacheKey);
             return value;
         }
 
@@ -485,8 +475,8 @@ public class HybridCache : IHybridCache, IDisposable
             var redisValue = await _redisDb.StringGetWithExpiryAsync(cacheKey).ConfigureAwait(false);
             if (TryUpdateLocalCache(cacheKey, redisValue, localExpiry, out value))
             {
-                SetRetrievalStrategyActivity(activity,InternalUtils.RetrievalStrategy.RedisCache);
-                SetCacheHitActivity(activity, InternalUtils.CacheResult.Hit, cacheKey);
+                activity?.SetRetrievalStrategyActivity(RetrievalStrategy.RedisCache);
+                activity?.SetCacheHitActivity(CacheResultType.Hit, cacheKey);
                 return value;
             }
         }
@@ -502,8 +492,8 @@ public class HybridCache : IHybridCache, IDisposable
             value = await dataRetriever(key).ConfigureAwait(false);
             if (value is not null)
             {
-                SetRetrievalStrategyActivity(activity,InternalUtils.RetrievalStrategy.DataRetrieverExecution);
-                SetCacheHitActivity(activity, InternalUtils.CacheResult.Miss, cacheKey);
+                activity?.SetRetrievalStrategyActivity(RetrievalStrategy.DataRetrieverExecution);
+                activity?.SetCacheHitActivity(CacheResultType.Miss, cacheKey);
                 await SetAsync(key, value, localExpiry, redisExpiry, fireAndForget).ConfigureAwait(false);
                 return value;
             }
@@ -521,14 +511,14 @@ public class HybridCache : IHybridCache, IDisposable
 
     public bool TryGetValue<T>(string key, out T value)
     {
-        using var activity = PopulateActivity(InternalUtils.OperationTypes.GetCache);
+        using var activity = PopulateActivity(OperationTypes.GetCache);
 
         key.NotNullOrWhiteSpace(nameof(key));
         var cacheKey = GetCacheKey(key);
         if (_memoryCache.TryGetValue(cacheKey, out value))
         {
-            SetRetrievalStrategyActivity(activity,InternalUtils.RetrievalStrategy.MemoryCache);
-            SetCacheHitActivity(activity, InternalUtils.CacheResult.Hit, cacheKey);
+            activity?.SetRetrievalStrategyActivity(RetrievalStrategy.MemoryCache);
+            activity?.SetCacheHitActivity(CacheResultType.Hit, cacheKey);
             return true;
         }
 
@@ -537,8 +527,8 @@ public class HybridCache : IHybridCache, IDisposable
             var redisValue = _redisDb.StringGetWithExpiry(cacheKey);
             if (TryUpdateLocalCache(cacheKey, redisValue, null, out value))
             {
-                SetRetrievalStrategyActivity(activity,InternalUtils.RetrievalStrategy.RedisCache);
-                SetCacheHitActivity(activity, InternalUtils.CacheResult.Hit, cacheKey);
+                activity?.SetRetrievalStrategyActivity(RetrievalStrategy.RedisCache);
+                activity?.SetCacheHitActivity(CacheResultType.Hit, cacheKey);
                 return true;
             }
         }
@@ -555,7 +545,7 @@ public class HybridCache : IHybridCache, IDisposable
 
     public void Remove(string key, bool fireAndForget = false)
     {
-        using var activity = PopulateActivity(InternalUtils.OperationTypes.DeleteCache);
+        using var activity = PopulateActivity(OperationTypes.DeleteCache);
         Remove(new[] { key }, fireAndForget);
     }
 
@@ -590,7 +580,7 @@ public class HybridCache : IHybridCache, IDisposable
 
     public Task RemoveAsync(string key, bool fireAndForget = false)
     {
-        using var activity = PopulateActivity(InternalUtils.OperationTypes.DeleteCache);
+        using var activity = PopulateActivity(OperationTypes.DeleteCache);
         return RemoveAsync(new[] { key }, fireAndForget);
     }
 
@@ -627,7 +617,7 @@ public class HybridCache : IHybridCache, IDisposable
 
     public async Task<string[]> RemoveWithPatternAsync(string pattern, bool fireAndForget = false, CancellationToken token = default)
     {
-        using var activity = PopulateActivity(InternalUtils.OperationTypes.DeleteCache);
+        using var activity = PopulateActivity(OperationTypes.DeleteCache);
         pattern.NotNullAndCountGTZero(nameof(pattern));
         var removedKeys = new List<string>();
         var keyPattern = "*" + GetCacheKey(pattern);
@@ -674,7 +664,7 @@ public class HybridCache : IHybridCache, IDisposable
 
     public void ClearAll()
     {
-        using var activity = PopulateActivity(InternalUtils.OperationTypes.Flush);
+        using var activity = PopulateActivity(OperationTypes.Flush);
         var servers = GetServers();
 
         foreach (var server in servers)
@@ -744,7 +734,7 @@ public class HybridCache : IHybridCache, IDisposable
 
     private void ClearLocalMemory()
     {
-        using var activity = PopulateActivity(InternalUtils.OperationTypes.ClearLocalCache);
+        using var activity = PopulateActivity(OperationTypes.ClearLocalCache);
         lock (_memoryCache)
         {
             _memoryCache.Dispose();
