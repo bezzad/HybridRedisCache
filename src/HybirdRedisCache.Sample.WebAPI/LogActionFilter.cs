@@ -32,7 +32,7 @@ namespace HybirdRedisCache.Sample.WebAPI
         }
 
         private readonly ILoggerFactory _loggerFactory;
-        private ITimer _timer;
+        private Prometheus.ITimer _timer;
 
 
         public LogActionFilter(ILoggerFactory loggerFactory)
