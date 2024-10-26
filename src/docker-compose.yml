@@ -2,11 +2,16 @@ version: '3.4'
 services:
   hybirdrediscache.sample.webapi:    
     image: ${DOCKER_REGISTRY-}hybirdrediscachesamplewebapi
-    #ports: 
-    #    - "7037:80"
-    #    - "7037:7037"
+    ports:
+      - "6379:6379"
     deploy:
         replicas: 4
+    volumes:
+      - redis_data:/data
     build:
       context: .
       dockerfile: HybirdRedisCache.Sample.WebAPI/Dockerfile
+
+
+volumes:
+  redis_data:
