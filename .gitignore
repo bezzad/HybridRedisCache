@@ -348,3 +348,21 @@ MigrationBackup/
 
 # Ionide (cross platform F# VS Code tools) working folder
 .ionide/
+
+# Ignore DsStore files
+.DS_Store
+
+# Ignore all .vscode files
+.vscode/
+
+# Ignore all .idea files
+.idea/
+
+# Ignore all .vs files
+.vs/
+
+# Ignore all .suo files
+*.suo
+
+# Ignore all .user files
+*.user
