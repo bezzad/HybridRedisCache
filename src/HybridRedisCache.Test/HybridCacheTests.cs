@@ -874,7 +874,7 @@ public class HybridCacheTests : IDisposable
         // Arrange 
         var key = "key_";
         var keyPattern = key + "*";
-        var value = "test_value";
+        var value = "test_value_";
 
         // Act
         for (var i = 0; i < 10; i++)

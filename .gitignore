@@ -350,13 +350,15 @@ MigrationBackup/
 .ionide/
 
 # Ignore DsStore files
-.DS_Store
+.DS_Store/*
 
 # Ignore all .vscode files
-.vscode/
+.vscode/*
 
 # Ignore all .idea files
-.idea/
+.idea
+src/.idea/**/*
+src/.idea/*
 
 # Ignore all .vs files
 .vs/

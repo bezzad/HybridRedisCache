@@ -19,48 +19,52 @@ public interface IHybridCache
     /// <summary>
     /// Sets a value in the cache with the specified key.
     /// </summary>
-    /// <typeparam name="T">The type of the value to cache.</typeparam>
     /// <param name="key">The cache key.</param>
     /// <param name="value">The value to cache.</param>
     /// <param name="localExpiry">The expiration time for the local cache entry. If not specified, the default local expiration time is used.</param>
     /// <param name="redisExpiry">The expiration time for the redis cache entry. If not specified, the default distributed expiration time is used.</param>
     /// <param name="fireAndForget">Whether to cache the value in Redis without waiting for the operation to complete.</param>
-    /// <typeparam name="T">The 1st type parameter.</typeparam>
-    void Set<T>(string key, T value, TimeSpan? localExpiry = null, TimeSpan? redisExpiry = null, bool fireAndForget = true);
+    bool Set<T>(string key, T value, TimeSpan? localExpiry = null, TimeSpan? redisExpiry = null, bool fireAndForget = true);
 
     /// <summary>
     /// Sets a value in the cache with the specified key.
     /// </summary>
-    /// <typeparam name="T">The type of the value to cache.</typeparam>
     /// <param name="key">The cache key</param>
     /// <param name="value">The value to cache</param>
     /// <param name="cacheEntry">Parameters of caching an entry like expiration</param>
     /// <typeparam name="T">The 1st type parameter.</typeparam>
-    void Set<T>(string key, T value, HybridCacheEntry cacheEntry);
+    bool Set<T>(string key, T value, HybridCacheEntry cacheEntry);
 
     /// <summary>
     /// Asynchronously sets a value in the cache with the specified key.
     /// </summary>
-    /// <typeparam name="T">The type of the value to cache.</typeparam>
     /// <param name="key">The cache key.</param>
     /// <param name="value">The value to cache.</param>
     /// <param name="localExpiry">The expiration time for the local cache entry. If not specified, the default local expiration time is used.</param>
     /// <param name="redisExpiry">The expiration time for the redis cache entry. If not specified, the default distributed expiration time is used.</param>
-    /// <param name="fireAndForget">Whether to cach1e the value in Redis without waiting for the operation to complete.</param>
+    /// <param name="fireAndForget">Whether to cache the value in Redis without waiting for the operation to complete.</param>
     /// <typeparam name="T">The 1st type parameter.</typeparam>
     /// <returns>A task that represents the asynchronous operation.</returns>
-    Task SetAsync<T>(string key, T value, TimeSpan? localExpiry = null, TimeSpan? redisExpiry = null, bool fireAndForget = true);
+    Task<bool> SetAsync<T>(string key, T value, TimeSpan? localExpiry = null, TimeSpan? redisExpiry = null, bool fireAndForget = true);
 
     /// <summary>
     /// Asynchronously sets a value in the cache with the specified key.
     /// </summary>
-    /// <typeparam name="T">The type of the value to cache.</typeparam>
     /// <param name="key">The cache key.</param>
     /// <param name="value">The value to cache.</param>
     /// <param name="cacheEntry">Parameters of caching an entry like expiration</param>
     /// <typeparam name="T">The 1st type parameter.</typeparam>
     /// <returns>A task that represents the asynchronous operation.</returns>
-    Task SetAsync<T>(string key, T value, HybridCacheEntry cacheEntry);
+    Task<bool> SetAsync<T>(string key, T value, HybridCacheEntry cacheEntry);
+
+    /// <summary>
+    /// Sets all.
+    /// </summary>
+    /// <returns>The all async.</returns>
+    /// <param name="value">Value of caching</param>
+    /// <param name="cacheEntry">cache options entry</param>
+    /// <typeparam name="T">The 1st type parameter.</typeparam>
+    bool SetAll<T>(IDictionary<string, T> value, HybridCacheEntry cacheEntry);
 
     /// <summary>
     /// Sets all.
@@ -71,16 +75,7 @@ public interface IHybridCache
     /// <param name="redisExpiry">The expiration time for the redis cache entry. If not specified, the default distributed expiration time is used.</param>
     /// <param name="fireAndForget">Whether to cache the value in Redis without waiting for the operation to complete.</param>
     /// <typeparam name="T">The 1st type parameter.</typeparam>
-    void SetAll<T>(IDictionary<string, T> value, HybridCacheEntry cacheEntry);
-
-    /// <summary>
-    /// Sets all.
-    /// </summary>
-    /// <returns>The all async.</returns>
-    /// <param name="value">Value.</param>
-    /// <param name="cacheEntry">Parameters of caching an entry like expiration</param>
-    /// <typeparam name="T">The 1st type parameter.</typeparam>
-    void SetAll<T>(IDictionary<string, T> value, TimeSpan? localExpiry = null, TimeSpan? redisExpiry = null, bool fireAndForget = true);
+    bool SetAll<T>(IDictionary<string, T> value, TimeSpan? localExpiry = null, TimeSpan? redisExpiry = null, bool fireAndForget = true);
 
     /// <summary>
     /// Sets all async.
@@ -89,8 +84,9 @@ public interface IHybridCache
     /// <param name="value">Value.</param>
     /// <param name="localExpiry">The expiration time for the local cache entry. If not specified, the default local expiration time is used.</param>
     /// <param name="redisExpiry">The expiration time for the redis cache entry. If not specified, the default distributed expiration time is used.</param>
+    /// <param name="fireAndForget">Whether to cache the value in Redis without waiting for the operation to complete.</param>
     /// <typeparam name="T">The 1st type parameter.</typeparam>
-    Task SetAllAsync<T>(IDictionary<string, T> value, TimeSpan? localExpiry = null, TimeSpan? redisExpiry = null, bool fireAndForget = true);
+    Task<bool> SetAllAsync<T>(IDictionary<string, T> value, TimeSpan? localExpiry = null, TimeSpan? redisExpiry = null, bool fireAndForget = true);
 
     /// <summary>
     /// Sets all.
@@ -99,7 +95,7 @@ public interface IHybridCache
     /// <param name="value">Value.</param>
     /// <param name="cacheEntry">Parameters of caching an entry like expiration</param>
     /// <typeparam name="T">The 1st type parameter.</typeparam>
-    Task SetAllAsync<T>(IDictionary<string, T> value, HybridCacheEntry cacheEntry);
+    Task<bool> SetAllAsync<T>(IDictionary<string, T> value, HybridCacheEntry cacheEntry);
 
     /// <summary>
     /// Gets a cached value with the specified key.
@@ -113,7 +109,7 @@ public interface IHybridCache
     /// Get the specified cacheKey, dataRetriever and expiration.
     /// </summary>
     /// <returns>The get.</returns>
-    /// <param name="key">Cache key.</param>
+    /// <param name="cacheKey">Cache key.</param>
     /// <param name="dataRetriever">Data retriever.</param>
     /// <param name="localExpiry">The expiration time for the local cache entry. If not specified, the default local expiration time is used.</param>
     /// <param name="redisExpiry">The expiration time for the redis cache entry. If not specified, the default distributed expiration time is used.</param>
@@ -125,7 +121,7 @@ public interface IHybridCache
     /// Get the specified cacheKey, dataRetriever and expiration.
     /// </summary>
     /// <returns>The get.</returns>
-    /// <param name="key">Cache key.</param>
+    /// <param name="cacheKey">Cache key.</param>
     /// <param name="dataRetriever">Data retriever.</param>
     /// <param name="cacheEntry">Parameters of caching an entry like expiration</param>
     /// <typeparam name="T">The 1st type parameter.</typeparam>
@@ -143,7 +139,7 @@ public interface IHybridCache
     /// Asynchronously get the specified cacheKey, dataRetriever and expiration.
     /// </summary>
     /// <returns>The get.</returns>
-    /// <param name="key">Cache key.</param>
+    /// <param name="cacheKey">Cache key.</param>
     /// <param name="dataRetriever">Data retriever.</param>
     /// <param name="localExpiry">The expiration time for the local cache entry. If not specified, the default local expiration time is used.</param>
     /// <param name="redisExpiry">The expiration time for the redis cache entry. If not specified, the default distributed expiration time is used.</param>
@@ -155,7 +151,7 @@ public interface IHybridCache
     /// Asynchronously get the specified cacheKey, dataRetriever and expiration.
     /// </summary>
     /// <returns>The get.</returns>
-    /// <param name="key">Cache key.</param>
+    /// <param name="cacheKey">Cache key.</param>
     /// <param name="dataRetriever">Data retriever.</param>
     /// <param name="cacheEntry">Parameters of caching an entry like expiration</param>
     /// <typeparam name="T">The 1st type parameter.</typeparam>
@@ -166,22 +162,23 @@ public interface IHybridCache
     /// </summary>
     /// <typeparam name="T">The type of the cached value.</typeparam>
     /// <param name="key">The cache key.</param>
+    /// <param name="value">The value of caching</param>
     /// <returns>The cached value, or null if the key is not found in the cache.</returns>
     bool TryGetValue<T>(string key, out T value);
 
     /// <summary>
     /// Removes a cached value with the specified key.
     /// </summary>
-    /// <param name="key">The cache key to remove.</param>
+    /// <param name="keys">Cache keys to remove.</param>
     /// <param name="fireAndForget">Whether to cache the value in Redis without waiting for the operation to complete.</param>
-    void Remove(string[] keys, bool fireAndForget = false);
+    bool Remove(string[] keys, bool fireAndForget = false);
 
     /// <summary>
     /// Removes a cached value with the specified key.
     /// </summary>
-    /// <param name="keys">Cache keys to remove.</param>
+    /// <param name="key">Cache key to remove.</param>
     /// <param name="fireAndForget">Whether to cache the value in Redis without waiting for the operation to complete.</param>
-    void Remove(string key, bool fireAndForget = false);
+    bool Remove(string key, bool fireAndForget = false);
 
     /// <summary>
     /// Asynchronously removes a cached value with the specified key.
@@ -189,7 +186,7 @@ public interface IHybridCache
     /// <param name="keys">cache keys</param>
     /// <param name="fireAndForget">Whether to cache the value in Redis without waiting for the operation to complete.</param>
     /// <returns>A task that represents the asynchronous operation.</returns>
-    Task RemoveAsync(string[] keys, bool fireAndForget = false);
+    Task<bool> RemoveAsync(string[] keys, bool fireAndForget = false);
 
     /// <summary>
     /// Asynchronously removes a cached value with the specified key.
@@ -197,12 +194,13 @@ public interface IHybridCache
     /// <param name="key">The cache key</param>
     /// <param name="fireAndForget">Whether to cache the value in Redis without waiting for the operation to complete.</param>
     /// <returns>A task that represents the asynchronous operation.</returns>
-    Task RemoveAsync(string key, bool fireAndForget = false);
+    Task<bool> RemoveAsync(string key, bool fireAndForget = false);
 
     /// <summary>
     /// Asynchronously removes a cached value with a key pattern.
     /// </summary>
-    /// <param name="keys">The cache key pattern. <example>"test_keys_*"</example></param>
+    /// <param name="pattern">pattern to search keys. must have * in the key. like:  key_*_test_*</param>
+    /// <param name="token">cancellation token</param>
     /// /// <param name="fireAndForget">Whether to cache the value in Redis without waiting for the operation to complete.</param>
     /// <returns>Get all removed keys</returns>
     Task<string[]> RemoveWithPatternAsync(string pattern, bool fireAndForget = false, CancellationToken token = default);
