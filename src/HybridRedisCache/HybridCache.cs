@@ -692,16 +692,12 @@ public class HybridCache : IHybridCache, IDisposable
 
         try
         {
-            await foreach (var key in GetKeysAsync(keyPattern, token).ConfigureAwait(false))
-            {
-                if (token.IsCancellationRequested)
-                    break;
+            var removedKeys = _redisDb.Execute("KEYS", keyPattern);
+            
+            if (token.IsCancellationRequested)
+                return [];
 
-                if (await _redisDb.KeyDeleteAsync(key).ConfigureAwait(false))
-                {
-                    removedKeys.Add(key);
-                }
-            }
+            await _redisDb.KeyDeleteAsync(keys, flags).ConfigureAwait(false);
 
             LogMessage($"{removedKeys.Count} matching keys found and removed with `{keyPattern}` pattern");
         }
@@ -889,33 +885,29 @@ public class HybridCache : IHybridCache, IDisposable
         }
     }
 
-    public async IAsyncEnumerable<string> KeysAsync(string pattern, [EnumeratorCancellation] CancellationToken token = default)
+    public IAsyncEnumerable<string> KeysAsync(string pattern, CancellationToken token)
     {
-        await foreach (var key in GetKeysAsync(pattern, token).ConfigureAwait(false))
-        {
-            yield return key;
-        }
+        return KeysAsync(pattern, token);
     }
 
-    private async IAsyncEnumerable<RedisKey> GetKeysAsync(string pattern, [EnumeratorCancellation] CancellationToken token = default)
+    public async IAsyncEnumerable<string> KeysAsync(string pattern, Flags flags = Flags.PreferReplica, [EnumeratorCancellation] CancellationToken token = default)
     {
         var servers = GetServers();
         foreach (var server in servers)
         {
             // it would be *better* to try and find a single replica per
-            // primary and run the SCAN on the replica, but... let's
-            // keep it relatively simple
-            if (server.IsConnected && !server.IsReplica)
+            // primary and run the SCAN on the replica
+            if (server.IsConnected)
             {
                 if (token.IsCancellationRequested)
                     break;
 
-                await foreach (var key in server.KeysAsync(pattern: pattern).ConfigureAwait(false))
+                await foreach (var key in server.KeysAsync(pattern: pattern, flags: (CommandFlags)flags).ConfigureAwait(false))
                 {
                     if (token.IsCancellationRequested)
                         break;
 
-                    yield return key;
+                    yield return (string)key;
                 }
             }
         }

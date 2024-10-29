@@ -21,8 +21,6 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "HybridRedisCache.Benchmark"
 EndProject
 Project("{9092AA53-FB77-4645-B42D-1CCCA6BD08BD}") = "HybridRedisCache.LoadTest", "HybridRedisCache.LoadTest\HybridRedisCache.LoadTest.njsproj", "{1912F06F-96CE-4CF0-AAB1-90F61E3F6AE7}"
 EndProject
-Project("{E53339B2-1760-4266-BCC7-CA923CBCF16C}") = "docker-compose", "docker-compose.dcproj", "{F61FBDDA-FF3C-4C00-91BE-6D8692C3893A}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -53,10 +51,6 @@ Global
 		{1912F06F-96CE-4CF0-AAB1-90F61E3F6AE7}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{1912F06F-96CE-4CF0-AAB1-90F61E3F6AE7}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{1912F06F-96CE-4CF0-AAB1-90F61E3F6AE7}.Release|Any CPU.Build.0 = Release|Any CPU
-		{F61FBDDA-FF3C-4C00-91BE-6D8692C3893A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{F61FBDDA-FF3C-4C00-91BE-6D8692C3893A}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{F61FBDDA-FF3C-4C00-91BE-6D8692C3893A}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{F61FBDDA-FF3C-4C00-91BE-6D8692C3893A}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

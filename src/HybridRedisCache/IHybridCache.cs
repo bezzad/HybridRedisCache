@@ -1,4 +1,6 @@
-﻿namespace HybridRedisCache;
+﻿using System.Runtime.CompilerServices;
+
+namespace HybridRedisCache;
 
 public interface IHybridCache
 {
@@ -356,6 +358,15 @@ public interface IHybridCache
     /// <param name="token">cancellation token</param>
     /// <returns>Enumerable of Redis keys</returns>
     IAsyncEnumerable<string> KeysAsync(string pattern, CancellationToken token = default);
+
+    /// <summary>
+    /// Search all servers to find all keys which match with the pattern
+    /// </summary>
+    /// <param name="pattern">pattern to search keys</param>
+    /// <param name="token">cancellation token</param>
+    /// <param name="flags">The flags to use for this operation.</param>
+    /// <returns>Enumerable of Redis keys</returns>
+    IAsyncEnumerable<string> KeysAsync(string pattern, Flags flags = Flags.PreferReplica, CancellationToken token = default);
 
     void FlushLocalCaches();
 

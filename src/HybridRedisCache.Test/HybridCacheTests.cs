@@ -1022,4 +1022,51 @@ public class HybridCacheTests : IDisposable
         // assert
         Assert.False(isSuccess);
     }
+
+    [Fact]
+    public async Task TestRemoveWithPatternKeysPerformance()
+    {
+        // Arrange
+        var dataCount = 1_000_000;
+        var keyPattern = "TestRemoveWithPatternKeys_";
+        var valuePattern = "value_";
+        var keyValues = new Dictionary<string, string>();
+        for (int i = 0; i < dataCount; i++)
+        {
+            keyValues.Add(keyPattern + Guid.NewGuid(), valuePattern + i);
+        }
+        var keys = keyValues.Keys.ToArray();
+
+        // Act: Insert Keys
+        await Cache.SetAllAsync(keyValues, new HybridCacheEntry()
+        {
+            RedisExpiry = TimeSpan.FromMinutes(5),
+            FireAndForget = false,
+            LocalCacheEnable = false,
+            RedisCacheEnable = true,
+            KeepTTL = false,
+            Flags = Flags.PreferMaster,
+            When = Condition.Always
+        });
+
+        // Assert Exist Keys
+        //for (int i = 0; i < dataCount/100; i++)
+        //{
+        //    var key = keys[Random.Shared.Next(0, keys.Length)];
+        //    var value = await Cache.GetAsync<string>(key);
+        //    Assert.Equal(keyValues[key], value);
+        //}
+
+        // Act: Remove keys
+        await Cache.RemoveWithPatternAsync(keyPattern + '*', Flags.PreferMaster);
+
+
+        // Assert Not Exist Keys
+        //for (int i = 0; i < dataCount; i++)
+        //{
+        //    var key = keys[i];
+        //    var isExist = await Cache.ExistsAsync(key);
+        //    Assert.False(isExist);
+        //}
+    }
 }
