@@ -1,4 +1,5 @@
-﻿using System;
+﻿using StackExchange.Redis;
+using System;
 using System.Collections.Generic;
 using Xunit;
 
@@ -202,5 +203,35 @@ public class ArgumentCheckTest
 
         // assert
         Assert.Equal(expectedSeconds, seconds);
+    }
+
+    [Theory]
+    [InlineData(Flags.NoRedirect)]
+    [InlineData(Flags.PreferReplica)]
+    [InlineData(Flags.DemandReplica)]
+    [InlineData(Flags.NoScriptCache)]
+    [InlineData(Flags.DemandMaster)]
+    [InlineData(Flags.FireAndForget)]
+    public void TestCastRedisCommandFlagsEnum(Flags flags)
+    {
+        // act
+        var result = (CommandFlags)flags;
+
+        // assert
+        Assert.Equal((int)flags, (int)result);
+    }
+
+    [Theory]
+    [InlineData(Condition.Always)]
+    [InlineData(Condition.Exists)]
+    [InlineData(Condition.NotExists)]
+    public void TestCastRedisWhenEnum(Condition when)
+    {
+        // act
+        var result = (When)when;
+
+        // assert
+        Assert.Equal((int)when, (int)result);
+        Assert.Equal(when.ToString(), result.ToString());
     }
 }

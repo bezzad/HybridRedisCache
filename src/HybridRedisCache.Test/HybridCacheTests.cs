@@ -294,14 +294,14 @@ public class HybridCacheTests : IDisposable
         var instance2 = new HybridCache(_options);
 
         // set a value in the shared cache using instance1
-        await instance1.SetAsync(key, value1, fireAndForget: false);
+        await instance1.SetAsync(key, value1);
 
         // retrieve the value from the shared cache using instance2
         var value = await instance2.GetAsync<string>(key);
         Assert.Equal(value1, value);
 
         // update the value in the shared cache using instance2
-        await instance2.SetAsync(key, value2, fireAndForget: false);
+        await instance2.SetAsync(key, value2);
 
         // wait for cache invalidation message to be received
         await Task.Delay(1000);
@@ -443,7 +443,7 @@ public class HybridCacheTests : IDisposable
                     await locker.WaitAsync();
                     // perform cache operations on the cache instance
                     var currentValue = this.Cache.Get<string>(key);
-                    this.Cache.Set<string>(key, (string)((currentValue ?? "") + value), fireAndForget: false);
+                    this.Cache.Set<string>(key, (string)((currentValue ?? "") + value));
                 }
                 finally { locker.Release(); }
             })));
@@ -590,12 +590,12 @@ public class HybridCacheTests : IDisposable
             };
 
         // Act
-        await Cache.SetAllAsync(keyValues, TimeSpan.FromMinutes(10)).ConfigureAwait(false);
+        await Cache.SetAllAsync(keyValues, TimeSpan.FromMinutes(10));
 
         // Assert
         foreach (var kvp in keyValues)
         {
-            var value = await Cache.GetAsync<string>(kvp.Key).ConfigureAwait(false);
+            var value = await Cache.GetAsync<string>(kvp.Key);
             Assert.Equal(kvp.Value, value);
         }
     }
@@ -651,8 +651,8 @@ public class HybridCacheTests : IDisposable
         var value1 = "value1";
         var value2 = "value2";
 
-        Cache.Set(key1, value1, fireAndForget: false);
-        Cache.Set(key2, value2, fireAndForget: false);
+        Cache.Set(key1, value1);
+        Cache.Set(key2, value2);
 
         // Act
         var value1b = Cache.Get<string>(key1);
@@ -675,8 +675,8 @@ public class HybridCacheTests : IDisposable
         var value1 = "value1";
         var value2 = "value2";
 
-        await Cache.SetAsync(key1, value1, fireAndForget: false);
-        await Cache.SetAsync(key2, value2, fireAndForget: false);
+        await Cache.SetAsync(key1, value1);
+        await Cache.SetAsync(key2, value2);
 
         // Act
         var value1b = await Cache.GetAsync<string>(key1);
@@ -699,16 +699,16 @@ public class HybridCacheTests : IDisposable
         var value1 = "value1";
         var value2 = "value2";
 
-        await Cache.SetAsync(key1, value1, TimeSpan.FromMinutes(1), TimeSpan.FromMilliseconds(1), fireAndForget: false).ConfigureAwait(false); // without redis caching
-        await Cache.SetAsync(key2, value2, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(1), fireAndForget: false).ConfigureAwait(false);
+        await Cache.SetAsync(key1, value1, TimeSpan.FromMinutes(1), TimeSpan.FromMilliseconds(1)); // without redis caching
+        await Cache.SetAsync(key2, value2, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(1), fireAndForget: false);
 
         // Act
-        var value1b = await Cache.GetAsync<string>(key1).ConfigureAwait(false);
-        var value2b = await Cache.GetAsync<string>(key2).ConfigureAwait(false);
-        await Cache.FlushLocalCachesAsync().ConfigureAwait(false);
-        await Task.Delay(100).ConfigureAwait(false);
-        var value1a = await Cache.GetAsync<string>(key1).ConfigureAwait(false);
-        var value2a = await Cache.GetAsync<string>(key2).ConfigureAwait(false);
+        var value1b = await Cache.GetAsync<string>(key1);
+        var value2b = await Cache.GetAsync<string>(key2);
+        await Cache.FlushLocalCachesAsync();
+        await Task.Delay(100);
+        var value1a = await Cache.GetAsync<string>(key1);
+        var value2a = await Cache.GetAsync<string>(key2);
 
         // Assert
         Assert.Equal(value1, value1b);

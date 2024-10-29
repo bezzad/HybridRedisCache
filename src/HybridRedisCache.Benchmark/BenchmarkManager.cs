@@ -245,7 +245,7 @@ public class BenchmarkManager
         var key = GenerateUniqueKey;
 
         // write single cache
-        _hybridCache.Set(key, _singleModel.Value, TimeSpan.FromSeconds(ExpireDurationSecond), fireAndForget: false);
+        _hybridCache.Set(key, _singleModel.Value, TimeSpan.FromSeconds(ExpireDurationSecond));
 
         // read cache
         for (var i = 0; i < RepeatCount; i++)
@@ -263,7 +263,7 @@ public class BenchmarkManager
         var key = GenerateUniqueKey;
 
         // write single cache
-        await _hybridCache.SetAsync(key, _singleModel.Value, TimeSpan.FromSeconds(ExpireDurationSecond), fireAndForget: false);
+        await _hybridCache.SetAsync(key, _singleModel.Value, TimeSpan.FromSeconds(ExpireDurationSecond));
 
         // read cache
         for (var i = 0; i < RepeatCount; i++)
