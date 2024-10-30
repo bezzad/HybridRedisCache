@@ -28,7 +28,11 @@ internal enum OperationTypes
     KeyLookup,
     KeyLookupAsync,
     DeleteCache,
-    Flush
+    BatchDeleteCache,
+    Flush,
+    Ping,
+    GetExpiration,
+    RemoveWithPattern
 }
 
 internal enum RetrievalStrategy

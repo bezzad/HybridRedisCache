@@ -1042,58 +1042,39 @@ public class HybridCacheTests : IDisposable
         Assert.False(isSuccess);
     }
 
-    [Fact]
-    public async Task TestRemoveWithPatternKeysPerformance()
+    [Theory]
+    [InlineData(1000, 100)]
+    [InlineData(10_000, 100)]
+    [InlineData(10_000, 1000)]
+    [InlineData(10_000, 10_000)]
+    [InlineData(10_000, 500)]
+    [InlineData(10_000, 5000)]
+    [InlineData(10_000, 15_000)]
+    [InlineData(100_000, 1000)]
+    public async Task TestRemoveWithPatternKeysPerformance(int insertCount, int batchRemovePackSize)
     {
         // Arrange
-        var dataCount = 1_000_0;
-        var keyPattern = "TestRemoveWithPatternKeys:";
-        var valuePattern = "value_";
+        var keyPattern = "[Tt]est[Rr]emove[Ww]ith[Pp]attern?*";
+        var keyFormats = new[]
+        {
+            "TestRemovewithPattern:{id}",
+            "testRemovewithPattern {id}",
+            "TestremovewithPattern-{id}",
+            "testremovewithPattern={id}",
+            "TestRemoveWithPattern.{id}",
+            "testRemoveWithpattern_{id}",
+            "TestremoveWithPattern_{id}",
+            "testremoveWithPattern:{id}",
+            "TestRemoveWithPattern_{id}",
+        };
         var keyValues = new Dictionary<string, string>();
 
-        for (var i = 0; i < dataCount; i++)
+        for (var i = 0; i < insertCount; i++)
         {
-            keyValues.Add(keyPattern + Guid.NewGuid(), valuePattern + i);
-        }
-
-        // Act
-        // Insert Keys
-        await Cache.SetAllAsync(keyValues, new HybridCacheEntry()
-        {
-            RedisExpiry = TimeSpan.FromMinutes(5),
-            FireAndForget = false,
-            LocalCacheEnable = false,
-            RedisCacheEnable = true,
-            KeepTTL = false,
-            Flags = Flags.PreferMaster,
-            When = Condition.Always
-        });
-
-        // Remove keys
-        var sw = Stopwatch.StartNew();
-        await Cache.RemoveWithPatternAsync(keyPattern + '*');
-        sw.Stop();
-        
-        // Assert
-        // Are keys removed?
-        foreach (var keyValue in keyValues)
-        {
-            var isExist = await Cache.ExistsAsync(keyValue.Key);
-            Assert.False(isExist, $"The key {keyValue.Key} is still exist!");
-        }
-        Assert.True(sw.ElapsedMilliseconds < 1000, $"Remove keys with pattern duration is {sw.ElapsedMilliseconds}ms");
-    }
-
-    [Fact]
-    public async Task TestGetKeysWithPattern()
-    {
-        // Arrange
-        var dataCount = 1_000;
-        var keyPattern = "TestPatternKeys:*";
-        var keyValues = new Dictionary<string, string>();
-        for (int i = 0; i < dataCount; i++)
-        {
-            var key = keyPattern.Replace("*", Guid.NewGuid().ToString());
+            var key =
+                Random.Shared.GetItems(keyFormats, 1)
+                    .First()
+                    .Replace("{id}", Guid.NewGuid().ToString());
             keyValues.Add(key, key);
         }
 
@@ -1113,17 +1094,71 @@ public class HybridCacheTests : IDisposable
             When = Condition.Always
         });
 
-        // Assert Exist Keys
+        // Remove keys
+        var sw = Stopwatch.StartNew();
+        var removedKeysCount = await Cache.RemoveWithPatternAsync(keyPattern,
+            flags: Flags.FireAndForget | Flags.PreferReplica,
+            batchRemovePackSize: batchRemovePackSize);
+        sw.Stop();
+
+        // Assert
+        Assert.Equal(keyValues.Count, removedKeysCount);
+
+        // Are keys removed?
         foreach (var keyValue in keyValues)
         {
-            var value = await Cache.GetAsync<string>(keyValue.Key);
-            Assert.Equal(keyValue.Value, value);
+            var isExist = await Cache.ExistsAsync(keyValue.Key);
+            Assert.False(isExist, $"The key {keyValue.Key} is still exist!");
         }
+
+        Assert.True(sw.ElapsedMilliseconds < insertCount / 100, $"Remove keys with pattern duration is {sw.ElapsedMilliseconds}ms");
+    }
+
+    [Fact]
+    public async Task TestGetKeysWithPattern()
+    {
+        // Arrange
+        var dataCount = 1_000;
+        var keyPattern = "[Pp]attern[Kk]eys[0-9]?*";
+        var keyFormats = new[]
+        {
+            "PatternKeys{i}:{id}",
+            "patternkeys{i}-{id}",
+            "patternKeys{i}_{id}",
+            "Patternkeys{i} {id}",
+            "patternkeys{i}={id}",
+            "patternkeys{i}#{id}",
+            "patternkeys{i}@{id}"
+        };
+        var keyValues = new Dictionary<string, string>();
+        for (int i = 0; i < dataCount; i++)
+        {
+            var key =
+                Random.Shared.GetItems(keyFormats, 1)
+                    .First()
+                    .Replace("{i}", i.ToString())
+                    .Replace("{id}", Guid.NewGuid().ToString());
+            keyValues.Add(key, key);
+        }
+
+        // Act
+        // Clear database first
+        await Cache.ClearAllAsync();
+
+        // Insert Keys
+        await Cache.SetAllAsync(keyValues, new HybridCacheEntry()
+        {
+            RedisExpiry = TimeSpan.FromMinutes(5),
+            FireAndForget = false,
+            LocalCacheEnable = false,
+            RedisCacheEnable = true,
+            KeepTTL = false,
+            Flags = Flags.PreferMaster,
+            When = Condition.Always
+        });
 
         // Get Keys
         var keys = new List<string>();
-        // var keys = Cache.GetKeysAsync(keyPattern + '*'); // new List<string>();
-
         await foreach (var key in Cache.KeysAsync(keyPattern))
         {
             keys.Add(key);
@@ -1137,4 +1172,10 @@ public class HybridCacheTests : IDisposable
                 $"The key {key} is not Exist!");
         }
     }
+    
+    // TODO
+    // TEST KeepTTL
+    // TEST WHEN.NotExist
+    // TEST Flags.PreferReplica
+    // 
 }

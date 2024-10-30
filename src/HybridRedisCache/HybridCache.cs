@@ -13,7 +13,6 @@ namespace HybridRedisCache;
 /// </summary>
 public class HybridCache : IHybridCache, IDisposable
 {
-    private const string FlushDb = "FLUSHDB";
     private readonly IDatabase _redisDb;
     private readonly string _instanceId;
     private readonly HybridCachingOptions _options;
@@ -23,15 +22,17 @@ public class HybridCache : IHybridCache, IDisposable
     private readonly int _exponentialRetryMilliseconds = 100;
     private IMemoryCache _memoryCache;
     private int _retryPublishCounter;
-    private string ClearAllKey => GetCacheKey($"*{FlushDb}*");
+    private string ClearAllKey => GetCacheKey("#CMD:FLUSH_DB#");
 
     /// <summary>
     /// This method initializes the HybridCache instance and subscribes to Redis key-space events 
     /// to invalidate cache entries on all instances. 
     /// </summary>
-    /// <param name="redisConnectionString">Redis connection string</param>
-    /// <param name="instanceName">Application unique name for redis indexes</param>
-    /// <param name="defaultExpiryTime">default caching expiry time</param>
+    /// <param name="option">Redis connection string and order settings</param>
+    /// <param name="loggerFactory">
+    /// Microsoft.Extensions.Logging factory object to configure the logging system and
+    /// create instances of ILogger.
+    /// </param>
     public HybridCache(HybridCachingOptions option, ILoggerFactory loggerFactory = null)
     {
         option.NotNull(nameof(option));
@@ -115,7 +116,6 @@ public class HybridCache : IHybridCache, IDisposable
     public bool Exists(string key, Flags flags = Flags.PreferMaster)
     {
         using var activity = PopulateActivity(OperationTypes.KeyLookup);
-
         key.NotNullOrWhiteSpace(nameof(key));
         var cacheKey = GetCacheKey(key);
 
@@ -277,11 +277,10 @@ public class HybridCache : IHybridCache, IDisposable
         Flags flags = Flags.PreferMaster, Condition when = Condition.Always,
         bool keepTtl = false, bool localCacheEnable = true, bool redisCacheEnable = true)
     {
-        var result = true;
         using var activity = PopulateActivity(OperationTypes.SetBatchCache);
         value.NotNullAndCountGTZero(nameof(value));
         SetExpiryTimes(ref localExpiry, ref redisExpiry);
-
+        var result = true;
         foreach (var kvp in value)
         {
             var cacheKey = GetCacheKey(kvp.Key);
@@ -302,6 +301,8 @@ public class HybridCache : IHybridCache, IDisposable
                 {
                     throw;
                 }
+
+                return false;
             }
         }
 
@@ -329,11 +330,11 @@ public class HybridCache : IHybridCache, IDisposable
         Flags flags = Flags.PreferMaster, Condition when = Condition.Always,
         bool keepTtl = false, bool localCacheEnable = true, bool redisCacheEnable = true)
     {
-        var result = true;
         using var activity = PopulateActivity(OperationTypes.SetBatchCache);
         value.NotNullAndCountGTZero(nameof(value));
         SetExpiryTimes(ref localExpiry, ref redisExpiry);
-
+        var result = true;
+        
         foreach (var kvp in value)
         {
             var cacheKey = GetCacheKey(kvp.Key);
@@ -610,6 +611,7 @@ public class HybridCache : IHybridCache, IDisposable
 
     public bool Remove(string[] keys, Flags flags = Flags.PreferMaster)
     {
+        using var activity = PopulateActivity(OperationTypes.BatchDeleteCache);
         keys.NotNullAndCountGTZero(nameof(keys));
         var cacheKeys = Array.ConvertAll(keys, GetCacheKey);
         try
@@ -655,6 +657,7 @@ public class HybridCache : IHybridCache, IDisposable
 
     public async Task<bool> RemoveAsync(string[] keys, Flags flags = Flags.PreferMaster)
     {
+        using var activity = PopulateActivity(OperationTypes.BatchDeleteCache);
         keys.NotNullAndCountGTZero(nameof(keys));
         var cacheKeys = Array.ConvertAll(keys, GetCacheKey);
         try
@@ -685,18 +688,20 @@ public class HybridCache : IHybridCache, IDisposable
         return true;
     }
 
-    public Task<string[]> RemoveWithPatternAsync(string pattern, bool fireAndForget, CancellationToken token)
+    public ValueTask<long> RemoveWithPatternAsync(string pattern, bool fireAndForget, CancellationToken token)
     {
-        return RemoveWithPatternAsync(pattern, flags: fireAndForget ? Flags.FireAndForget : Flags.PreferMaster, token: token);
+        return RemoveWithPatternAsync(pattern, flags: fireAndForget ? Flags.FireAndForget : Flags.PreferMaster,
+            token: token);
     }
 
-    public async Task<string[]> RemoveWithPatternAsync(string pattern, Flags flags = Flags.PreferMaster,
+    public async ValueTask<long> RemoveWithPatternAsync(
+        string pattern, Flags flags = Flags.PreferMaster,
         int batchRemovePackSize = 1024, CancellationToken token = default)
     {
-        using var activity = PopulateActivity(OperationTypes.DeleteCache);
+        using var activity = PopulateActivity(OperationTypes.RemoveWithPattern);
         pattern.NotNullAndCountGTZero(nameof(pattern));
-        var removedKeys = new List<string>();
-        var lastRemovedIndex = 0;
+        var batch = new List<string>(batchRemovePackSize);
+        var removedCount = 0L;
         var keyPattern = GetCacheKey(pattern);
 
         try
@@ -704,15 +709,15 @@ public class HybridCache : IHybridCache, IDisposable
             await foreach (var key in KeysAsync(pattern, Flags.PreferReplica, token).ConfigureAwait(false))
             {
                 // have match; flush if we've hit the batch size
-                removedKeys.Add(key);
-                if (removedKeys.Count - lastRemovedIndex == batchRemovePackSize)
+                batch.Add(key);
+                if (batch.Count == batchRemovePackSize)
                     await FlushBatch().ConfigureAwait(false);
             }
 
             // make sure we flush per-server so we don't cross shards
             await FlushBatch().ConfigureAwait(false);
 
-            LogMessage($"{removedKeys.Count} matching keys found and removed with `{keyPattern}` pattern");
+            LogMessage($"{batch.Count} matching keys found and removed with `{keyPattern}` pattern");
         }
         catch (Exception ex)
         {
@@ -724,28 +729,22 @@ public class HybridCache : IHybridCache, IDisposable
             }
         }
 
-        if (removedKeys.Any())
-        {
-            var keys = removedKeys.ToArray();
-            
-            // send message to bus 
-            await PublishBusAsync(keys).ConfigureAwait(false);
-
-            return keys;
-        }
-
-        return [];
+        return removedCount;
 
         async ValueTask FlushBatch()
         {
-            if (removedKeys.Count == 0)
+            if (batch.Count == 0)
                 return;
 
-            var keys = removedKeys.TakeLast(removedKeys.Count - lastRemovedIndex).ToArray();
-            var redisKeys = keys.Select(key => (RedisKey)key).ToArray();
-            lastRemovedIndex = removedKeys.Count;
+            var keys = batch.ToArray();
+            var redisKeys = batch.Select(key => (RedisKey)key).ToArray();
+            removedCount += batch.Count;
+            batch.Clear();
             await _redisDb.KeyDeleteAsync(redisKeys, (CommandFlags)flags);
             Array.ForEach(keys, _memoryCache.Remove);
+            
+            // send message to bus 
+            await PublishBusAsync(keys).ConfigureAwait(false);
         }
     }
 
@@ -768,6 +767,7 @@ public class HybridCache : IHybridCache, IDisposable
 
     public async Task ClearAllAsync(Flags flags = Flags.PreferMaster)
     {
+        using var activity = PopulateActivity(OperationTypes.Flush);
         var servers = GetServers();
         foreach (var server in servers)
         {
@@ -779,6 +779,7 @@ public class HybridCache : IHybridCache, IDisposable
 
     public async Task<TimeSpan> PingAsync()
     {
+        using var activity = PopulateActivity(OperationTypes.Ping);
         var stopWatch = Stopwatch.StartNew();
         var servers = GetServers();
         foreach (var server in servers)
@@ -881,6 +882,7 @@ public class HybridCache : IHybridCache, IDisposable
 
     public TimeSpan? GetExpiration(string cacheKey)
     {
+        using var activity = PopulateActivity(OperationTypes.GetExpiration);
         cacheKey.NotNullOrWhiteSpace(nameof(cacheKey));
 
         try
@@ -896,6 +898,7 @@ public class HybridCache : IHybridCache, IDisposable
 
     public async Task<TimeSpan?> GetExpirationAsync(string cacheKey)
     {
+        using var activity = PopulateActivity(OperationTypes.GetExpiration);
         cacheKey.NotNullOrWhiteSpace(nameof(cacheKey));
 
         try
@@ -912,6 +915,7 @@ public class HybridCache : IHybridCache, IDisposable
     public async IAsyncEnumerable<string> KeysAsync(string pattern, Flags flags = Flags.PreferReplica,
         [EnumeratorCancellation] CancellationToken token = default)
     {
+        using var activity = PopulateActivity(OperationTypes.KeyLookupAsync);
         pattern.NotNullOrWhiteSpace(nameof(pattern));
         var keyPattern = GetCacheKey(pattern);
         var servers = GetServers();
@@ -927,32 +931,12 @@ public class HybridCache : IHybridCache, IDisposable
                 await foreach (var key in server.KeysAsync(pattern: keyPattern, flags: (CommandFlags)flags)
                                    .WithCancellation(token).ConfigureAwait(false))
                 {
-                    if (token.IsCancellationRequested)
-                        break;
-
                     yield return key;
                 }
             }
         }
     }
     
-    public List<RedisKey> GetKeysAsync(string pattern)
-    {
-        var servers = GetServers();
-        foreach (var server in servers)
-        {
-            if (server.IsConnected)
-            {
-                // var keys = server.Execute("KEYS", new[]{ pattern}, CommandFlags.PreferMaster);
-                var result = server.Keys(pattern: pattern, pageSize: 16).ToList();
-                return result;
-            }
-        }
-
-        return default;
-    }
-
-
     private void SetExpiryTimes(ref TimeSpan? localExpiry, ref TimeSpan? redisExpiry)
     {
         localExpiry ??= _options.DefaultLocalExpirationTime;

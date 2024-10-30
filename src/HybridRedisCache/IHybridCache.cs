@@ -328,7 +328,7 @@ public interface IHybridCache
     ///    h[a-b]llo matches hallo and hbllo
     /// </example>
     [Obsolete("Please use 'Flags.FireAndForget' instead of 'fireAndForget")]
-    Task<string[]> RemoveWithPatternAsync(string pattern, bool fireAndForget, CancellationToken token);
+    ValueTask<long> RemoveWithPatternAsync(string pattern, bool fireAndForget, CancellationToken token);
 
     /// <summary>
     /// Asynchronously removes a cached value with a key pattern.
@@ -346,7 +346,7 @@ public interface IHybridCache
     ///    h[^e] llo matches hallo, hbllo, ... but not hello
     ///    h[a-b]llo matches hallo and hbllo
     /// </example>
-    Task<string[]> RemoveWithPatternAsync(string pattern, Flags flags = Flags.PreferMaster, int batchRemovePackSize = 1024, CancellationToken token = default);
+    ValueTask<long> RemoveWithPatternAsync(string pattern, Flags flags = Flags.PreferMaster, int batchRemovePackSize = 1024, CancellationToken token = default);
 
     TimeSpan? GetExpiration(string cacheKey);
 
