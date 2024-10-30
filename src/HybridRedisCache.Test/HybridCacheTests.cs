@@ -1089,4 +1089,58 @@ public class HybridCacheTests : IDisposable
             Assert.False(isExist, $"The key {key} at index {i} is still exist!");
         }
     }
+
+    [Fact]
+    public async Task TestGetKeysWithPattern()
+    {
+        // Arrange
+        var dataCount = 1_000;
+        var keyName = "TestPatternKeys:";
+        var keyPattern = keyName + "*";
+        var keyValues = new Dictionary<string, string>();
+        for (int i = 0; i < dataCount; i++)
+        {
+            var key = keyName + Guid.NewGuid();
+            keyValues.Add(key, key);
+        }
+
+        // Act
+        // Clear database first
+        await Cache.ClearAllAsync();
+
+        // Insert Keys
+        await Cache.SetAllAsync(keyValues, new HybridCacheEntry()
+        {
+            RedisExpiry = TimeSpan.FromMinutes(5),
+            FireAndForget = false,
+            LocalCacheEnable = false,
+            RedisCacheEnable = true,
+            KeepTTL = false,
+            Flags = Flags.PreferMaster,
+            When = Condition.Always
+        });
+
+        // Assert Exist Keys
+        foreach (var keyValue in keyValues)
+        {
+            var value = await Cache.GetAsync<string>(keyValue.Key);
+            Assert.Equal(keyValue.Value, value);
+        }
+
+        // Get Keys
+        var keys = new List<string>();
+        // var keys = Cache.GetKeysAsync(keyPattern + '*'); // new List<string>();
+
+        await foreach (var key in Cache.KeysAsync(keyPattern, Flags.DemandMaster))
+        {
+            keys.Add(key);
+        }
+
+        // Assert
+        Assert.Equal(dataCount, keys.Count);
+        foreach (var key in keys)
+        {
+            Assert.True(keyValues.ContainsKey(key));
+        }
+    }
 }

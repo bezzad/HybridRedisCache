@@ -701,7 +701,7 @@ public class HybridCache : IHybridCache, IDisposable
 
         try
         {
-            await foreach (var key in KeysAsync(pattern, Flags.PreferMaster, token: token).ConfigureAwait(false))
+            await foreach (var key in KeysAsync(pattern, Flags.PreferReplica, token).ConfigureAwait(false))
             {
                 // have match; flush if we've hit the batch size
                 removedKeys.Add(key);
@@ -922,7 +922,7 @@ public class HybridCache : IHybridCache, IDisposable
                 if (token.IsCancellationRequested)
                     break;
 
-                await foreach (var key in server.KeysAsync(pattern: pattern, flags: (CommandFlags)flags)
+                await foreach (var key in server.KeysAsync(pattern: pattern, flags: (CommandFlags)flags, pageSize: 10)
                                    .WithCancellation(token).ConfigureAwait(false))
                 {
                     if (token.IsCancellationRequested)
@@ -933,6 +933,23 @@ public class HybridCache : IHybridCache, IDisposable
             }
         }
     }
+    
+    public List<RedisKey> GetKeysAsync(string pattern)
+    {
+        var servers = GetServers();
+        foreach (var server in servers)
+        {
+            if (server.IsConnected)
+            {
+                // var keys = server.Execute("KEYS", new[]{ pattern}, CommandFlags.PreferMaster);
+                var result = server.Keys(pattern: pattern, pageSize: 16).ToList();
+                return result;
+            }
+        }
+
+        return default;
+    }
+
 
     private void SetExpiryTimes(ref TimeSpan? localExpiry, ref TimeSpan? redisExpiry)
     {
