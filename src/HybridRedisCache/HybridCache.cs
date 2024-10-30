@@ -912,6 +912,8 @@ public class HybridCache : IHybridCache, IDisposable
     public async IAsyncEnumerable<string> KeysAsync(string pattern, Flags flags = Flags.PreferReplica,
         [EnumeratorCancellation] CancellationToken token = default)
     {
+        pattern.NotNullOrWhiteSpace(nameof(pattern));
+        var keyPattern = GetCacheKey(pattern);
         var servers = GetServers();
         foreach (var server in servers)
         {
@@ -922,7 +924,7 @@ public class HybridCache : IHybridCache, IDisposable
                 if (token.IsCancellationRequested)
                     break;
 
-                await foreach (var key in server.KeysAsync(pattern: pattern, flags: (CommandFlags)flags, pageSize: 10)
+                await foreach (var key in server.KeysAsync(pattern: keyPattern, flags: (CommandFlags)flags)
                                    .WithCancellation(token).ConfigureAwait(false))
                 {
                     if (token.IsCancellationRequested)

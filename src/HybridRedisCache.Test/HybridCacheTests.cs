@@ -842,7 +842,7 @@ public class HybridCacheTests : IDisposable
             });
         }
 
-        await foreach (var key in Cache.KeysAsync("*" + keyPattern + "*"))
+        await foreach (var key in Cache.KeysAsync(keyPattern + "*"))
         {
             // Search with pattern
             foundKeys.Add(key);
@@ -1095,12 +1095,11 @@ public class HybridCacheTests : IDisposable
     {
         // Arrange
         var dataCount = 1_000;
-        var keyName = "TestPatternKeys:";
-        var keyPattern = keyName + "*";
+        var keyPattern = "TestPatternKeys:*";
         var keyValues = new Dictionary<string, string>();
         for (int i = 0; i < dataCount; i++)
         {
-            var key = keyName + Guid.NewGuid();
+            var key = keyPattern.Replace("*", Guid.NewGuid().ToString());
             keyValues.Add(key, key);
         }
 
@@ -1131,7 +1130,7 @@ public class HybridCacheTests : IDisposable
         var keys = new List<string>();
         // var keys = Cache.GetKeysAsync(keyPattern + '*'); // new List<string>();
 
-        await foreach (var key in Cache.KeysAsync(keyPattern, Flags.DemandMaster))
+        await foreach (var key in Cache.KeysAsync(keyPattern))
         {
             keys.Add(key);
         }
@@ -1140,7 +1139,8 @@ public class HybridCacheTests : IDisposable
         Assert.Equal(dataCount, keys.Count);
         foreach (var key in keys)
         {
-            Assert.True(keyValues.ContainsKey(key));
+            Assert.True(keyValues.ContainsKey( key.Replace(_options.InstancesSharedName + ":", "")),
+                $"The key {key} is not Exist!");
         }
     }
 }
