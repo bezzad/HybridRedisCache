@@ -72,7 +72,7 @@ public class HybridCache : IHybridCache, IDisposable
         if (!_options.EnableTracing)
             return null;
 
-        var activity = ActivityInstance.Source.StartActivity(nameof(HybridCache), ActivityKind.Internal);
+        var activity = ActivityInstance.Source.StartActivity(nameof(HybridCache));
         activity?.SetTag(nameof(HybridRedisCache) + ".OperationType", operationType.ToString("G"));
         return activity;
     }
@@ -119,7 +119,7 @@ public class HybridCache : IHybridCache, IDisposable
         key.NotNullOrWhiteSpace(nameof(key));
         var cacheKey = GetCacheKey(key);
 
-        // Circuit Breaker may be more better
+        // Circuit Breaker may be better
         try
         {
             if (_redisDb.KeyExists(cacheKey, (CommandFlags)flags))
@@ -143,7 +143,7 @@ public class HybridCache : IHybridCache, IDisposable
         key.NotNullOrWhiteSpace(nameof(key));
         var cacheKey = GetCacheKey(key);
 
-        // Circuit Breaker may be more better
+        // Circuit Breaker may be better
         try
         {
             if (await _redisDb.KeyExistsAsync(cacheKey, (CommandFlags)flags).ConfigureAwait(false))
@@ -453,7 +453,7 @@ public class HybridCache : IHybridCache, IDisposable
                 throw;
         }
 
-        LogMessage($"distributed cache can not get the value of `{key}` key. Data retriver also had problem.");
+        LogMessage($"distributed cache can not get the value of `{key}` key. Data retriever also had problem.");
         return value;
     }
 
@@ -555,7 +555,7 @@ public class HybridCache : IHybridCache, IDisposable
                 throw;
         }
 
-        LogMessage($"distributed cache can not get the value of `{key}` key. Data retriver also had a problem.");
+        LogMessage($"distributed cache can not get the value of `{key}` key. Data retriever also had a problem.");
         return value;
     }
 
@@ -714,7 +714,7 @@ public class HybridCache : IHybridCache, IDisposable
                     await FlushBatch().ConfigureAwait(false);
             }
 
-            // make sure we flush per-server so we don't cross shards
+            // make sure we flush per-server, so we don't cross shards
             await FlushBatch().ConfigureAwait(false);
 
             LogMessage($"{batch.Count} matching keys found and removed with `{keyPattern}` pattern");
@@ -789,7 +789,7 @@ public class HybridCache : IHybridCache, IDisposable
                 var clusterInfo = await server.ExecuteAsync("CLUSTER", "INFO").ConfigureAwait(false);
                 if (clusterInfo is object && !clusterInfo.IsNull)
                 {
-                    if (!clusterInfo.ToString()!.Contains("cluster_state:ok"))
+                    if (!clusterInfo.ToString().Contains("cluster_state:ok"))
                     {
                         // cluster info is not ok!
                         throw new RedisException($"INFO CLUSTER is not on OK state for endpoint {server.EndPoint}");
