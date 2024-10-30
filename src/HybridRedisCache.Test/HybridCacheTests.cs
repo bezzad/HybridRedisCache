@@ -1046,19 +1046,18 @@ public class HybridCacheTests : IDisposable
     public async Task TestRemoveWithPatternKeysPerformance()
     {
         // Arrange
-        var dataCount = 1_000;
-        var keyPattern = "TestRemoveWithPatternKeys_";
+        var dataCount = 1_000_0;
+        var keyPattern = "TestRemoveWithPatternKeys:";
         var valuePattern = "value_";
         var keyValues = new Dictionary<string, string>();
 
-        for (int i = 0; i < dataCount; i++)
+        for (var i = 0; i < dataCount; i++)
         {
             keyValues.Add(keyPattern + Guid.NewGuid(), valuePattern + i);
         }
 
-        var keys = keyValues.Keys.ToArray();
-
-        // Act: Insert Keys
+        // Act
+        // Insert Keys
         await Cache.SetAllAsync(keyValues, new HybridCacheEntry()
         {
             RedisExpiry = TimeSpan.FromMinutes(5),
@@ -1070,24 +1069,19 @@ public class HybridCacheTests : IDisposable
             When = Condition.Always
         });
 
-        // Assert Exist Keys
-        for (var i = 0; i < dataCount / 100; i++)
-        {
-            var key = keys[Random.Shared.Next(0, keys.Length)];
-            var value = await Cache.GetAsync<string>(key);
-            Assert.Equal(keyValues[key], value);
-        }
-
-        // Act: Remove keys
+        // Remove keys
+        var sw = Stopwatch.StartNew();
         await Cache.RemoveWithPatternAsync(keyPattern + '*');
-
-        // Assert Not Exist Keys
-        for (int i = 0; i < dataCount; i++)
+        sw.Stop();
+        
+        // Assert
+        // Are keys removed?
+        foreach (var keyValue in keyValues)
         {
-            var key = keys[i];
-            var isExist = await Cache.ExistsAsync(key);
-            Assert.False(isExist, $"The key {key} at index {i} is still exist!");
+            var isExist = await Cache.ExistsAsync(keyValue.Key);
+            Assert.False(isExist, $"The key {keyValue.Key} is still exist!");
         }
+        Assert.True(sw.ElapsedMilliseconds < 1000, $"Remove keys with pattern duration is {sw.ElapsedMilliseconds}ms");
     }
 
     [Fact]
@@ -1139,7 +1133,7 @@ public class HybridCacheTests : IDisposable
         Assert.Equal(dataCount, keys.Count);
         foreach (var key in keys)
         {
-            Assert.True(keyValues.ContainsKey( key.Replace(_options.InstancesSharedName + ":", "")),
+            Assert.True(keyValues.ContainsKey(key.Replace(_options.InstancesSharedName + ":", "")),
                 $"The key {key} is not Exist!");
         }
     }
