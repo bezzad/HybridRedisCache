@@ -334,8 +334,9 @@ public interface IHybridCache
     /// Asynchronously removes a cached value with a key pattern.
     /// </summary>
     /// <param name="pattern">pattern to search keys. must have * in the key. like:  key_*_test_*</param>
-    /// <param name="token">cancellation token</param>
     /// <param name="flags">The flags to use for this operation.</param>
+    /// <param name="batchRemovePackSize">call redis remove per batch remove package size</param>
+    /// <param name="token">cancellation token</param>
     /// <returns>Get all removed keys</returns>
     /// <example>
     /// Supported glob-style patterns:
@@ -345,20 +346,12 @@ public interface IHybridCache
     ///    h[^e] llo matches hallo, hbllo, ... but not hello
     ///    h[a-b]llo matches hallo and hbllo
     /// </example>
-    Task<string[]> RemoveWithPatternAsync(string pattern, Flags flags = Flags.PreferMaster, CancellationToken token = default);
+    Task<string[]> RemoveWithPatternAsync(string pattern, Flags flags = Flags.PreferMaster, int batchRemovePackSize = 1024, CancellationToken token = default);
 
     TimeSpan? GetExpiration(string cacheKey);
 
     Task<TimeSpan?> GetExpirationAsync(string cacheKey);
-
-    /// <summary>
-    /// Search all servers to find all keys which match with the pattern
-    /// </summary>
-    /// <param name="pattern">pattern to search keys</param>
-    /// <param name="token">cancellation token</param>
-    /// <returns>Enumerable of Redis keys</returns>
-    IAsyncEnumerable<string> KeysAsync(string pattern, CancellationToken token = default);
-
+    
     /// <summary>
     /// Search all servers to find all keys which match with the pattern
     /// </summary>
