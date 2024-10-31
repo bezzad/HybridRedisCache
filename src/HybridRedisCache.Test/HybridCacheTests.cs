@@ -1200,7 +1200,7 @@ public class HybridCacheTests : IDisposable
     {
         // Arrange
         var key = "TestWhenNotExist:" + Guid.NewGuid();
-        var expectedValue = "value1";
+        const string expectedValue = "value1";
         var option = new HybridCacheEntry()
         {
             LocalCacheEnable = false,
@@ -1220,5 +1220,37 @@ public class HybridCacheTests : IDisposable
         Assert.True(inserted);
         Assert.False(secondInsert);
         Assert.Equal(expectedValue, actualValue);
+    }
+    
+    [Fact]
+    public async Task TestSetWhenKeyExist()
+    {
+        // Arrange
+        var key = "TestWhenNotExist:" + Guid.NewGuid();
+        var key2 = "TestWhenNotExist:" + Guid.NewGuid();
+        const string expectedValue = "value2";
+        var option = new HybridCacheEntry()
+        {
+            LocalCacheEnable = false,
+            RedisCacheEnable = true,
+            RedisExpiry = TimeSpan.FromSeconds(100),
+            Flags = Flags.PreferMaster,
+            When = Condition.Always
+        };
+
+        // Action
+        var inserted = await Cache.SetAsync(key, "value1", option);
+        option.When = Condition.Exists;
+        var secondInsert = await Cache.SetAsync(key, expectedValue, option);
+        var newInsert = await Cache.SetAsync(key2, expectedValue, option);
+        var actualValue = await Cache.GetAsync<string>(key);
+        var newValue = await Cache.GetAsync<string>(key2);
+
+        // Assert
+        Assert.True(inserted);
+        Assert.True(secondInsert);
+        Assert.False(newInsert);
+        Assert.Equal(expectedValue, actualValue);
+        Assert.Null(newValue);
     }
 }
