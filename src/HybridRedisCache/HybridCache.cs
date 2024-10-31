@@ -169,7 +169,7 @@ public class HybridCache : IHybridCache, IDisposable
     public bool Set<T>(string key, T value, HybridCacheEntry cacheEntry)
     {
         return Set(key, value, cacheEntry.LocalExpiry, cacheEntry.RedisExpiry,
-            cacheEntry.Flags, cacheEntry.When, cacheEntry.KeepTTL,
+            cacheEntry.Flags, cacheEntry.When, cacheEntry.KeepTtl,
             cacheEntry.LocalCacheEnable, cacheEntry.RedisCacheEnable);
     }
 
@@ -218,7 +218,7 @@ public class HybridCache : IHybridCache, IDisposable
     public Task<bool> SetAsync<T>(string key, T value, HybridCacheEntry cacheEntry)
     {
         return SetAsync(key, value, cacheEntry.LocalExpiry, cacheEntry.RedisExpiry,
-            cacheEntry.Flags, cacheEntry.When, cacheEntry.KeepTTL,
+            cacheEntry.Flags, cacheEntry.When, cacheEntry.KeepTtl,
             cacheEntry.LocalCacheEnable, cacheEntry.RedisCacheEnable);
     }
 
@@ -271,7 +271,7 @@ public class HybridCache : IHybridCache, IDisposable
     public bool SetAll<T>(IDictionary<string, T> value, HybridCacheEntry cacheEntry)
     {
         return SetAll(value, cacheEntry.LocalExpiry, cacheEntry.RedisExpiry,
-            cacheEntry.Flags, cacheEntry.When, cacheEntry.KeepTTL,
+            cacheEntry.Flags, cacheEntry.When, cacheEntry.KeepTtl,
             cacheEntry.LocalCacheEnable, cacheEntry.RedisCacheEnable);
     }
 
@@ -324,7 +324,7 @@ public class HybridCache : IHybridCache, IDisposable
     public Task<bool> SetAllAsync<T>(IDictionary<string, T> value, HybridCacheEntry cacheEntry)
     {
         return SetAllAsync(value, cacheEntry.LocalExpiry, cacheEntry.RedisExpiry,
-            cacheEntry.Flags, cacheEntry.When, cacheEntry.KeepTTL,
+            cacheEntry.Flags, cacheEntry.When, cacheEntry.KeepTtl,
             cacheEntry.LocalCacheEnable, cacheEntry.RedisCacheEnable);
     }
 

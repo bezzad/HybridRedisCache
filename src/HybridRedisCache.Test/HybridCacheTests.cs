@@ -1080,7 +1080,7 @@ public class HybridCacheTests : IDisposable
             FireAndForget = false,
             LocalCacheEnable = false,
             RedisCacheEnable = true,
-            KeepTTL = false,
+            KeepTtl = false,
             Flags = Flags.PreferMaster,
             When = Condition.Always
         });
@@ -1145,7 +1145,7 @@ public class HybridCacheTests : IDisposable
             FireAndForget = false,
             LocalCacheEnable = false,
             RedisCacheEnable = true,
-            KeepTTL = false,
+            KeepTtl = false,
             Flags = Flags.PreferMaster,
             When = Condition.Always
         });
@@ -1171,9 +1171,9 @@ public class HybridCacheTests : IDisposable
     public async Task TestKeepTtl()
     {
         // Arrange
-        var key = "TestKeepTtl:1";
+        const string key = "TestKeepTtl:1";
         var expiryTime = TimeSpan.FromSeconds(20);
-        var expityTime2 = TimeSpan.FromSeconds(300);
+        var expiryTime2 = TimeSpan.FromSeconds(300);
         var option = new HybridCacheEntry()
         {
             RedisExpiry = expiryTime,
@@ -1181,23 +1181,44 @@ public class HybridCacheTests : IDisposable
             RedisCacheEnable = true,
             Flags = Flags.PreferMaster,
             When = Condition.Always,
-            KeepTTL = false
+            KeepTtl = false
         };
-        
+
         // Action
         await Cache.SetAsync(key, key, option);
-        option.RedisExpiry = expityTime2;
-        option.KeepTTL = true; // keep Redis expire time in the old time: 20
+        option.RedisExpiry = expiryTime2;
+        option.KeepTtl = true; // keep Redis expire time in the old time: 20
         await Cache.SetAsync(key, key, option);
         var actualTime = await Cache.GetExpirationAsync(key);
-        
+
         // Assert
-        Assert.True(actualTime <= expiryTime, $"This actual expire time is: {actualTime}");        
+        Assert.True(actualTime <= expiryTime, $"This actual expire time is: {actualTime}");
     }
-    
-    
-    // TODO
-    // TEST WHEN.NotExist
-    // TEST Flags.PreferReplica
-    // Release new version
+
+    [Fact]
+    public async Task TestSetWhenKeyNotExist()
+    {
+        // Arrange
+        var key = "TestWhenNotExist:" + Guid.NewGuid();
+        var expectedValue = "value1";
+        var option = new HybridCacheEntry()
+        {
+            LocalCacheEnable = false,
+            RedisCacheEnable = true,
+            RedisExpiry = TimeSpan.FromSeconds(100),
+            Flags = Flags.PreferMaster,
+            When = Condition.Always
+        };
+
+        // Action
+        var inserted = await Cache.SetAsync(key, expectedValue, option);
+        option.When = Condition.NotExists;
+        var secondInsert = await Cache.SetAsync(key, "value2", option);
+        var actualValue = await Cache.GetAsync<string>(key);
+
+        // Assert
+        Assert.True(inserted);
+        Assert.False(secondInsert);
+        Assert.Equal(expectedValue, actualValue);
+    }
 }
