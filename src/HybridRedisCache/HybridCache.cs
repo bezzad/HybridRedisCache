@@ -182,12 +182,13 @@ public class HybridCache : IHybridCache, IDisposable
         SetExpiryTimes(ref localExpiry, ref redisExpiry);
         var cacheKey = GetCacheKey(key);
         if (localCacheEnable)
-            _memoryCache.Set(cacheKey, value, localExpiry.Value);
+            _memoryCache.Set(cacheKey, value, localExpiry ?? _options.DefaultLocalExpirationTime);
 
         try
         {
             if (redisCacheEnable)
-                if (_redisDb.StringSet(cacheKey, value.Serialize(), redisExpiry.Value,
+                if (_redisDb.StringSet(cacheKey, value.Serialize(),
+                        keepTtl ? null : redisExpiry,
                         keepTtl, when: (When)when, flags: (CommandFlags)flags) == false)
                     return false;
         }
@@ -230,13 +231,14 @@ public class HybridCache : IHybridCache, IDisposable
         SetExpiryTimes(ref localExpiry, ref redisExpiry);
         var cacheKey = GetCacheKey(key);
         if (localCacheEnable)
-            _memoryCache.Set(cacheKey, value, localExpiry.Value);
+            _memoryCache.Set(cacheKey, value, localExpiry ?? _options.DefaultLocalExpirationTime);
 
         try
         {
             if (redisCacheEnable)
             {
-                var result = await _redisDb.StringSetAsync(cacheKey, value.Serialize(), redisExpiry.Value,
+                var result = await _redisDb.StringSetAsync(cacheKey, value.Serialize(),
+                    keepTtl ? null : redisExpiry,
                     keepTtl, when: (When)when, flags: (CommandFlags)flags).ConfigureAwait(false);
 
                 if (result == false)
@@ -285,12 +287,13 @@ public class HybridCache : IHybridCache, IDisposable
         {
             var cacheKey = GetCacheKey(kvp.Key);
             if (localCacheEnable)
-                _memoryCache.Set(cacheKey, kvp.Value, localExpiry.Value);
+                _memoryCache.Set(cacheKey, kvp.Value, localExpiry ?? _options.DefaultLocalExpirationTime);
 
             try
             {
                 if (redisCacheEnable)
-                    result &= _redisDb.StringSet(cacheKey, kvp.Value.Serialize(), redisExpiry.Value,
+                    result &= _redisDb.StringSet(cacheKey, kvp.Value.Serialize(), 
+                        keepTtl ? null : redisExpiry,
                         keepTtl, when: (When)when, flags: (CommandFlags)flags);
             }
             catch (Exception ex)
@@ -334,17 +337,18 @@ public class HybridCache : IHybridCache, IDisposable
         value.NotNullAndCountGTZero(nameof(value));
         SetExpiryTimes(ref localExpiry, ref redisExpiry);
         var result = true;
-        
+
         foreach (var kvp in value)
         {
             var cacheKey = GetCacheKey(kvp.Key);
             if (localCacheEnable)
-                _memoryCache.Set(cacheKey, kvp.Value, localExpiry.Value);
+                _memoryCache.Set(cacheKey, kvp.Value, localExpiry ?? _options.DefaultLocalExpirationTime);
 
             try
             {
                 if (redisCacheEnable)
-                    result &= await _redisDb.StringSetAsync(cacheKey, kvp.Value.Serialize(), redisExpiry.Value,
+                    result &= await _redisDb.StringSetAsync(cacheKey, kvp.Value.Serialize(), 
+                        keepTtl ? null : redisExpiry,
                         keepTtl, when: (When)when, flags: (CommandFlags)flags).ConfigureAwait(false);
             }
             catch (Exception ex)
@@ -742,7 +746,7 @@ public class HybridCache : IHybridCache, IDisposable
             batch.Clear();
             await _redisDb.KeyDeleteAsync(redisKeys, (CommandFlags)flags);
             Array.ForEach(keys, _memoryCache.Remove);
-            
+
             // send message to bus 
             await PublishBusAsync(keys).ConfigureAwait(false);
         }
@@ -936,7 +940,7 @@ public class HybridCache : IHybridCache, IDisposable
             }
         }
     }
-    
+
     private void SetExpiryTimes(ref TimeSpan? localExpiry, ref TimeSpan? redisExpiry)
     {
         localExpiry ??= _options.DefaultLocalExpirationTime;

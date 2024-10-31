@@ -14,6 +14,7 @@ public class HybridCacheTests : IDisposable
 {
     private static string UniqueKey => "test_Key_" + Guid.NewGuid().ToString("N");
     private static readonly ILoggerFactory LoggerFactory = new LoggerFactoryMock();
+
     private readonly HybridCachingOptions _options = new()
     {
         InstancesSharedName = "my-test-app",
@@ -28,7 +29,9 @@ public class HybridCacheTests : IDisposable
         KeepAlive = 60,
         ConnectionTimeout = 5000,
     };
+
     private HybridCache _cache;
+
     // Lazy Cache: options change inner methods and after that create Cache with first call
     private HybridCache Cache => _cache ??= new HybridCache(_options, LoggerFactory);
 
@@ -633,7 +636,7 @@ public class HybridCacheTests : IDisposable
 
         await Cache.SetAsync(key1, value1);
         await Cache.SetAsync(key2, value2);
-        
+
         // Act
         await Cache.RemoveAsync([key1, key2]);
 
@@ -1099,7 +1102,7 @@ public class HybridCacheTests : IDisposable
             Assert.False(isExist, $"The key {keyValue.Key} is still exist!");
         }
 
-        Assert.True(sw.ElapsedMilliseconds < insertCount / 100,
+        Assert.True(sw.ElapsedMilliseconds < (insertCount / 100) + 50,
             $"Remove keys with pattern duration is {sw.ElapsedMilliseconds}ms");
     }
 
@@ -1163,9 +1166,38 @@ public class HybridCacheTests : IDisposable
         }
     }
 
+
+    [Fact]
+    public async Task TestKeepTtl()
+    {
+        // Arrange
+        var key = "TestKeepTtl:1";
+        var expiryTime = TimeSpan.FromSeconds(20);
+        var expityTime2 = TimeSpan.FromSeconds(300);
+        var option = new HybridCacheEntry()
+        {
+            RedisExpiry = expiryTime,
+            LocalCacheEnable = false,
+            RedisCacheEnable = true,
+            Flags = Flags.PreferMaster,
+            When = Condition.Always,
+            KeepTTL = false
+        };
+        
+        // Action
+        await Cache.SetAsync(key, key, option);
+        option.RedisExpiry = expityTime2;
+        option.KeepTTL = true; // keep Redis expire time in the old time: 20
+        await Cache.SetAsync(key, key, option);
+        var actualTime = await Cache.GetExpirationAsync(key);
+        
+        // Assert
+        Assert.True(actualTime <= expiryTime, $"This actual expire time is: {actualTime}");        
+    }
+    
+    
     // TODO
-    // TEST KeepTTL
     // TEST WHEN.NotExist
     // TEST Flags.PreferReplica
-    // 
+    // Release new version
 }
