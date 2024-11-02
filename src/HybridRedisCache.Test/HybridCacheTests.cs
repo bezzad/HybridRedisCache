@@ -1204,20 +1204,20 @@ public class HybridCacheTests : IDisposable
     {
         // Arrange
         var key = UniqueKey;
-        const string expectedValue = "value1";
+        const string expectedValue = "expected value";
         var option = new HybridCacheEntry()
         {
             LocalCacheEnable = isLocalEnable,
             RedisCacheEnable = isRedisEnable,
             RedisExpiry = TimeSpan.FromSeconds(10),
+            LocalExpiry = TimeSpan.FromSeconds(10),
             Flags = Flags.PreferMaster,
-            When = Condition.Always
+            When = Condition.NotExists
         };
 
         // Action
         var inserted = await Cache.SetAsync(key, expectedValue, option);
-        option.When = Condition.NotExists;
-        var secondInsert = await Cache.SetAsync(key, "value2", option);
+        var secondInsert = await Cache.SetAsync(key, "second value", option);
         var actualValue = await Cache.GetAsync<string>(key);
 
         // Assert
@@ -1241,6 +1241,7 @@ public class HybridCacheTests : IDisposable
             LocalCacheEnable = isLocalEnable,
             RedisCacheEnable = isRedisEnable,
             RedisExpiry = TimeSpan.FromSeconds(10),
+            LocalExpiry = TimeSpan.FromSeconds(10),
             Flags = Flags.PreferMaster,
             When = Condition.Always
         };
@@ -1259,6 +1260,79 @@ public class HybridCacheTests : IDisposable
         Assert.False(newInsert);
         Assert.Equal(expectedValue, actualValue);
         Assert.Null(newValue);
+    }
+
+    [Theory]
+    [InlineData(true, true, 3000)]
+    [InlineData(true, true, 2000)]
+    [InlineData(true, true, 1000)]
+    [InlineData(true, true, 500)]
+    [InlineData(true, true, 400)]
+    [InlineData(true, true, 300)]
+    [InlineData(true, true, 200)]
+    [InlineData(true, true, 100)]
+    [InlineData(true, true, 50)]
+    [InlineData(true, true, 40)]
+    [InlineData(true, true, 30)]
+    [InlineData(true, true, 20)]
+    [InlineData(true, true, 10)]
+    [InlineData(true, true, 5)]
+    [InlineData(true, false, 3000)]
+    [InlineData(true, false, 2000)]
+    [InlineData(true, false, 1000)]
+    [InlineData(true, false, 500)]
+    [InlineData(true, false, 400)]
+    [InlineData(true, false, 300)]
+    [InlineData(true, false, 200)]
+    [InlineData(true, false, 100)]
+    [InlineData(true, false, 50)]
+    [InlineData(true, false, 40)]
+    [InlineData(true, false, 30)]
+    [InlineData(true, false, 20)]
+    [InlineData(true, false, 10)]
+    [InlineData(true, false, 5)]
+    [InlineData(false, true, 3000)]
+    [InlineData(false, true, 2000)]
+    [InlineData(false, true, 1000)]
+    [InlineData(false, true, 500)]
+    [InlineData(false, true, 400)]
+    [InlineData(false, true, 300)]
+    [InlineData(false, true, 200)]
+    [InlineData(false, true, 100)]
+    [InlineData(false, true, 50)]
+    [InlineData(false, true, 40)]
+    [InlineData(false, true, 30)]
+    [InlineData(false, true, 20)]
+    [InlineData(false, true, 10)]
+    [InlineData(false, true, 5)]
+    public async Task TestSetWhenKeyNotExistWithCheckExpiration(bool isLocalEnable, bool isRedisEnable, int expiryMs)
+    {
+        // Arrange
+        var key = UniqueKey;
+        const string expectedValue = "expected value";
+        var expiry = TimeSpan.FromMilliseconds(expiryMs);
+        var option = new HybridCacheEntry()
+        {
+            LocalCacheEnable = isLocalEnable,
+            RedisCacheEnable = isRedisEnable,
+            RedisExpiry = expiry,
+            LocalExpiry = expiry,
+            Flags = Flags.PreferMaster,
+            When = Condition.NotExists
+        };
+
+        // Action
+        var inserted = await Cache.SetAsync(key, "init value", option);
+        var newInsertWithFalseExpectation = await Cache.SetAsync(key, expectedValue, option);
+        await Task.Delay(expiry);
+        var newInsertWithTrueExpectation = await Cache.SetAsync(key, expectedValue, option);
+        var actualValue = await Cache.GetAsync<string>(key);
+
+        // Assert
+        Assert.True(inserted);
+        Assert.False(newInsertWithFalseExpectation);
+        Assert.True(newInsertWithTrueExpectation);
+        Assert.Equal(expectedValue, actualValue);
     }
 
 }
