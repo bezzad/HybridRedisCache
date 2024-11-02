@@ -181,8 +181,10 @@ public class HybridCache : IHybridCache, IDisposable
         key.NotNullOrWhiteSpace(nameof(key));
         SetExpiryTimes(ref localExpiry, ref redisExpiry);
         var cacheKey = GetCacheKey(key);
-        if (localCacheEnable)
-            _memoryCache.Set(cacheKey, value, localExpiry ?? _options.DefaultLocalExpirationTime);
+
+        // Write Redis just when the local caching is successful
+        if (localCacheEnable && !SetLocalMemory(cacheKey, value, localExpiry, when))
+            return false;
 
         try
         {
@@ -230,8 +232,10 @@ public class HybridCache : IHybridCache, IDisposable
         key.NotNullOrWhiteSpace(nameof(key));
         SetExpiryTimes(ref localExpiry, ref redisExpiry);
         var cacheKey = GetCacheKey(key);
-        if (localCacheEnable)
-            _memoryCache.Set(cacheKey, value, localExpiry ?? _options.DefaultLocalExpirationTime);
+
+        // Write Redis just when the local caching is successful
+        if (localCacheEnable && !SetLocalMemory(cacheKey, value, localExpiry, when))
+            return false;
 
         try
         {
@@ -283,16 +287,22 @@ public class HybridCache : IHybridCache, IDisposable
         value.NotNullAndCountGTZero(nameof(value));
         SetExpiryTimes(ref localExpiry, ref redisExpiry);
         var result = true;
+
         foreach (var kvp in value)
         {
             var cacheKey = GetCacheKey(kvp.Key);
-            if (localCacheEnable)
-                _memoryCache.Set(cacheKey, kvp.Value, localExpiry ?? _options.DefaultLocalExpirationTime);
+
+            // Write Redis just when the local caching is successful
+            if (localCacheEnable && !SetLocalMemory(cacheKey, kvp.Value, localExpiry, when))
+            {
+                result = false;
+                continue;
+            }
 
             try
             {
                 if (redisCacheEnable)
-                    result &= _redisDb.StringSet(cacheKey, kvp.Value.Serialize(), 
+                    result &= _redisDb.StringSet(cacheKey, kvp.Value.Serialize(),
                         keepTtl ? null : redisExpiry,
                         keepTtl, when: (When)when, flags: (CommandFlags)flags);
             }
@@ -341,13 +351,18 @@ public class HybridCache : IHybridCache, IDisposable
         foreach (var kvp in value)
         {
             var cacheKey = GetCacheKey(kvp.Key);
-            if (localCacheEnable)
-                _memoryCache.Set(cacheKey, kvp.Value, localExpiry ?? _options.DefaultLocalExpirationTime);
+
+            // Write Redis just when the local caching is successful
+            if (localCacheEnable && !SetLocalMemory(cacheKey, kvp.Value, localExpiry, when))
+            {
+                result = false;
+                continue;
+            }
 
             try
             {
                 if (redisCacheEnable)
-                    result &= await _redisDb.StringSetAsync(cacheKey, kvp.Value.Serialize(), 
+                    result &= await _redisDb.StringSetAsync(cacheKey, kvp.Value.Serialize(),
                         keepTtl ? null : redisExpiry,
                         keepTtl, when: (When)when, flags: (CommandFlags)flags).ConfigureAwait(false);
             }
@@ -939,6 +954,20 @@ public class HybridCache : IHybridCache, IDisposable
                 }
             }
         }
+    }
+
+    private bool SetLocalMemory<T>(string cacheKey, T value, TimeSpan? localExpiry, Condition when)
+    {
+        if (when != Condition.Always)
+        {
+            var valueIsExist = _memoryCache.TryGetValue(cacheKey, out T _);
+            if ((when == Condition.Exists && !valueIsExist) ||
+                (when == Condition.NotExists && valueIsExist))
+                return false;
+        }
+
+        _memoryCache.Set(cacheKey, value, localExpiry ?? _options.DefaultLocalExpirationTime);
+        return true;
     }
 
     private void SetExpiryTimes(ref TimeSpan? localExpiry, ref TimeSpan? redisExpiry)

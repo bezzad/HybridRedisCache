@@ -1046,6 +1046,16 @@ public class HybridCacheTests : IDisposable
     {
         // Arrange
         var keyPattern = "[Tt]est[Rr]emove[Ww]ith[Pp]attern?*";
+        var hybridOptions = new HybridCacheEntry()
+        {
+            RedisExpiry = TimeSpan.FromMinutes(5),
+            FireAndForget = false,
+            LocalCacheEnable = false,
+            RedisCacheEnable = true,
+            KeepTtl = false,
+            Flags = Flags.PreferMaster,
+            When = Condition.Always
+        };
         var keyFormats = new[]
         {
             "TestRemovewithPattern:{id}",
@@ -1058,34 +1068,25 @@ public class HybridCacheTests : IDisposable
             "testremoveWithPattern:{id}",
             "TestRemoveWithPattern_{id}",
         };
-        var keyValues = new Dictionary<string, string>();
 
-        for (var i = 0; i < insertCount; i++)
-        {
-            var key =
-                Random.Shared.GetItems(keyFormats, 1)
-                    .First()
-                    .Replace("{id}", Guid.NewGuid().ToString());
-            keyValues.Add(key, key);
-        }
-
+        //
         // Act
+        //
         // Clear database first
         await Cache.ClearAllAsync();
 
-        // Insert Keys
-        await Cache.SetAllAsync(keyValues, new HybridCacheEntry()
-        {
-            RedisExpiry = TimeSpan.FromMinutes(5),
-            FireAndForget = false,
-            LocalCacheEnable = false,
-            RedisCacheEnable = true,
-            KeepTtl = false,
-            Flags = Flags.PreferMaster,
-            When = Condition.Always
-        });
+        // Add real keys with pattern
+        var keyValues = Enumerable.Range(0, insertCount)
+            .Select(i => Random.Shared.GetItems(keyFormats, 1).First().Replace("{id}", Guid.NewGuid().ToString()))
+            .ToDictionary(key => key, key => key);
+        await Cache.SetAllAsync(keyValues, hybridOptions);
 
-        // Remove keys
+        // Add noise keys
+        var noiseKeys = Enumerable.Range(0, insertCount).Select(i => Guid.NewGuid().ToString("N"))
+            .ToDictionary(key => key, key => key);
+        await Cache.SetAllAsync(noiseKeys, hybridOptions);
+
+        // Remove keys with pattern
         var sw = Stopwatch.StartNew();
         var removedKeysCount = await Cache.RemoveWithPatternAsync(keyPattern,
             flags: Flags.FireAndForget | Flags.PreferReplica,
@@ -1102,7 +1103,7 @@ public class HybridCacheTests : IDisposable
             Assert.False(isExist, $"The key {keyValue.Key} is still exist!");
         }
 
-        Assert.True(sw.ElapsedMilliseconds < (insertCount / 100) + 50,
+        Assert.True(sw.ElapsedMilliseconds < (insertCount / 100) + (insertCount / batchRemovePackSize * 10) + 100,
             $"Remove keys with pattern duration is {sw.ElapsedMilliseconds}ms");
     }
 
@@ -1171,7 +1172,7 @@ public class HybridCacheTests : IDisposable
     public async Task TestKeepTtl()
     {
         // Arrange
-        const string key = "TestKeepTtl:1";
+        string key = UniqueKey;
         var expiryTime = TimeSpan.FromSeconds(20);
         var expiryTime2 = TimeSpan.FromSeconds(300);
         var option = new HybridCacheEntry()
@@ -1195,17 +1196,20 @@ public class HybridCacheTests : IDisposable
         Assert.True(actualTime <= expiryTime, $"This actual expire time is: {actualTime}");
     }
 
-    [Fact]
-    public async Task TestSetWhenKeyNotExist()
+    [Theory]
+    [InlineData(true, true)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    public async Task TestSetWhenKeyNotExistOn(bool isLocalEnable, bool isRedisEnable)
     {
         // Arrange
-        var key = "TestWhenNotExist:" + Guid.NewGuid();
+        var key = UniqueKey;
         const string expectedValue = "value1";
         var option = new HybridCacheEntry()
         {
-            LocalCacheEnable = false,
-            RedisCacheEnable = true,
-            RedisExpiry = TimeSpan.FromSeconds(100),
+            LocalCacheEnable = isLocalEnable,
+            RedisCacheEnable = isRedisEnable,
+            RedisExpiry = TimeSpan.FromSeconds(10),
             Flags = Flags.PreferMaster,
             When = Condition.Always
         };
@@ -1221,19 +1225,22 @@ public class HybridCacheTests : IDisposable
         Assert.False(secondInsert);
         Assert.Equal(expectedValue, actualValue);
     }
-    
-    [Fact]
-    public async Task TestSetWhenKeyExist()
+
+    [Theory]
+    [InlineData(true, true)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    public async Task TestSetWhenKeyExistOn(bool isLocalEnable, bool isRedisEnable)
     {
         // Arrange
-        var key = "TestWhenNotExist:" + Guid.NewGuid();
-        var key2 = "TestWhenNotExist:" + Guid.NewGuid();
+        var key = UniqueKey;
+        var key2 = UniqueKey;
         const string expectedValue = "value2";
         var option = new HybridCacheEntry()
         {
-            LocalCacheEnable = false,
-            RedisCacheEnable = true,
-            RedisExpiry = TimeSpan.FromSeconds(100),
+            LocalCacheEnable = isLocalEnable,
+            RedisCacheEnable = isRedisEnable,
+            RedisExpiry = TimeSpan.FromSeconds(10),
             Flags = Flags.PreferMaster,
             When = Condition.Always
         };
@@ -1253,4 +1260,5 @@ public class HybridCacheTests : IDisposable
         Assert.Equal(expectedValue, actualValue);
         Assert.Null(newValue);
     }
+
 }
