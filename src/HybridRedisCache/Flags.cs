@@ -28,6 +28,11 @@ public enum Condition
 public enum Flags
 {
     /// <summary>
+    /// Default behaviour.
+    /// </summary>
+    None = 0,
+    
+    /// <summary>
     /// This operation should be performed on the primary if it is available, but read operations may
     /// be performed on a replica if no primary is available. This is the default option.
     /// </summary>

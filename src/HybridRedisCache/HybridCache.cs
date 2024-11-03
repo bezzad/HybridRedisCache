@@ -995,13 +995,18 @@ public class HybridCache : IHybridCache, IDisposable
         return false;
     }
 
-    private IServer[] GetServers()
+    private IServer[] GetServers(Flags flags)
     {
         // there may be multiple endpoints behind a multiplexer
-        var endpoints = _redisDb.Multiplexer.GetEndPoints(configuredOnly: true);
+        var servers = _redisDb.Multiplexer.GetServers(); //.GetEndPoints(configuredOnly: true);
 
-        // SCAN is on the server API per endpoint
-        return endpoints.Select(ep => _redisDb.Multiplexer.GetServer(ep)).ToArray();
+        if (flags.HasFlag(Flags.PreferReplica) && servers.Any(s => s.IsConnected && s.IsReplica))
+            return servers.Where(s => s.IsReplica).ToArray();
+
+        if (flags.HasFlag(Flags.PreferMaster))
+            return servers.Where(s =>  s.IsConnected && !s.IsReplica).ToArray();
+
+        return servers.Where(s =>  s.IsConnected).ToArray();
     }
 
     private async Task FlushServerAsync(IServer server, Flags flags = Flags.PreferMaster)
@@ -1021,6 +1026,73 @@ public class HybridCache : IHybridCache, IDisposable
             // completely wipe ALL keys from database 0
             server.FlushDatabase(flags: (CommandFlags)flags);
         }
+    }
+
+    public async Task<string[]> MemoryStatsAsync(Flags flags = Flags.PreferMaster)
+    {
+        var result = new List<string>();
+        var servers = GetServers(flags);
+        var memTasks = servers.Select(server => server.MemoryStatsAsync((CommandFlags)flags));
+        var results = await Task.WhenAll(memTasks);
+        return results.Select(r => r.ToString()).ToArray();
+    }
+
+    public async Task<string> SentinelGetMasterAddressByNameAsync(string serviceName, Flags flags = Flags.None)
+    {
+        var servers = GetServers(flags);
+        var endpoint = await servers.First().SentinelGetMasterAddressByNameAsync(serviceName, (CommandFlags)flags);
+        return endpoint?.ToString();
+    }
+
+    public async Task<string[]> SentinelGetSentinelAddressesAsync(string serviceName, Flags flags = Flags.None)
+    {
+        var servers = GetServers(flags);
+        var endpoints = await servers.First().SentinelGetSentinelAddressesAsync(serviceName, (CommandFlags)flags);
+        return endpoints.Select(ep => ep.ToString()).ToArray();
+    }
+
+    public async Task<string[]> SentinelGetReplicaAddressesAsync(string serviceName, Flags flags = Flags.None)
+    {
+        var servers = GetServers(flags);
+        var endpoints = await servers.First().SentinelGetReplicaAddressesAsync(serviceName, (CommandFlags)flags);
+        return endpoints.Select(ep => ep.ToString()).ToArray();
+    }
+
+    public async Task<long> DatabaseSizeAsync(int database = -1, Flags flags = Flags.None)
+    {
+        var servers = GetServers(flags);
+        return await servers.First().DatabaseSizeAsync(flags: (CommandFlags)flags);
+    }
+
+    public async Task<string[]> EchoAsync(string message, Flags flags = Flags.None)
+    {
+        var servers = GetServers(flags);
+        var echoTasks = servers.Select(server => server.EchoAsync(message, (CommandFlags)flags));
+        var results = await Task.WhenAll(echoTasks);
+        return results.Select(r => r.ToString()).ToArray();
+    }
+
+    public async Task<DateTime> TimeAsync(Flags flags = Flags.None)
+    {
+        var servers = GetServers(flags);
+        return await servers.First().TimeAsync(flags: (CommandFlags)flags);
+    }
+
+    public Task<bool> LockKeyAsync<T>(string key, T value, TimeSpan? expiry, Flags flags = Flags.None)
+    {
+        return _redisDb.LockTakeAsync(key, value.Serialize(),
+            expiry ?? _options.DefaultDistributedExpirationTime, (CommandFlags)flags);
+    }
+
+    public Task<bool>  LockExtendAsync<T>(string key, T value, TimeSpan? expiry, Flags flags = Flags.None)
+    {
+        return _redisDb.LockExtendAsync(key, value.Serialize(),
+            expiry ?? _options.DefaultDistributedExpirationTime, (CommandFlags)flags);
+    }
+
+    public Task<bool>  LockReleaseAsync<T>(string key, T value, Flags flags = Flags.None)
+    {
+        return _redisDb.LockReleaseAsync(key, value.Serialize(), (CommandFlags)flags);
     }
 
     private void LogMessage(string message, Exception ex = null)

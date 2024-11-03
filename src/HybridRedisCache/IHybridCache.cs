@@ -1,4 +1,4 @@
-﻿using System.Runtime.CompilerServices;
+﻿using StackExchange.Redis;
 
 namespace HybridRedisCache;
 
@@ -139,7 +139,8 @@ public interface IHybridCache
     /// <param name="fireAndForget">Whether to cache the value in Redis without waiting for the operation to complete.</param>
     /// <typeparam name="T">The 1st type parameter.</typeparam>
     [Obsolete("Please use 'Flags.FireAndForget' instead of 'fireAndForget'")]
-    Task<bool> SetAllAsync<T>(IDictionary<string, T> value, TimeSpan? localExpiry, TimeSpan? redisExpiry, bool fireAndForget);
+    Task<bool> SetAllAsync<T>(IDictionary<string, T> value, TimeSpan? localExpiry, TimeSpan? redisExpiry,
+        bool fireAndForget);
 
     /// <summary>
     /// Sets many key/value in the cache as Async.
@@ -183,7 +184,8 @@ public interface IHybridCache
     /// <param name="redisExpiry">The expiration time for the redis cache entry. If not specified, the default distributed expiration time is used.</param>
     /// <param name="flags">The flags to use for this operation.</param>
     /// <typeparam name="T">The 1st type parameter.</typeparam>
-    T Get<T>(string cacheKey, Func<string, T> dataRetriever, TimeSpan? localExpiry = null, TimeSpan? redisExpiry = null, Flags flags = Flags.PreferMaster);
+    T Get<T>(string cacheKey, Func<string, T> dataRetriever, TimeSpan? localExpiry = null, TimeSpan? redisExpiry = null,
+        Flags flags = Flags.PreferMaster);
 
     /// <summary>
     /// Get the specified cacheKey, dataRetriever and expiration.
@@ -214,7 +216,8 @@ public interface IHybridCache
     /// <param name="flags">The flags to use for this operation.</param>
     /// <typeparam name="T">The 1st type parameter.</typeparam>
     [Obsolete("Please use 'Flags.FireAndForget' instead of 'fireAndForget'")]
-    Task<T> GetAsync<T>(string cacheKey, Func<string, Task<T>> dataRetriever, TimeSpan? localExpiry, TimeSpan? redisExpiry, bool fireAndForget);
+    Task<T> GetAsync<T>(string cacheKey, Func<string, Task<T>> dataRetriever, TimeSpan? localExpiry,
+        TimeSpan? redisExpiry, bool fireAndForget);
 
 
     /// <summary>
@@ -227,7 +230,8 @@ public interface IHybridCache
     /// <param name="redisExpiry">The expiration time for the redis cache entry. If not specified, the default distributed expiration time is used.</param>
     /// <param name="flags">The flags to use for this operation.</param>
     /// <typeparam name="T">The 1st type parameter.</typeparam>
-    Task<T> GetAsync<T>(string cacheKey, Func<string, Task<T>> dataRetriever, TimeSpan? localExpiry = null, TimeSpan? redisExpiry = null, Flags flags = Flags.PreferMaster);
+    Task<T> GetAsync<T>(string cacheKey, Func<string, Task<T>> dataRetriever, TimeSpan? localExpiry = null,
+        TimeSpan? redisExpiry = null, Flags flags = Flags.PreferMaster);
 
     /// <summary>
     /// Asynchronously get the specified cacheKey, dataRetriever and expiration.
@@ -346,20 +350,24 @@ public interface IHybridCache
     ///    h[^e] llo matches hallo, hbllo, ... but not hello
     ///    h[a-b]llo matches hallo and hbllo
     /// </example>
-    ValueTask<long> RemoveWithPatternAsync(string pattern, Flags flags = Flags.PreferMaster, int batchRemovePackSize = 1024, CancellationToken token = default);
+    ValueTask<long> RemoveWithPatternAsync(string pattern, Flags flags = Flags.PreferMaster,
+        int batchRemovePackSize = 1024, CancellationToken token = default);
 
     TimeSpan? GetExpiration(string cacheKey);
 
     Task<TimeSpan?> GetExpirationAsync(string cacheKey);
-    
+
     /// <summary>
-    /// Search all servers to find all keys which match with the pattern
+    /// Returns all keys matching <paramref name="pattern"/>.
+    /// The <c>KEYS</c> or <c>SCAN</c> commands will be used based on the servers capabilities.
+    /// Note: to resume an iteration via <i>cursor</i>, cast the original enumerable or enumerator to <see cref="IScanningCursor"/>.
     /// </summary>
     /// <param name="pattern">pattern to search keys</param>
     /// <param name="token">cancellation token</param>
     /// <param name="flags">The flags to use for this operation.</param>
     /// <returns>Enumerable of Redis keys</returns>
-    IAsyncEnumerable<string> KeysAsync(string pattern, Flags flags = Flags.PreferReplica, CancellationToken token = default);
+    IAsyncEnumerable<string> KeysAsync(string pattern, Flags flags = Flags.PreferReplica,
+        CancellationToken token = default);
 
     void FlushLocalCaches();
 
@@ -369,6 +377,7 @@ public interface IHybridCache
 
     [Obsolete("Please use 'Flags.FireAndForget' instead of 'fireAndForget")]
     Task ClearAllAsync(bool fireAndForget);
+
     Task ClearAllAsync(Flags flags = Flags.PreferMaster);
 
     /// <summary>
@@ -376,4 +385,93 @@ public interface IHybridCache
     /// </summary>
     /// <returns>Sum of pings durations</returns>
     Task<TimeSpan> PingAsync();
+
+    /// <summary>
+    /// Returns an array reply about the memory usage of the server.
+    /// </summary>
+    /// <returns>An array reply of memory stat metrics and values.</returns>
+    /// <remarks><seealso href="https://redis.io/commands/memory-stats"/></remarks>
+    Task<string[]> MemoryStatsAsync(Flags flags = Flags.PreferMaster);
+
+    /// <summary>
+    /// Returns the IP and port number of the primary with that name.
+    /// If a failover is in progress or terminated successfully for this primary it returns the address and port of the promoted replica.
+    /// </summary>
+    /// <param name="serviceName">The sentinel service name.</param>
+    /// <param name="flags">The command flags to use.</param>
+    /// <returns>The primary IP and port.</returns>
+    /// <remarks><seealso href="https://redis.io/topics/sentinel"/></remarks>
+    Task<string> SentinelGetMasterAddressByNameAsync(string serviceName, Flags flags = Flags.None);
+
+    /// <summary>
+    /// Returns the IP and port numbers of all known Sentinels for the given service name.
+    /// </summary>
+    /// <param name="serviceName">The sentinel service name.</param>
+    /// <param name="flags">The command flags to use.</param>
+    /// <returns>A list of the sentinel IPs and ports.</returns>
+    /// <remarks><seealso href="https://redis.io/topics/sentinel"/></remarks>
+    Task<string[]> SentinelGetSentinelAddressesAsync(string serviceName, Flags flags = Flags.None);
+
+    /// <summary>
+    /// Returns the IP and port numbers of all known Sentinel replicas for the given service name.
+    /// </summary>
+    /// <param name="serviceName">The sentinel service name.</param>
+    /// <param name="flags">The command flags to use.</param>
+    /// <returns>A list of the replica IPs and ports.</returns>
+    /// <remarks><seealso href="https://redis.io/topics/sentinel"/></remarks>
+    Task<string[]> SentinelGetReplicaAddressesAsync(string serviceName, Flags flags = Flags.None);
+
+    /// <summary>
+    /// Return the number of keys in the database.
+    /// </summary>
+    /// <param name="database">The database ID.</param>
+    /// <param name="flags">The command flags to use.</param>
+    /// <remarks><seealso href="https://redis.io/commands/dbsize"/></remarks>
+    Task<long> DatabaseSizeAsync(int database = -1, Flags flags = Flags.None);
+
+    /// <summary>
+    /// Return the same message passed in.
+    /// </summary>
+    /// <param name="message">The message to echo.</param>
+    /// <param name="flags">The command flags to use.</param>
+    /// <remarks><seealso href="https://redis.io/commands/echo"/></remarks>
+    Task<string[]> EchoAsync(string message, Flags flags = Flags.None);
+
+    /// <summary>
+    /// The <c>TIME</c> command returns the current server time in UTC format.
+    /// Use the <see cref="DateTime.ToLocalTime"/> method to get local time.
+    /// </summary>
+    /// <param name="flags">The command flags to use.</param>
+    /// <returns>The server's current time.</returns>
+    /// <remarks><seealso href="https://redis.io/commands/time"/></remarks>
+    Task<DateTime> TimeAsync(Flags flags = Flags.None);
+
+    /// <summary>
+    /// Takes a lock (specifying a token value) if it is not already taken.
+    /// </summary>
+    /// <param name="key">The key of the lock.</param>
+    /// <param name="value">The value to set at the key.</param>
+    /// <param name="expiry">The expiration of the lock key.</param>
+    /// <param name="flags">The flags to use for this operation.</param>
+    /// <returns><see langword="true"/> if the lock was successfully taken, <see langword="false"/> otherwise.</returns>
+    Task<bool> LockKeyAsync<T>(string key, T value, TimeSpan? expiry, Flags flags = Flags.None);
+
+    /// <summary>
+    /// Extends a lock, if the token value is correct.
+    /// </summary>
+    /// <param name="key">The key of the lock.</param>
+    /// <param name="value">The value to set at the key.</param>
+    /// <param name="expiry">The expiration of the lock key.</param>
+    /// <param name="flags">The flags to use for this operation.</param>
+    /// <returns><see langword="true"/> if the lock was successfully extended.</returns>
+    Task<bool> LockExtendAsync<T>(string key, T value, TimeSpan? expiry, Flags flags = Flags.None);
+
+    /// <summary>
+    /// Releases a lock, if the token value is correct.
+    /// </summary>
+    /// <param name="key">The key of the lock.</param>
+    /// <param name="value">The value at the key that must match.</param>
+    /// <param name="flags">The flags to use for this operation.</param>
+    /// <returns><see langword="true"/> if the lock was successfully released, <see langword="false"/> otherwise.</returns>
+    Task<bool> LockReleaseAsync<T>(string key, T value, Flags flags = Flags.None);
 }
