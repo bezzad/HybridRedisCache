@@ -1353,10 +1353,39 @@ public class HybridCacheTests : IDisposable
         // Act
         var redisTime = (await Cache.TimeAsync(Flags.DemandMaster)).ToUniversalTime();
         var diffTime = Math.Abs((now.ToUniversalTime() - redisTime.ToUniversalTime()).TotalMilliseconds);
-       
+
         // Assert
         Assert.Equal(now.Date, redisTime.Date);
         Assert.True(diffTime < 1000,
             $"diffTimeMs: {diffTime}, RedisMs: {redisTime.TimeOfDay.TotalMilliseconds}, NowMs: {now.TimeOfDay.TotalMilliseconds}");
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(5)]
+    [InlineData(10)]
+    [InlineData(100)]
+    [InlineData(1000)]
+    [InlineData(10000)]
+    public async Task TestDatabaseSizeAsync(int count)
+    {
+        // Arrange 
+        await Cache.ClearAllAsync();
+        if (count > 0)
+        {
+            var keyValues = Enumerable.Range(0, count)
+                .Select(_ => UniqueKey)
+                .ToDictionary(key => key, _ => "0");
+
+            await Cache.SetAllAsync(keyValues, redisExpiry: TimeSpan.FromSeconds(10), localCacheEnable: false);
+        }
+
+        // Act
+        var size = await Cache.DatabaseSizeAsync(flags: Flags.DemandMaster);
+
+        // Assert 
+        Assert.Equal(count, size);
     }
 }
