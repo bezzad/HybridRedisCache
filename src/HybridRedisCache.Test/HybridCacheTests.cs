@@ -1400,4 +1400,79 @@ public class HybridCacheTests : IDisposable
         // Assert
         Assert.Equal(message, echo.Single());
     }
+
+    [Fact]
+    public async Task TestLockNewKeyOnRedis()
+    {
+        // Arrange
+        var key = UniqueKey;
+        var value = "value of locking";
+        var expiry = TimeSpan.FromMilliseconds(500);
+        await Cache.ClearAllAsync();
+
+        // Act
+        var locked = await Cache.LockKeyAsync(key, value, expiry);
+        var lockedTwice = await Cache.LockKeyAsync(key, value, expiry);
+        await Task.Delay(expiry);
+        var lockedExpiredKey = await Cache.LockKeyAsync(key, value, expiry);
+        var lastValue = await Cache.GetAsync<string>(key); // the locked key is not equal with set objects
+
+        // Assert
+        Assert.True(locked);
+        Assert.False(lockedTwice);
+        Assert.True(lockedExpiredKey);
+        Assert.Null(lastValue);
+    }
+
+    [Fact]
+    public async Task TestLockExistKeyNameOnRedis()
+    {
+        // Arrange
+        var key = UniqueKey;
+        var firstVal = "value before locking";
+        var secondVal = "value after locking";
+        var expiry = TimeSpan.FromSeconds(1);
+        await Cache.ClearAllAsync();
+        // the set the same key name with lock key
+        await Cache.SetAsync(key, firstVal, TimeSpan.FromSeconds(10));
+
+        // Act
+        var locked = await Cache.LockKeyAsync(key, secondVal, expiry);
+        var getValueOnLocking = await Cache.GetAsync<string>(key);
+        await Task.Delay(expiry);
+        var lastValue = await Cache.GetAsync<string>(key); // the locked key dose not change first value
+
+        // Assert
+        Assert.True(locked);
+        Assert.Equal(firstVal, getValueOnLocking);
+        Assert.Equal(firstVal, lastValue);
+    }
+
+    [Fact]
+    public async Task TestLockReleaseOnRedis()
+    {
+        // Arrange
+        var key = UniqueKey;
+        var token1 = "token";
+        var token2 = "token2";
+        var expiry = TimeSpan.FromSeconds(1);
+        await Cache.ClearAllAsync();
+
+        // Act
+        var lockedToken1 = await Cache.LockKeyAsync(key, token1, expiry); // true
+        var releasedToken2 = await Cache.LockReleaseAsync(key, token2);   // false
+        var releasedToken1 = await Cache.LockReleaseAsync(key, token1);   // true
+        var keyValue = await Cache.GetAsync<string>(key);                      // null
+        var lockedT1Again = await Cache.LockKeyAsync(key, token1, expiry); // true
+        var lockedT2Again = await Cache.LockKeyAsync(key, token2, expiry); // false
+
+        // Assert
+        Assert.True(lockedToken1);
+        Assert.False(releasedToken2);
+        Assert.True(releasedToken1);
+        Assert.True(releasedToken1);
+        Assert.Null(keyValue);
+        Assert.True(lockedT1Again);
+        Assert.False(lockedT2Again);
+    }
 }
