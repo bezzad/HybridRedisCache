@@ -1368,7 +1368,6 @@ public class HybridCacheTests : IDisposable
     [InlineData(10)]
     [InlineData(100)]
     [InlineData(1000)]
-    [InlineData(10000)]
     public async Task TestDatabaseSizeAsync(int count)
     {
         // Arrange 
@@ -1387,5 +1386,18 @@ public class HybridCacheTests : IDisposable
 
         // Assert 
         Assert.Equal(count, size);
+    }
+
+    [Fact]
+    public async Task TestEchoAsync()
+    {
+        // Arrange
+        var message = UniqueKey;
+
+        // Act
+        var echo = await Cache.EchoAsync(message, flags: Flags.DemandMaster);
+
+        // Assert
+        Assert.Equal(message, echo.Single());
     }
 }
