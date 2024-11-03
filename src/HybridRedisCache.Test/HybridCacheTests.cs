@@ -28,6 +28,7 @@ public class HybridCacheTests : IDisposable
         AsyncTimeout = 5000,
         KeepAlive = 60,
         ConnectionTimeout = 5000,
+        ThreadPoolSocketManagerEnable = true
     };
 
     private HybridCache _cache;

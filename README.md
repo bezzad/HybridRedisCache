@@ -63,6 +63,7 @@ var options = new HybridCachingOptions()
     BusRetryCount = 10,
     EnableLogging = true,
     EnableTracing = true,
+    ThreadPoolSocketManagerEnable = true,
     FlushLocalCacheOnBusReconnection = true,
 };
 var cache = new HybridCache(options);

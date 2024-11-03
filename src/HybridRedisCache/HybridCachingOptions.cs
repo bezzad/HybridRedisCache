@@ -86,4 +86,15 @@ public class HybridCachingOptions
     /// Set the connection keep alive value in seconds. Default is 60s
     /// </summary>
     public int KeepAlive { get; set; } = 60;
+    
+    /// <summary>
+    /// Gets or sets the SocketManager instance to be used with these options.
+    /// If this is false a shared cross-multiplexer is used.
+    /// Else this is true the thead pool is used.
+    /// </summary>
+    /// <remarks>
+    /// This is only used when a ConnectionMultiplexer is created.
+    /// Modifying it afterwards will have no effect on already-created multiplexers.
+    /// </remarks>
+    public bool ThreadPoolSocketManagerEnable { get; set; } 
 }

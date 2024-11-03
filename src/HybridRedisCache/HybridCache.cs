@@ -49,6 +49,8 @@ public class HybridCache : IHybridCache, IDisposable
         redisConfig.ConnectTimeout = option.ConnectionTimeout;
         redisConfig.KeepAlive = option.KeepAlive;
         redisConfig.AllowAdmin = option.AllowAdmin;
+        redisConfig.SocketManager =
+            option.ThreadPoolSocketManagerEnable ? SocketManager.ThreadPool : SocketManager.Shared;
         var redis = ConnectionMultiplexer.Connect(redisConfig);
 
         _redisDb = redis.GetDatabase();
@@ -770,7 +772,7 @@ public class HybridCache : IHybridCache, IDisposable
     public void ClearAll(Flags flags = Flags.PreferMaster)
     {
         using var activity = PopulateActivity(OperationTypes.Flush);
-        var servers = GetServers();
+        var servers = GetServers(flags);
         foreach (var server in servers)
         {
             FlushServer(server, flags);
@@ -787,7 +789,7 @@ public class HybridCache : IHybridCache, IDisposable
     public async Task ClearAllAsync(Flags flags = Flags.PreferMaster)
     {
         using var activity = PopulateActivity(OperationTypes.Flush);
-        var servers = GetServers();
+        var servers = GetServers(flags);
         foreach (var server in servers)
         {
             await FlushServerAsync(server, flags).ConfigureAwait(false);
@@ -800,7 +802,7 @@ public class HybridCache : IHybridCache, IDisposable
     {
         using var activity = PopulateActivity(OperationTypes.Ping);
         var stopWatch = Stopwatch.StartNew();
-        var servers = GetServers();
+        var servers = _redisDb.Multiplexer.GetServers(); // get all servers (connected|disconnected)
         foreach (var server in servers)
         {
             if (server.ServerType == ServerType.Cluster)
@@ -822,7 +824,7 @@ public class HybridCache : IHybridCache, IDisposable
             }
             else
             {
-                await _redisDb.Multiplexer.GetDatabase().PingAsync().ConfigureAwait(false);
+                await _redisDb.PingAsync().ConfigureAwait(false);
                 await server.PingAsync().ConfigureAwait(false);
             }
         }
@@ -937,21 +939,17 @@ public class HybridCache : IHybridCache, IDisposable
         using var activity = PopulateActivity(OperationTypes.KeyLookupAsync);
         pattern.NotNullOrWhiteSpace(nameof(pattern));
         var keyPattern = GetCacheKey(pattern);
-        var servers = GetServers();
+
+        // it would be *better* to try and find a single replica per
+        // primary and run the SCAN on the replica
+        var servers = GetServers(flags);
+
         foreach (var server in servers)
         {
-            // it would be *better* to try and find a single replica per
-            // primary and run the SCAN on the replica
-            if (server.IsConnected)
+            await foreach (var key in server.KeysAsync(pattern: keyPattern, flags: (CommandFlags)flags)
+                               .WithCancellation(token).ConfigureAwait(false))
             {
-                if (token.IsCancellationRequested)
-                    break;
-
-                await foreach (var key in server.KeysAsync(pattern: keyPattern, flags: (CommandFlags)flags)
-                                   .WithCancellation(token).ConfigureAwait(false))
-                {
-                    yield return key;
-                }
+                yield return key;
             }
         }
     }
