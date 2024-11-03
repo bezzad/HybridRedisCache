@@ -7,11 +7,13 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Xunit;
+using Xunit.Abstractions;
 
 namespace HybridRedisCache.Test;
 
 public class HybridCacheTests : IDisposable
 {
+    private readonly ITestOutputHelper _testOutputHelper;
     private static string UniqueKey => "test_Key_" + Guid.NewGuid().ToString("N");
     private static readonly ILoggerFactory LoggerFactory = new LoggerFactoryMock();
 
@@ -32,6 +34,11 @@ public class HybridCacheTests : IDisposable
     };
 
     private HybridCache _cache;
+
+    public HybridCacheTests(ITestOutputHelper testOutputHelper)
+    {
+        _testOutputHelper = testOutputHelper;
+    }
 
     // Lazy Cache: options change inner methods and after that create Cache with first call
     private HybridCache Cache => _cache ??= new HybridCache(_options, LoggerFactory);
@@ -1336,4 +1343,20 @@ public class HybridCacheTests : IDisposable
         Assert.Equal(expectedValue, actualValue);
     }
 
+
+    [Fact]
+    public async Task TestGetRedisServerTimeAsync()
+    {
+        // Arrange
+        var now = DateTime.Now.ToUniversalTime();
+
+        // Act
+        var redisTime = (await Cache.TimeAsync(Flags.DemandMaster)).ToUniversalTime();
+        var diffTime = Math.Abs((now.ToUniversalTime() - redisTime.ToUniversalTime()).TotalMilliseconds);
+       
+        // Assert
+        Assert.Equal(now.Date, redisTime.Date);
+        Assert.True(diffTime < 1000,
+            $"diffTimeMs: {diffTime}, RedisMs: {redisTime.TimeOfDay.TotalMilliseconds}, NowMs: {now.TimeOfDay.TotalMilliseconds}");
+    }
 }

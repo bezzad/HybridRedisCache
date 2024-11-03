@@ -1028,15 +1028,6 @@ public class HybridCache : IHybridCache, IDisposable
         }
     }
 
-    public async Task<string[]> MemoryStatsAsync(Flags flags = Flags.PreferMaster)
-    {
-        var result = new List<string>();
-        var servers = GetServers(flags);
-        var memTasks = servers.Select(server => server.MemoryStatsAsync((CommandFlags)flags));
-        var results = await Task.WhenAll(memTasks);
-        return results.Select(r => r.ToString()).ToArray();
-    }
-
     public async Task<string> SentinelGetMasterAddressByNameAsync(string serviceName, Flags flags = Flags.None)
     {
         var servers = GetServers(flags);

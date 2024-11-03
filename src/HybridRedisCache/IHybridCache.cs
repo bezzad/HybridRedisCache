@@ -387,13 +387,6 @@ public interface IHybridCache
     Task<TimeSpan> PingAsync();
 
     /// <summary>
-    /// Returns an array reply about the memory usage of the server.
-    /// </summary>
-    /// <returns>An array reply of memory stat metrics and values.</returns>
-    /// <remarks><seealso href="https://redis.io/commands/memory-stats"/></remarks>
-    Task<string[]> MemoryStatsAsync(Flags flags = Flags.PreferMaster);
-
-    /// <summary>
     /// Returns the IP and port number of the primary with that name.
     /// If a failover is in progress or terminated successfully for this primary it returns the address and port of the promoted replica.
     /// </summary>
