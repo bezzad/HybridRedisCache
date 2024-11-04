@@ -6,7 +6,7 @@ namespace HybridRedisCache;
 
 internal static class ObjectHelper
 {
-    private static readonly JsonSerializerSettings _jsonSettings = new JsonSerializerSettings()
+    private static readonly JsonSerializerSettings JsonSettings = new()
     {
         // There is no polymorphic deserialization (equivalent to Newtonsoft.Json's TypeNameHandling)
         // support built-in to System.Text.Json.
@@ -41,17 +41,14 @@ internal static class ObjectHelper
             return null;
         }
 
-        var text = JsonConvert.SerializeObject(value, typeof(T), _jsonSettings);
+        var text = JsonConvert.SerializeObject(value, typeof(T), JsonSettings);
         return text;
     }
 
     public static T Deserialize<T>(this string value)
     {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return default;
-        }
-
-        return JsonConvert.DeserializeObject<T>(value, _jsonSettings);
+        return string.IsNullOrWhiteSpace(value) 
+            ? default 
+            : JsonConvert.DeserializeObject<T>(value, JsonSettings);
     }
 }

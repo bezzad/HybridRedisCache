@@ -7,15 +7,17 @@ public interface IHybridCache
     /// <summary>
     /// Exists the specified Key in cache
     /// </summary>
-    /// <returns>The exists</returns>
     /// <param name="key">Cache key</param>
+    /// <param name="flags">The flags to use for this operation.</param>
+    /// <returns>The bool for key is exist or not.</returns>
     bool Exists(string key, Flags flags = Flags.PreferMaster);
 
     /// <summary>
     /// Exists the specified cacheKey async.
     /// </summary>
-    /// <returns>The async.</returns>
     /// <param name="key">Cache key.</param>
+    /// <param name="flags">The flags to use for this operation.</param>
+    /// <returns>The async bool for key is exist or not.</returns>
     Task<bool> ExistsAsync(string key, Flags flags = Flags.PreferMaster);
 
     /// <summary>
@@ -38,7 +40,7 @@ public interface IHybridCache
     /// <param name="redisExpiry">The expiration time for the redis cache entry. If not specified, the default distributed expiration time is used.</param>
     /// <param name="flags">The flags to use for this operation.</param>
     /// <param name="when">Which condition to set the value under (defaults to Always)</param>
-    /// <param name="keepTtl"> Whether to maintain the existing key's TTL (KEEPTTL flag)</param>
+    /// <param name="keepTtl"> Whether to maintain the existing key's TTL (keepTtl flag)</param>
     /// <param name="localCacheEnable">Cache value in the local memory or not, default value is True.</param>
     /// <param name="redisCacheEnable">Cache value in the Redis cache or not, default value is True.</param>
     bool Set<T>(string key, T value, TimeSpan? localExpiry = null, TimeSpan? redisExpiry = null,
@@ -76,7 +78,7 @@ public interface IHybridCache
     /// <param name="redisExpiry">The expiration time for the redis cache entry. If not specified, the default distributed expiration time is used.</param>
     /// <param name="flags">The flags to use for this operation.</param>
     /// <param name="when">Which condition to set the value under (defaults to Always)</param>
-    /// <param name="keepTtl"> Whether to maintain the existing key's TTL (KEEPTTL flag)</param>
+    /// <param name="keepTtl"> Whether to maintain the existing key's TTL (keepTtl flag)</param>
     /// <param name="localCacheEnable">Cache value in the local memory or not, default value is True.</param>
     /// <param name="redisCacheEnable">Cache value in the Redis cache or not, default value is True.</param>
     Task<bool> SetAsync<T>(string key, T value, TimeSpan? localExpiry = null, TimeSpan? redisExpiry = null,
@@ -122,7 +124,7 @@ public interface IHybridCache
     /// <param name="redisExpiry">The expiration time for the redis cache entry. If not specified, the default distributed expiration time is used.</param>
     /// <param name="flags">The flags to use for this operation.</param>
     /// <param name="when">Which condition to set the value under (defaults to Always)</param>
-    /// <param name="keepTtl"> Whether to maintain the existing key's TTL (KEEPTTL flag)</param>
+    /// <param name="keepTtl"> Whether to maintain the existing key's TTL (keepTtl flag)</param>
     /// <param name="localCacheEnable">Cache value in the local memory or not, default value is True.</param>
     /// <param name="redisCacheEnable">Cache value in the Redis cache or not, default value is True.</param>
     bool SetAll<T>(IDictionary<string, T> value, TimeSpan? localExpiry = null, TimeSpan? redisExpiry = null,
@@ -150,7 +152,7 @@ public interface IHybridCache
     /// <param name="redisExpiry">The expiration time for the redis cache entry. If not specified, the default distributed expiration time is used.</param>
     /// <param name="flags">The flags to use for this operation.</param>
     /// <param name="when">Which condition to set the value under (defaults to Always)</param>
-    /// <param name="keepTtl"> Whether to maintain the existing key's TTL (KEEPTTL flag)</param>
+    /// <param name="keepTtl"> Whether to maintain the existing key's TTL (keepTtl flag)</param>
     /// <param name="localCacheEnable">Cache value in the local memory or not, default value is True.</param>
     /// <param name="redisCacheEnable">Cache value in the Redis cache or not, default value is True.</param>
     Task<bool> SetAllAsync<T>(IDictionary<string, T> value, TimeSpan? localExpiry = null, TimeSpan? redisExpiry = null,
@@ -213,7 +215,7 @@ public interface IHybridCache
     /// <param name="dataRetriever">Data retriever.</param>
     /// <param name="localExpiry">The expiration time for the local cache entry. If not specified, the default local expiration time is used.</param>
     /// <param name="redisExpiry">The expiration time for the redis cache entry. If not specified, the default distributed expiration time is used.</param>
-    /// <param name="flags">The flags to use for this operation.</param>
+    /// <param name="fireAndForget">The fire and forget flags to use for this operation.</param>
     /// <typeparam name="T">The 1st type parameter.</typeparam>
     [Obsolete("Please use 'Flags.FireAndForget' instead of 'fireAndForget'")]
     Task<T> GetAsync<T>(string cacheKey, Func<string, Task<T>> dataRetriever, TimeSpan? localExpiry,
@@ -441,30 +443,50 @@ public interface IHybridCache
 
     /// <summary>
     /// Takes a lock (specifying a token value) if it is not already taken.
+    /// Note: Lock an exist key and token is not possible. But, Set a locked key with difference or same value is possible.
     /// </summary>
     /// <param name="key">The key of the lock.</param>
-    /// <param name="value">The value to set at the key.</param>
+    /// <param name="token">The value to set at the key.</param>
     /// <param name="expiry">The expiration of the lock key.</param>
     /// <param name="flags">The flags to use for this operation.</param>
     /// <returns><see langword="true"/> if the lock was successfully taken, <see langword="false"/> otherwise.</returns>
-    Task<bool> LockKeyAsync<T>(string key, T value, TimeSpan? expiry, Flags flags = Flags.None);
+    Task<bool> TryLockKeyAsync(string key, string token, TimeSpan? expiry, Flags flags = Flags.None);
 
     /// <summary>
     /// Extends a lock, if the token value is correct.
     /// </summary>
     /// <param name="key">The key of the lock.</param>
-    /// <param name="value">The value to set at the key.</param>
+    /// <param name="token">The value to set at the key.</param>
     /// <param name="expiry">The expiration of the lock key.</param>
     /// <param name="flags">The flags to use for this operation.</param>
     /// <returns><see langword="true"/> if the lock was successfully extended.</returns>
-    Task<bool> LockExtendAsync<T>(string key, T value, TimeSpan? expiry, Flags flags = Flags.None);
+    Task<bool> TryExtendLockAsync(string key, string token, TimeSpan? expiry, Flags flags = Flags.None);
 
     /// <summary>
     /// Releases a lock, if the token value is correct.
     /// </summary>
     /// <param name="key">The key of the lock.</param>
-    /// <param name="value">The value at the key that must match.</param>
+    /// <param name="token">The value at the key that must match.</param>
     /// <param name="flags">The flags to use for this operation.</param>
     /// <returns><see langword="true"/> if the lock was successfully released, <see langword="false"/> otherwise.</returns>
-    Task<bool> LockReleaseAsync<T>(string key, T value, Flags flags = Flags.None);
+    Task<bool> TryReleaseLockAsync(string key, string token, Flags flags = Flags.None);
+
+    /// <summary>
+    /// Releases a lock, if the token value is correct.
+    /// </summary>
+    /// <param name="key">The key of the lock.</param>
+    /// <param name="token">The value at the key that must match.</param>
+    /// <param name="flags">The flags to use for this operation.</param>
+    /// <returns><see langword="true"/> if the lock was successfully released, <see langword="false"/> otherwise.</returns>
+    bool TryReleaseLock(string key, string token, Flags flags = Flags.None);
+
+    /// <summary>
+    /// Takes a lock (specifying a token value) if it is not already taken.
+    /// This locking way has no expiration, and you must release that with disposing returned object.
+    /// Note: Lock an exist key and token is not possible. But, Set a locked key with difference or same value is possible.
+    /// </summary>
+    /// <param name="key">The key of the lock.</param>
+    /// <param name="flags">The flags to use for this operation.</param>
+    /// <returns>Return the <see cref="RedisLockObject"/> if the lock was successfully acquired; otherwise, wait until the key is released.</returns>
+    Task<RedisLockObject> LockKeyAsync(string key, Flags flags = Flags.None);
 }
