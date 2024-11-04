@@ -1560,4 +1560,29 @@ public class HybridCacheTests : IDisposable
             _testOutputHelper.WriteLine($"Task {id} released the key {key}");
         }
     }
+    
+    [Fact]
+    public async Task TestExtendLockOnRedis()
+    {
+        // Arrange
+        var key = UniqueKey;
+        var uniqueToken = UniqueKey;
+        var expiry = TimeSpan.FromMilliseconds(500);
+        var expiry1S = TimeSpan.FromMilliseconds(1000);
+        await Cache.ClearAllAsync();
+
+        // Action
+        var locked = await Cache.TryLockKeyAsync(key, uniqueToken, expiry); // true
+        var extendLocked = await Cache.TryExtendLockAsync(key, uniqueToken, expiry1S); // true
+        await Task.Delay(expiry); // after first locking expiration, still locked with extend method
+        var lockAgain = await Cache.TryLockKeyAsync(key, uniqueToken, expiry); // false
+        await Task.Delay(expiry); // now the key release with extended expiration
+        var lastValue = await Cache.GetAsync<string>(key); // null
+
+        // Assert
+        Assert.True(locked);
+        Assert.True(extendLocked);
+        Assert.False(lockAgain);
+        Assert.Null(lastValue);
+    }
 }
