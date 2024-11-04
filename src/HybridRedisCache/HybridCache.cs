@@ -14,7 +14,7 @@ namespace HybridRedisCache;
 /// </summary>
 public class HybridCache : IHybridCache, IDisposable
 {
-    private record ChannelMessage(string InstanceId, MessageType Type, params string[] Keys);
+    private record ChannelMessage(string InstanceId, RedisMessageBusActionType BusActionType, params string[] Keys);
 
     private readonly ConcurrentDictionary<string, ConcurrentBag<TaskCompletionSource>> _lockTasks = new();
     private readonly IDatabase _redisDb;
@@ -95,30 +95,33 @@ public class HybridCache : IHybridCache, IDisposable
             message.Keys.Length == 0)
             return; // filter out messages from the current instance
 
-        switch (message.Type)
+        var firstKey = message.Keys.First();
+        LogMessage($"OnMessage: A {message.BusActionType} message received from instance {message.InstanceId} with first key: {firstKey}");
+        
+        switch (message.BusActionType)
         {
-            case MessageType.InvalidateCacheKey when message.InstanceId != _instanceId:
+            case RedisMessageBusActionType.InvalidateCacheKeys when message.InstanceId != _instanceId:
             {
                 foreach (var key in message.Keys)
                 {
                     _memoryCache.Remove(key);
-                    LogMessage($"remove local cache with key '{key}'");
+                    LogMessage($"OnMessage: remove local cache with key '{key}'");
                 }
 
                 break;
             }
-            case MessageType.ClearLocalMemory when message.Keys.First().Equals(ClearAllKey):
+            case RedisMessageBusActionType.ClearAllLocalCache when firstKey.Equals(ClearAllKey):
             {
                 ClearLocalMemory();
                 break;
             }
-            case MessageType.ReleaseLockKey:
+            case RedisMessageBusActionType.NotifyLockReleased:
             {
-                var lockedKey = message.Keys.First();
-                if (_lockTasks.TryGetValue(lockedKey, out var bag))
+                if (_lockTasks.TryGetValue(firstKey, out var bag))
                 {
                     while (bag.TryTake(out var tcs))
                     {
+                        LogMessage($"OnMessage: Called the SetResult() of TaskCompletionSource of `{firstKey}` key");
                         tcs.SetResult();
                     }
                 }
@@ -126,7 +129,7 @@ public class HybridCache : IHybridCache, IDisposable
                 break;
             }
             default:
-                LogMessage($"Unknown message caught: '{message.Keys.First()}' as {message.Type} type");
+                LogMessage($"OnMessage: Unknown message caught: '{firstKey}' as {message.BusActionType} type");
                 break;
         }
     }
@@ -236,7 +239,7 @@ public class HybridCache : IHybridCache, IDisposable
         }
 
         // When create/update cache, send message to bus so that other clients can remove it.
-        PublishBus(MessageType.InvalidateCacheKey, cacheKey);
+        PublishBus(RedisMessageBusActionType.InvalidateCacheKeys, cacheKey);
         return true;
     }
 
@@ -291,7 +294,7 @@ public class HybridCache : IHybridCache, IDisposable
         }
 
         // When create/update cache, send message to bus so that other clients can remove it.
-        await PublishBusAsync(MessageType.InvalidateCacheKey, cacheKey).ConfigureAwait(false);
+        await PublishBusAsync(RedisMessageBusActionType.InvalidateCacheKeys, cacheKey).ConfigureAwait(false);
         return true;
     }
 
@@ -349,7 +352,7 @@ public class HybridCache : IHybridCache, IDisposable
         }
 
         // send message to bus 
-        PublishBus(MessageType.InvalidateCacheKey, value.Keys.ToArray());
+        PublishBus(RedisMessageBusActionType.InvalidateCacheKeys, value.Keys.ToArray());
         return result;
     }
 
@@ -409,7 +412,7 @@ public class HybridCache : IHybridCache, IDisposable
         }
 
         // send message to bus 
-        await PublishBusAsync(MessageType.InvalidateCacheKey, value.Keys.ToArray()).ConfigureAwait(false);
+        await PublishBusAsync(RedisMessageBusActionType.InvalidateCacheKeys, value.Keys.ToArray()).ConfigureAwait(false);
         return result;
     }
 
@@ -684,7 +687,7 @@ public class HybridCache : IHybridCache, IDisposable
         Array.ForEach(cacheKeys, _memoryCache.Remove);
 
         // send message to bus 
-        PublishBus(MessageType.InvalidateCacheKey, cacheKeys);
+        PublishBus(RedisMessageBusActionType.InvalidateCacheKeys, cacheKeys);
         return true;
     }
 
@@ -733,7 +736,7 @@ public class HybridCache : IHybridCache, IDisposable
         Array.ForEach(cacheKeys, _memoryCache.Remove);
 
         // send message to bus 
-        await PublishBusAsync(MessageType.InvalidateCacheKey, cacheKeys).ConfigureAwait(false);
+        await PublishBusAsync(RedisMessageBusActionType.InvalidateCacheKeys, cacheKeys).ConfigureAwait(false);
         return true;
     }
 
@@ -793,7 +796,7 @@ public class HybridCache : IHybridCache, IDisposable
             Array.ForEach(keys, _memoryCache.Remove);
 
             // send message to bus 
-            await PublishBusAsync(MessageType.InvalidateCacheKey, keys).ConfigureAwait(false);
+            await PublishBusAsync(RedisMessageBusActionType.InvalidateCacheKeys, keys).ConfigureAwait(false);
         }
     }
 
@@ -864,13 +867,13 @@ public class HybridCache : IHybridCache, IDisposable
     public void FlushLocalCaches()
     {
         ClearLocalMemory();
-        PublishBus(MessageType.ClearLocalMemory, ClearAllKey);
+        PublishBus(RedisMessageBusActionType.ClearAllLocalCache, ClearAllKey);
     }
 
     public async Task FlushLocalCachesAsync()
     {
         ClearLocalMemory();
-        await PublishBusAsync(MessageType.ClearLocalMemory, ClearAllKey).ConfigureAwait(false);
+        await PublishBusAsync(RedisMessageBusActionType.ClearAllLocalCache, ClearAllKey).ConfigureAwait(false);
     }
 
     private void ClearLocalMemory()
@@ -886,14 +889,14 @@ public class HybridCache : IHybridCache, IDisposable
 
     private string GetCacheKey(string key) => $"{_options.InstancesSharedName}:{key}";
 
-    private async Task PublishBusAsync(MessageType type, params string[] cacheKeys)
+    private async Task PublishBusAsync(RedisMessageBusActionType busActionType, params string[] cacheKeys)
     {
         cacheKeys.NotNullAndCountGTZero(nameof(cacheKeys));
 
         try
         {
             // include the instance ID in the pub/sub message payload to update another instances
-            var message = new ChannelMessage(_instanceId, type, cacheKeys);
+            var message = new ChannelMessage(_instanceId, busActionType, cacheKeys);
             await _redisDb.PublishAsync(_messagesChannel, message.Serialize(), CommandFlags.FireAndForget)
                 .ConfigureAwait(false);
         }
@@ -903,20 +906,22 @@ public class HybridCache : IHybridCache, IDisposable
             if (_retryPublishCounter++ < _options.ConnectRetry)
             {
                 await Task.Delay(_exponentialRetryMilliseconds * _retryPublishCounter).ConfigureAwait(false);
-                await PublishBusAsync(type, cacheKeys).ConfigureAwait(false);
+                await PublishBusAsync(busActionType, cacheKeys).ConfigureAwait(false);
             }
         }
     }
 
-    private void PublishBus(MessageType type, params string[] cacheKeys)
+    private void PublishBus(RedisMessageBusActionType busActionType, params string[] cacheKeys)
     {
         cacheKeys.NotNullAndCountGTZero(nameof(cacheKeys));
 
         try
         {
             // include the instance ID in the pub/sub message payload to update another instances
-            var message = new ChannelMessage(_instanceId, type, cacheKeys);
+            var message = new ChannelMessage(_instanceId, busActionType, cacheKeys);
             _redisDb.Publish(_messagesChannel, message.Serialize(), CommandFlags.FireAndForget);
+            LogMessage($"Published a {message.BusActionType} message on the Redis bus from instance {message.InstanceId}" +
+                       $" for first key: {cacheKeys.FirstOrDefault()}");
         }
         catch
         {
@@ -924,7 +929,7 @@ public class HybridCache : IHybridCache, IDisposable
             if (_retryPublishCounter++ < _options.ConnectRetry)
             {
                 Thread.Sleep(_exponentialRetryMilliseconds * _retryPublishCounter);
-                PublishBus(type, cacheKeys);
+                PublishBus(busActionType, cacheKeys);
             }
         }
     }
@@ -1054,6 +1059,7 @@ public class HybridCache : IHybridCache, IDisposable
 
     public async Task<string> SentinelGetMasterAddressByNameAsync(string serviceName, Flags flags = Flags.None)
     {
+        using var activity = PopulateActivity(OperationTypes.GetSentinelInfo);
         var servers = GetServers(flags);
         var endpoint = await servers.First().SentinelGetMasterAddressByNameAsync(serviceName, (CommandFlags)flags);
         return endpoint?.ToString();
@@ -1061,6 +1067,7 @@ public class HybridCache : IHybridCache, IDisposable
 
     public async Task<string[]> SentinelGetSentinelAddressesAsync(string serviceName, Flags flags = Flags.None)
     {
+        using var activity = PopulateActivity(OperationTypes.GetSentinelInfo);
         var servers = GetServers(flags);
         var endpoints = await servers.First().SentinelGetSentinelAddressesAsync(serviceName, (CommandFlags)flags);
         return endpoints.Select(ep => ep.ToString()).ToArray();
@@ -1068,6 +1075,7 @@ public class HybridCache : IHybridCache, IDisposable
 
     public async Task<string[]> SentinelGetReplicaAddressesAsync(string serviceName, Flags flags = Flags.None)
     {
+        using var activity = PopulateActivity(OperationTypes.GetSentinelInfo);
         var servers = GetServers(flags);
         var endpoints = await servers.First().SentinelGetReplicaAddressesAsync(serviceName, (CommandFlags)flags);
         return endpoints.Select(ep => ep.ToString()).ToArray();
@@ -1075,12 +1083,14 @@ public class HybridCache : IHybridCache, IDisposable
 
     public async Task<long> DatabaseSizeAsync(int database = -1, Flags flags = Flags.None)
     {
+        using var activity = PopulateActivity(OperationTypes.DatabaseSize);
         var servers = GetServers(flags);
         return await servers.First().DatabaseSizeAsync(flags: (CommandFlags)flags);
     }
 
     public async Task<string[]> EchoAsync(string message, Flags flags = Flags.None)
     {
+        using var activity = PopulateActivity(OperationTypes.Echo);
         var servers = GetServers(flags);
         var echoTasks = servers.Select(server => server.EchoAsync(message, (CommandFlags)flags));
         var results = await Task.WhenAll(echoTasks);
@@ -1089,12 +1099,14 @@ public class HybridCache : IHybridCache, IDisposable
 
     public async Task<DateTime> TimeAsync(Flags flags = Flags.None)
     {
+        using var activity = PopulateActivity(OperationTypes.GetServerTime);
         var servers = GetServers(flags);
         return await servers.First().TimeAsync(flags: (CommandFlags)flags);
     }
 
     public Task<bool> TryLockKeyAsync(string key, string token, TimeSpan? expiry = null, Flags flags = Flags.None)
     {
+        using var activity = PopulateActivity(OperationTypes.LockKey);
         expiry ??= TimeSpan.MaxValue;
         var cacheKey = GetCacheKey(key);
         return _redisDb.LockTakeAsync(cacheKey, token.Serialize(), expiry.Value, (CommandFlags)flags);
@@ -1102,9 +1114,10 @@ public class HybridCache : IHybridCache, IDisposable
     
     public async Task<RedisLockObject> LockKeyAsync(string key, Flags flags = Flags.None)
     {
-        var cacheKey = GetCacheKey(key);
+        using var activity = PopulateActivity(OperationTypes.LockKeyObject);
         var token = Guid.NewGuid().ToString("N");
-        var lockObject = new RedisLockObject(this, cacheKey, token);
+        var lockObject = new RedisLockObject(this, key, token);
+        var cacheKey = GetCacheKey(key);
 
         while (true)
         {
@@ -1131,6 +1144,7 @@ public class HybridCache : IHybridCache, IDisposable
 
     public Task<bool> TryExtendLockAsync(string key, string token, TimeSpan? expiry, Flags flags = Flags.None)
     {
+        using var activity = PopulateActivity(OperationTypes.ExtendLockKey);
         var cacheKey = GetCacheKey(key);
         return _redisDb.LockExtendAsync(cacheKey, token.Serialize(),
             expiry ?? _options.DefaultDistributedExpirationTime, (CommandFlags)flags);
@@ -1138,10 +1152,11 @@ public class HybridCache : IHybridCache, IDisposable
 
     public async Task<bool> TryReleaseLockAsync(string key, string token, Flags flags = Flags.None)
     {
+        using var activity = PopulateActivity(OperationTypes.ReleaseLock);
         var cacheKey = GetCacheKey(key);
         if (await _redisDb.LockReleaseAsync(cacheKey, token.Serialize(), (CommandFlags)flags))
         {
-            await PublishBusAsync(MessageType.ReleaseLockKey, cacheKey);
+            await PublishBusAsync(RedisMessageBusActionType.NotifyLockReleased, cacheKey);
             return true;
         }
 
@@ -1150,10 +1165,11 @@ public class HybridCache : IHybridCache, IDisposable
 
     public bool TryReleaseLock(string key, string token, Flags flags = Flags.None)
     {
+        using var activity = PopulateActivity(OperationTypes.ReleaseLock);
         var cacheKey = GetCacheKey(key);
         if (_redisDb.LockRelease(cacheKey, token.Serialize(), (CommandFlags)flags))
         {
-            PublishBus(MessageType.ReleaseLockKey, cacheKey);
+            PublishBus(RedisMessageBusActionType.NotifyLockReleased, cacheKey);
             return true;
         }
 

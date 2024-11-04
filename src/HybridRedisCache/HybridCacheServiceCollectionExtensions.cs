@@ -16,8 +16,8 @@ public static class HybridCacheServiceCollectionExtensions
     /// <returns>The <see cref="IServiceCollection"/> so that additional calls can be chained.</returns>
     public static IServiceCollection AddHybridRedisCaching(this IServiceCollection services, Action<HybridCachingOptions> setupAction)
     {
-        ArgumentCheck.NotNull(services, nameof(services));
-        ArgumentCheck.NotNull(setupAction, nameof(setupAction));
+        services.NotNull(nameof(services));
+        setupAction.NotNull(nameof(setupAction));
 
         //Options and extension service
         var options = new HybridCachingOptions();
