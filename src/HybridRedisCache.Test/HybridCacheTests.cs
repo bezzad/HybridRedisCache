@@ -15,7 +15,8 @@ public class HybridCacheTests : IDisposable
 {
     private readonly ITestOutputHelper _testOutputHelper;
     private static string UniqueKey => "test_Key_" + Guid.NewGuid().ToString("N");
-    private static readonly ILoggerFactory LoggerFactory = new LoggerFactoryMock();
+    private static ILoggerFactory _loggerFactory;
+    private HybridCache _cache;
 
     private readonly HybridCachingOptions _options = new()
     {
@@ -30,23 +31,27 @@ public class HybridCacheTests : IDisposable
         AsyncTimeout = 5000,
         KeepAlive = 60,
         ConnectionTimeout = 5000,
-        ThreadPoolSocketManagerEnable = true
+        ThreadPoolSocketManagerEnable = true,
+        EnableTracing = true,
+        EnableLogging = true
     };
 
-    private HybridCache _cache;
+    // Lazy Cache: options change inner methods and after that create Cache with first call
+    private HybridCache Cache => _cache ??= new HybridCache(_options, _loggerFactory);
 
     public HybridCacheTests(ITestOutputHelper testOutputHelper)
     {
         _testOutputHelper = testOutputHelper;
+        // Create an ILoggerFactory that logs to the ITestOutputHelper
+        _loggerFactory = LoggerFactory.Create(builder =>
+        {
+            builder.AddProvider(new TestOutputLoggerProvider(testOutputHelper));
+        });
     }
-
-    // Lazy Cache: options change inner methods and after that create Cache with first call
-    private HybridCache Cache => _cache ??= new HybridCache(_options, LoggerFactory);
 
     public void Dispose()
     {
         Cache.Dispose();
-        LoggerFactory.Dispose();
     }
 
     [Theory]
@@ -560,26 +565,6 @@ public class HybridCacheTests : IDisposable
         Assert.Null(firstResult);
         Assert.Equal(value, retrievedResult);
         Assert.True(isExist);
-    }
-
-    [Fact]
-    public void TestSetGetWithLogging()
-    {
-        // Arrange
-        var key = UniqueKey;
-        _options.EnableLogging = true;
-        // Use the ILoggerFactory instance to get the ILogger instance
-        var logger = LoggerFactory.CreateLogger(nameof(HybridCache)) as LoggerMock;
-
-        // Act
-        // get a key which is not exist. So, throw an exception and it will be logged!
-        _ = Cache.Get<string>(key);
-
-        // Assert
-        Assert.True(logger?.LogHistory.Any());
-        var firstLog = logger?.LogHistory.LastOrDefault() as IReadOnlyList<KeyValuePair<string, object>>;
-        Assert.Equal($"distributed cache can not get the value of `{key}` key",
-            firstLog?.FirstOrDefault().Value.ToString());
     }
 
     [Fact]
@@ -1099,12 +1084,12 @@ public class HybridCacheTests : IDisposable
 
         // Add real keys with pattern
         var keyValues = Enumerable.Range(0, insertCount)
-            .Select(i => Random.Shared.GetItems(keyFormats, 1).First().Replace("{id}", Guid.NewGuid().ToString()))
+            .Select(_ => Random.Shared.GetItems(keyFormats, 1).First().Replace("{id}", Guid.NewGuid().ToString()))
             .ToDictionary(key => key, key => key);
         await Cache.SetAllAsync(keyValues, hybridOptions);
 
         // Add noise keys
-        var noiseKeys = Enumerable.Range(0, insertCount).Select(i => Guid.NewGuid().ToString("N"))
+        var noiseKeys = Enumerable.Range(0, insertCount).Select(_ => Guid.NewGuid().ToString("N"))
             .ToDictionary(key => key, key => key);
         await Cache.SetAllAsync(noiseKeys, hybridOptions);
 

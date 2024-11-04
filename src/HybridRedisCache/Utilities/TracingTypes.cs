@@ -4,7 +4,7 @@ namespace HybridRedisCache.Utilities;
 
 internal static class ActivityInstance
 {
-    internal static readonly ActivitySource Source = new ActivitySource(HybridCacheConstants.DefaultListenerName, 
+    internal static readonly ActivitySource Source = new(HybridCacheConstants.DefaultListenerName, 
         typeof(HybridCache).Assembly.GetName().Version?.ToString() ?? "");
 
     internal static void SetRetrievalStrategyActivity(this Activity activity, RetrievalStrategy retrievalStrategy)
@@ -32,7 +32,15 @@ internal enum OperationTypes
     Flush,
     Ping,
     GetExpiration,
-    RemoveWithPattern
+    RemoveWithPattern,
+    ReleaseLock,
+    LockKey,
+    ExtendLockKey,
+    LockKeyObject,
+    GetServerTime,
+    Echo,
+    DatabaseSize,
+    GetSentinelInfo
 }
 
 internal enum RetrievalStrategy
