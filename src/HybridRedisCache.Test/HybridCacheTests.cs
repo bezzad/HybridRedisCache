@@ -1448,7 +1448,7 @@ public class HybridCacheTests : IDisposable
         // Act
         // Lock an exist key and token is not possible
         // Set a locked key with difference or same value is possible
-        
+
         await Cache.SetAsync(key, token1, options); // set a value with the same lock key
         var lockExistKey = await Cache.TryLockKeyAsync(key, token1, expiry); // False
         var valueOnLocking = await Cache.GetAsync<string>(key); // get token1
@@ -1523,5 +1523,41 @@ public class HybridCacheTests : IDisposable
         Assert.False(cantLockSameKey);
         Assert.True(setSameKey);
         Assert.True(locked);
+    }
+
+    [Fact(Timeout = 12_000)]
+    public async Task TestLockKeyAsyncOnMultiTasks()
+    {
+        // Arrange
+        const int numberOfConcurrency = 100;
+        var key = UniqueKey;
+        var raceConditionKeyOnRedis = UniqueKey;
+        var expiry = TimeSpan.FromMilliseconds(100);
+        var tasks = Enumerable.Range(0, numberOfConcurrency).Select(LockAndWait);
+
+        // Action
+        await Cache.SetAsync(raceConditionKeyOnRedis, 0); // init race condition value
+        await Task.WhenAll(tasks);
+        var raceCount = await Cache.GetAsync<int>(raceConditionKeyOnRedis);
+
+        // Assert
+        Assert.Equal(numberOfConcurrency, raceCount);
+
+        // Race condition task
+        return;
+
+        async Task LockAndWait(int id)
+        {
+            _testOutputHelper.WriteLine($"Task {id} request to lock the {key}");
+            await using (await Cache.LockKeyAsync(key))
+            {
+                _testOutputHelper.WriteLine($"Task {id} locked the {key}");
+                var count = await Cache.GetAsync<int>(raceConditionKeyOnRedis);
+                await Cache.SetAsync(raceConditionKeyOnRedis, count + 1);
+                await Task.Delay(expiry);
+            }
+
+            _testOutputHelper.WriteLine($"Task {id} released the key {key}");
+        }
     }
 }
