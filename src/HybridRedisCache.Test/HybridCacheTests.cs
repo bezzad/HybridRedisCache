@@ -1434,6 +1434,7 @@ public class HybridCacheTests : IDisposable
         var token2 = UniqueKey;
         var token3 = UniqueKey;
         var expiry = TimeSpan.FromMilliseconds(100);
+        var expiryPlus1 = TimeSpan.FromMilliseconds(101);
         await Cache.ClearAllAsync();
         var options = new HybridCacheEntry()
         {
@@ -1452,7 +1453,7 @@ public class HybridCacheTests : IDisposable
         await Cache.SetAsync(key, token1, options); // set a value with the same lock key
         var lockExistKey = await Cache.TryLockKeyAsync(key, token1, expiry); // False
         var valueOnLocking = await Cache.GetAsync<string>(key); // get token1
-        await Task.Delay(expiry); // wait until lock expired
+        await Task.Delay(expiryPlus1); // wait until lock expired
         var expiredValue = await Cache.GetAsync<string>(key); // get null
         var lockAfterExpire = await Cache.TryLockKeyAsync(key, token2, expiry); // try lock key with token2
         var valueOfToken2 = await Cache.GetAsync<string>(key); // the locked key changed first value
