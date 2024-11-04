@@ -55,6 +55,7 @@ builder.Services.AddHybridRedisCaching(options =>
     options.ConnectRetry = int.MaxValue;
     options.EnableLogging = true;
     options.FlushLocalCacheOnBusReconnection = false;
+    options.TracingActivitySourceName = nameof(HybridRedisCache);
 });
 
 // open http://localhost:5000/metrics in web browser to look metrics data
@@ -69,7 +70,7 @@ builder.Services.AddOpenTelemetry()
     {
         tracingBuilder.SetResourceBuilder(ResourceBuilder.CreateDefault().AddService("HybridCacheWebApiSample"))
             .AddAspNetCoreInstrumentation()
-            .AddSource(HybridCacheConstants.DefaultListenerName)
+            .AddSource(nameof(HybridRedisCache))
             .AddConsoleExporter();
     });
 
