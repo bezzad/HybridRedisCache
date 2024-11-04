@@ -2,11 +2,14 @@
 
 namespace HybridRedisCache.Utilities;
 
-internal static class ActivityInstance
+internal class TracingActivity(string tracingActivitySourceName)
 {
-    internal static readonly ActivitySource Source = new(HybridCacheConstants.DefaultListenerName, 
+    public readonly ActivitySource Source = new(tracingActivitySourceName, 
         typeof(HybridCache).Assembly.GetName().Version?.ToString() ?? "");
+}
 
+internal static class ActivityExtensions
+{
     internal static void SetRetrievalStrategyActivity(this Activity activity, RetrievalStrategy retrievalStrategy)
     {
         activity?.SetTag(nameof(HybridRedisCache) + ".RetrievalStrategy", retrievalStrategy.ToString("G"));

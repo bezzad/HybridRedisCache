@@ -1,5 +1,4 @@
-﻿using Microsoft.VisualBasic;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
@@ -9,8 +8,8 @@ namespace HybridRedisCache.Test;
 
 public class ObjectHelperTest
 {
-    private ComplexObject _value1;
-    private ComplexPocoObject _value2;
+    private readonly ComplexObject _value1;
+    private readonly ComplexPocoObject _value2;
 
     public ObjectHelperTest()
     {
@@ -21,11 +20,11 @@ public class ObjectHelperTest
             Address = new Address
             {
                 Street = "123 Main St",
-                City = "Anytown",
+                City = "Any town",
                 State = "CA",
                 Zip = "12345"
             },
-            PhoneNumbers = new List<string> { "555-1234", "555-5678" }
+            PhoneNumbers = ["555-1234", "555-5678"]
         };
 
         _value2 = new ComplexPocoObject
@@ -37,11 +36,11 @@ public class ObjectHelperTest
                 Lat = 3.3,
                 Lan = 4.4,
                 Street = "123 Main St",
-                City = "Anytown",
+                City = "Any town",
                 State = "CA",
                 Zip = "12345"
             },
-            PhoneNumbers = new List<string> { "555-1234", "555-5678" },
+            PhoneNumbers = ["555-1234", "555-5678"],
             Parent = _value1
         };
     }
@@ -71,7 +70,7 @@ public class ObjectHelperTest
     [Fact]
     public void DeserializePolymorphicInCollections()
     {
-        // Arrang 
+        // Arrange 
         ICollection<string> collection = new Collection<string>()
         {
             "test_collection_0",
@@ -101,7 +100,7 @@ public class ObjectHelperTest
     [Fact]
     public void DeserializePolymorphicList()
     {
-        // Arrang 
+        // Arrange 
         IList<string> collection = new List<string>()
         {
             "test_list_0",
@@ -138,7 +137,7 @@ public class ObjectHelperTest
                 ""address"": {
                     ""$type"": ""HybridRedisCache.Test.Address, HybridRedisCache.Test"",
                     ""street"": ""123 Main St"",
-                    ""city"": ""Anytown"",
+                    ""city"": ""Any town"",
                     ""state"": ""CA"",
                     ""zip"": ""12345""
                 },
@@ -207,8 +206,8 @@ public class ObjectHelperTest
 
         // Assert
         // verify that the retrieved object is equal to the original object
-        Assert.Equal(16, time.Value.Days);
-        Assert.Equal(8, time.Value.Hours);
-        Assert.Equal(40, time.Value.Minutes);
+        Assert.Equal(16, time?.Days);
+        Assert.Equal(8, time?.Hours);
+        Assert.Equal(40, time?.Minutes);
     }
 }

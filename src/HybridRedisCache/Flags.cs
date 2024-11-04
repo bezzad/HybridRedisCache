@@ -6,7 +6,7 @@
 public enum Condition
 {
     /// <summary>
-    /// The operation should occur whether or not there is an existing value.
+    /// The operation should occur whether there is an existing value.
     /// </summary>
     Always,
 

@@ -17,6 +17,7 @@ public class HybridCache : IHybridCache, IDisposable
     private record ChannelMessage(string InstanceId, RedisMessageBusActionType BusActionType, params string[] Keys);
 
     private readonly ConcurrentDictionary<string, ConcurrentBag<TaskCompletionSource>> _lockTasks = new();
+    private readonly ActivitySource _activity;
     private readonly IDatabase _redisDb;
     private readonly string _instanceId;
     private readonly HybridCachingOptions _options;
@@ -43,6 +44,7 @@ public class HybridCache : IHybridCache, IDisposable
 
         _instanceId = Guid.NewGuid().ToString("N");
         _options = option;
+        _activity = new TracingActivity(option.TracingActivitySourceName).Source;
         CreateLocalCache();
         var redisConfig = ConfigurationOptions.Parse(option.RedisConnectString, true);
         redisConfig.AbortOnConnectFail = option.AbortOnConnectFail;
@@ -78,7 +80,7 @@ public class HybridCache : IHybridCache, IDisposable
         if (!_options.EnableTracing)
             return null;
 
-        var activity = ActivityInstance.Source.StartActivity(nameof(HybridCache));
+        var activity = _activity.StartActivity(nameof(HybridCache));
         activity?.SetTag(nameof(HybridRedisCache) + ".OperationType", operationType.ToString("G"));
         return activity;
     }

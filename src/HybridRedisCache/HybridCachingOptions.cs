@@ -45,6 +45,13 @@ public class HybridCachingOptions
     /// Gets or sets a expiry time of local cache
     /// </summary>        
     public TimeSpan DefaultLocalExpirationTime { get; set; } = TimeSpan.FromMinutes(60);
+    
+    /// <summary>
+    /// The name of providers APIs to create and start <see cref="T:System.Diagnostics.Activity" />
+    /// objects and to register <see cref="T:System.Diagnostics.ActivityListener" /> objects to listen to the
+    /// <see cref="T:System.Diagnostics.Activity" /> events.
+    /// </summary>
+    public string TracingActivitySourceName { get; set; } = nameof(HybridRedisCache);
 
     /// <summary>
     /// The Redis bus and connect retry count.
