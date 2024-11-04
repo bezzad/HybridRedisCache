@@ -99,6 +99,9 @@ builder.Services.AddHybridRedisCaching(options =>
     options.RedisConnectString = "localhost:6379,redis0:6380,redis1:6380,allowAdmin=true,keepAlive=180";
     options.BusRetryCount = 10;
     options.EnableLogging = true;
+    options.EnableTracing = true,
+    ThreadPoolSocketManagerEnable = true,
+    TracingActivitySourceName = nameof(HybridRedisCache),
     options.FlushLocalCacheOnBusReconnection = true;
 });
 ```
@@ -157,15 +160,16 @@ ensuring that the cached data is synchronized across all instances.
 This allows you to take advantage of the benefits of caching, 
 such as reduced latency and **improved performance**, while ensuring that the cached data is consistent across all instances.
 
-Other features of HybridCache include:
+Other features of `HybridCache` include:
 
-* Support for multiple cache layers, including in-memory and Redis caching layers
-* **Automatic expiration** of cached data based on time-to-live (TTL) or sliding expiration policies
-* Support for fire-and-forget caching, which allows you to quickly set a value in the cache without waiting for a response
-* Support for asynchronous caching operations, which allows you to perform cache operations asynchronously and improve the responsiveness of your application
+* Multiple cache layers: Supports both in-memory and Redis caching layers, allowing for flexible caching strategies.
+* Automatic expiration: Cached data can automatically expire based on time-to-live (TTL) or sliding expiration policies. 
+* Fire-and-forget caching: Enables quickly setting a value in the cache without waiting for a response, improving performance for non-critical cache operations. 
+* Asynchronous caching operations: Provides asynchronous cache operations to enhance application responsiveness and scalability. 
+* Distributed key locking: Ensures control over race conditions across multiple services, preventing conflicts with shared resources. 
+* Client synchronization with Redis messages: Keeps all clients in sync through Redis bus messages. For example, if a key is updated or removed by one client, other clients will automatically clear the key from their local cache, ensuring consistency across instances.
 
-Overall, `HybridCache` provides a powerful and flexible caching solution that can help you improve the performance and scalability of your applications while ensuring that the cached data is consistent across all instances.
-
+Overall, `HybridCache` provides a powerful and flexible caching solution that helps enhance the performance and scalability of your applications while ensuring that cached data remains consistent across all instances.
 ## Installation of Redis Cache with docker
 
 ### Step 1
