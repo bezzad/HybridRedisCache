@@ -1330,15 +1330,17 @@ public class HybridCacheTests : IDisposable
         };
 
         // Action
+        var sw = Stopwatch.StartNew();
         var inserted = await Cache.SetAsync(key, "init value", option);
         var newInsertWithFalseExpectation = await Cache.SetAsync(key, expectedValue, option);
+        sw.Stop();
         await Task.Delay(expiryPlus1);
         var newInsertWithTrueExpectation = await Cache.SetAsync(key, expectedValue, option);
         var actualValue = await Cache.GetAsync<string>(key);
 
         // Assert
         Assert.True(inserted);
-        Assert.False(newInsertWithFalseExpectation);
+        Assert.False(sw.ElapsedMilliseconds < expiryMs && newInsertWithFalseExpectation);
         Assert.True(newInsertWithTrueExpectation);
         Assert.Equal(expectedValue, actualValue);
     }
@@ -1561,7 +1563,7 @@ public class HybridCacheTests : IDisposable
             _testOutputHelper.WriteLine($"Task {id} released the key {key}");
         }
     }
-    
+
     [Fact]
     public async Task TestExtendLockOnRedis()
     {
