@@ -123,9 +123,6 @@ public partial class HybridCache : IHybridCache, IDisposable
 
                 break;
             }
-            default:
-                LogMessage($"OnMessage: Unknown message caught: '{firstKey}' as {message.BusActionType} type");
-                break;
         }
     }
 

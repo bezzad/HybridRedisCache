@@ -1590,10 +1590,9 @@ public class HybridCacheTests : IDisposable
     }
 
     [Theory]
-    // [InlineData(1000)]
-    //[InlineData(10_000)]
-    [InlineData(100_000)]
-    // [InlineData(1_000_000)]
+    [InlineData(1000)]
+    [InlineData(10_000)]
+    //[InlineData(100_000)]
     [SuppressMessage("ReSharper", "StringLiteralTypo")]
     public async Task TestDeleteKeysByPatternOnRedisAsync(int insertCount)
     {

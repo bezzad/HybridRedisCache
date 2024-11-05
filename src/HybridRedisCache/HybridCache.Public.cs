@@ -949,21 +949,24 @@ public partial class HybridCache
         var cacheKeyPattern = GetCacheKey(pattern);
 
         const string script = @"
-            local pattern = ARGV[1]
-            local cursor = '0'
-            local deletedKeys = {}
+        local pattern = ARGV[1]
+        local cursor = '0'
+        local deletedKeys = {}
 
-            repeat
-                local result = redis.call('SCAN', cursor, 'MATCH', pattern, 'COUNT', 1000)
-                cursor = result[1]
-                local keys = result[2]
+        repeat
+            -- Perform SCAN with the given pattern and cursor
+            local result = redis.call('SCAN', cursor, 'MATCH', pattern, 'COUNT', 100)
+            cursor = result[1]
+            local keys = result[2]
 
-                for i = 1, #keys do
-                    redis.call('DEL', keys[i])
-                    table.insert(deletedKeys, keys[i])
-                end
-            until cursor == '0'
-            return deletedKeys";
+            -- Append matching keys to matchedKeys array
+            for i = 1, #keys do
+                redis.call('PEXPIRE', keys[i], 1)  -- Set each key to expire in 1 millisecond
+                table.insert(deletedKeys, keys[i])
+            end
+        -- SCAN ends when cursor returns to '0'
+        until cursor == '0'
+        return deletedKeys";
 
         // Execute the Lua script and get the deleted keys as a RedisResult array
         var result = (RedisResult[])await _redisDb.ScriptEvaluateAsync(script, values: [cacheKeyPattern], 
