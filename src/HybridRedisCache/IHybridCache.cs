@@ -489,4 +489,62 @@ public interface IHybridCache
     /// <param name="flags">The flags to use for this operation.</param>
     /// <returns>Return the <see cref="RedisLockObject"/> if the lock was successfully acquired; otherwise, wait until the key is released.</returns>
     Task<RedisLockObject> LockKeyAsync(string key, Flags flags = Flags.None);
+    
+    /// <summary>
+    /// Increments the number stored at key by increment.
+    /// If the key does not exist, it is set to 0 before performing the operation.
+    /// An error is returned if the key contains a value of the wrong type or contains a string that is not representable as integer.
+    /// This operation is limited to 64 bit signed integers.
+    /// </summary>
+    /// <param name="key">The key of the string.</param>
+    /// <param name="value">The amount to increment by (defaults to 1).</param>
+    /// <param name="flags">The flags to use for this operation.</param>
+    /// <returns>The value of key after the increment.</returns>
+    /// <remarks>
+    /// See
+    /// <seealso href="https://redis.io/commands/incrby"/>,
+    /// <seealso href="https://redis.io/commands/incr"/>.
+    /// </remarks>
+    Task<long> ValueIncrementAsync(string key, long value = 1, Flags flags = Flags.None);
+
+    /// <summary>
+    /// Increments the string representing a floating point number stored at key by the specified increment.
+    /// If the key does not exist, it is set to 0 before performing the operation.
+    /// The precision of the output is fixed at 17 digits after the decimal point regardless of the actual internal precision of the computation.
+    /// </summary>
+    /// <param name="key">The key of the string.</param>
+    /// <param name="value">The amount to increment by (defaults to 1).</param>
+    /// <param name="flags">The flags to use for this operation.</param>
+    /// <returns>The value of key after the increment.</returns>
+    /// <remarks><seealso href="https://redis.io/commands/incrbyfloat"/></remarks>
+    Task<double> ValueIncrementAsync(string key, double value, Flags flags = Flags.None);
+    
+    /// <summary>
+    /// Decrements the number stored at key by decrement.
+    /// If the key does not exist, it is set to 0 before performing the operation.
+    /// An error is returned if the key contains a value of the wrong type or contains a string that is not representable as integer.
+    /// This operation is limited to 64 bit signed integers.
+    /// </summary>
+    /// <param name="key">The key of the string.</param>
+    /// <param name="value">The amount to decrement by (defaults to 1).</param>
+    /// <param name="flags">The flags to use for this operation.</param>
+    /// <returns>The value of key after the decrement.</returns>
+    /// <remarks>
+    /// See
+    /// <seealso href="https://redis.io/commands/decrby"/>,
+    /// <seealso href="https://redis.io/commands/decr"/>.
+    /// </remarks>
+    Task<long> ValueDecrementAsync(string key, long value = 1, Flags flags = Flags.None);
+
+    /// <summary>
+    /// Decrements the string representing a floating point number stored at key by the specified decrement.
+    /// If the key does not exist, it is set to 0 before performing the operation.
+    /// The precision of the output is fixed at 17 digits after the decimal point regardless of the actual internal precision of the computation.
+    /// </summary>
+    /// <param name="key">The key of the string.</param>
+    /// <param name="value">The amount to decrement by (defaults to 1).</param>
+    /// <param name="flags">The flags to use for this operation.</param>
+    /// <returns>The value of key after the decrement.</returns>
+    /// <remarks><seealso href="https://redis.io/commands/incrbyfloat"/></remarks>
+    Task<double> ValueDecrementAsync(string key, double value, Flags flags = Flags.None);
 }
