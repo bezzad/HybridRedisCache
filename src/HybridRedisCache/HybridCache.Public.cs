@@ -177,7 +177,7 @@ public partial class HybridCache
         bool keepTtl = false, bool localCacheEnable = true, bool redisCacheEnable = true)
     {
         using var activity = PopulateActivity(OperationTypes.SetBatchCache);
-        value.NotNullAndCountGTZero(nameof(value));
+        value.NotNullAndCountGtZero(nameof(value));
         SetExpiryTimes(ref localExpiry, ref redisExpiry);
         var result = true;
 
@@ -237,7 +237,7 @@ public partial class HybridCache
         bool keepTtl = false, bool localCacheEnable = true, bool redisCacheEnable = true)
     {
         using var activity = PopulateActivity(OperationTypes.SetBatchCache);
-        value.NotNullAndCountGTZero(nameof(value));
+        value.NotNullAndCountGtZero(nameof(value));
         SetExpiryTimes(ref localExpiry, ref redisExpiry);
         var result = true;
 
@@ -526,7 +526,7 @@ public partial class HybridCache
     public bool Remove(string[] keys, Flags flags = Flags.PreferMaster)
     {
         using var activity = PopulateActivity(OperationTypes.BatchDeleteCache);
-        keys.NotNullAndCountGTZero(nameof(keys));
+        keys.NotNullAndCountGtZero(nameof(keys));
         var cacheKeys = Array.ConvertAll(keys, GetCacheKey);
         try
         {
@@ -572,7 +572,7 @@ public partial class HybridCache
     public async Task<bool> RemoveAsync(string[] keys, Flags flags = Flags.PreferMaster)
     {
         using var activity = PopulateActivity(OperationTypes.BatchDeleteCache);
-        keys.NotNullAndCountGTZero(nameof(keys));
+        keys.NotNullAndCountGtZero(nameof(keys));
         var cacheKeys = Array.ConvertAll(keys, GetCacheKey);
         try
         {
@@ -613,7 +613,7 @@ public partial class HybridCache
         int batchRemovePackSize = 1024, CancellationToken token = default)
     {
         using var activity = PopulateActivity(OperationTypes.RemoveWithPattern);
-        pattern.NotNullAndCountGTZero(nameof(pattern));
+        pattern.NotNullAndCountGtZero(nameof(pattern));
         var batch = new List<string>(batchRemovePackSize);
         var removedCount = 0L;
         var keyPattern = GetCacheKey(pattern);

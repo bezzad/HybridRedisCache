@@ -60,6 +60,7 @@ public class ArgumentCheckTest
     public void NotNegativeOrZero_Should_Not_Throw_ArgumentOutOfRangeException_When_Argument_Is_NotNegativeOrZero()
     {
         var ts = new TimeSpan(0, 0, 1);
+        // ReSharper disable once InvokeAsExtensionMethod
         var ex = Record.Exception(() => ArgumentCheck.NotNegativeOrZero(ts, nameof(ts)));
 
         Assert.Null(ex);
@@ -70,15 +71,18 @@ public class ArgumentCheckTest
     {
         List<string> list = null;
 
-        Assert.Throws<ArgumentNullException>(() => ArgumentCheck.NotNullAndCountGTZero(list, nameof(list)));
+        // ReSharper disable once ExpressionIsAlwaysNull
+        Assert.Throws<ArgumentNullException>(() => ArgumentCheck.NotNullAndCountGtZero(list, nameof(list)));
     }
 
     [Fact]
     public void NotNullAndCountGTZero_List_Should_Throw_ArgumentNullException_When_Argument_Is_Empty()
     {
+        // ReSharper disable once CollectionNeverUpdated.Local
         var list = new List<string>();
 
-        Assert.Throws<ArgumentNullException>(() => ArgumentCheck.NotNullAndCountGTZero(list, nameof(list)));
+        // ReSharper disable once InvokeAsExtensionMethod
+        Assert.Throws<ArgumentNullException>(() => ArgumentCheck.NotNullAndCountGtZero(list, nameof(list)));
     }
 
     [Fact]
@@ -86,7 +90,7 @@ public class ArgumentCheckTest
     {
         var list = new List<string> { "abc" };
 
-        var ex = Record.Exception(() => ArgumentCheck.NotNullAndCountGTZero(list, nameof(list)));
+        var ex = Record.Exception(() => ArgumentCheck.NotNullAndCountGtZero(list, nameof(list)));
 
         Assert.Null(ex);
     }
@@ -96,7 +100,8 @@ public class ArgumentCheckTest
     {
         Dictionary<string, string> dict = null;
 
-        Assert.Throws<ArgumentNullException>(() => ArgumentCheck.NotNullAndCountGTZero(dict, nameof(dict)));
+        // ReSharper disable once ExpressionIsAlwaysNull
+        Assert.Throws<ArgumentNullException>(() => ArgumentCheck.NotNullAndCountGtZero(dict, nameof(dict)));
     }
 
     [Fact]
@@ -104,7 +109,7 @@ public class ArgumentCheckTest
     {
         var dict = new Dictionary<string, string>();
 
-        Assert.Throws<ArgumentNullException>(() => ArgumentCheck.NotNullAndCountGTZero(dict, nameof(dict)));
+        Assert.Throws<ArgumentNullException>(() => ArgumentCheck.NotNullAndCountGtZero(dict, nameof(dict)));
     }
 
     [Fact]
@@ -112,7 +117,7 @@ public class ArgumentCheckTest
     {
         var dict = new Dictionary<string, string> { { "abc", "123" } };
 
-        var ex = Record.Exception(() => ArgumentCheck.NotNullAndCountGTZero(dict, nameof(dict)));
+        var ex = Record.Exception(() => ArgumentCheck.NotNullAndCountGtZero(dict, nameof(dict)));
 
         Assert.Null(ex);
     }

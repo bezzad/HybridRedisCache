@@ -155,7 +155,7 @@ public partial class HybridCache : IHybridCache, IDisposable
 
     private async Task PublishBusAsync(RedisMessageBusActionType busActionType, params string[] cacheKeys)
     {
-        cacheKeys.NotNullAndCountGTZero(nameof(cacheKeys));
+        cacheKeys.NotNullAndCountGtZero(nameof(cacheKeys));
 
         try
         {
@@ -177,7 +177,7 @@ public partial class HybridCache : IHybridCache, IDisposable
 
     private void PublishBus(RedisMessageBusActionType busActionType, params string[] cacheKeys)
     {
-        cacheKeys.NotNullAndCountGTZero(nameof(cacheKeys));
+        cacheKeys.NotNullAndCountGtZero(nameof(cacheKeys));
 
         try
         {
