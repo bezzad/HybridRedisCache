@@ -1,10 +1,4 @@
-﻿using HybridRedisCache.Utilities;
-using Microsoft.Extensions.Caching.Memory;
-using StackExchange.Redis;
-using System.Diagnostics;
-using System.Runtime.CompilerServices;
-
-namespace HybridRedisCache;
+﻿namespace HybridRedisCache;
 
 /// <summary>
 /// The HybridCache class provides a hybrid caching solution that stores cached items in both

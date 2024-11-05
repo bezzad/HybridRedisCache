@@ -1,6 +1,4 @@
-﻿using Microsoft.Extensions.DependencyInjection;
-
-namespace HybridRedisCache;
+﻿namespace HybridRedisCache;
 
 /// <summary>
 /// Extension methods for setting up Redis distributed cache related services in an <see cref="IServiceCollection" />.

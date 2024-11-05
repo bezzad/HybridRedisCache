@@ -1,7 +1,4 @@
-﻿using Newtonsoft.Json;
-using System.Runtime.CompilerServices;
-
-[assembly: InternalsVisibleTo("HybridRedisCache.Test")]
+﻿[assembly: InternalsVisibleTo("HybridRedisCache.Test")]
 namespace HybridRedisCache;
 
 internal static class ObjectHelper

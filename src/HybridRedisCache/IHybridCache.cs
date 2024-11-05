@@ -1,6 +1,4 @@
-﻿using StackExchange.Redis;
-
-namespace HybridRedisCache;
+﻿namespace HybridRedisCache;
 
 public interface IHybridCache
 {
