@@ -912,6 +912,7 @@ public partial class HybridCache
 
     public async Task<long> ValueIncrementAsync(string key, long value = 1, Flags flags = Flags.None)
     {
+        using var activity = PopulateActivity(OperationTypes.SetCache);
         var result = await _redisDb.StringIncrementAsync(key, value, (CommandFlags)flags);
         _memoryCache.Set(key, result);
         return result;
@@ -919,6 +920,7 @@ public partial class HybridCache
 
     public async Task<double> ValueIncrementAsync(string key, double value, Flags flags = Flags.None)
     {
+        using var activity = PopulateActivity(OperationTypes.SetCache);
         var result = await _redisDb.StringIncrementAsync(key, value, (CommandFlags)flags);
         _memoryCache.Set(key, result);
         return result;
@@ -926,6 +928,7 @@ public partial class HybridCache
 
     public async Task<long> ValueDecrementAsync(string key, long value = 1, Flags flags = Flags.None)
     {
+        using var activity = PopulateActivity(OperationTypes.SetCache);
         var result = await _redisDb.StringDecrementAsync(key, value, (CommandFlags)flags);
         _memoryCache.Set(key, result);
         return result;
@@ -933,8 +936,47 @@ public partial class HybridCache
 
     public async Task<double> ValueDecrementAsync(string key, double value, Flags flags = Flags.None)
     {
+        using var activity = PopulateActivity(OperationTypes.SetCache);
         var result = await _redisDb.StringDecrementAsync(key, value, (CommandFlags)flags);
         _memoryCache.Set(key, result);
         return result;
+    }
+
+    public async Task<string[]> RemoveWithPatternOnRedisAsync(string pattern, Flags flags = Flags.None)
+    {
+        using var activity = PopulateActivity(OperationTypes.BatchDeleteCache);
+        pattern.NotNullOrWhiteSpace(nameof(pattern));
+        var cacheKeyPattern = GetCacheKey(pattern);
+
+        const string script = @"
+            local pattern = ARGV[1]
+            local cursor = '0'
+            local deletedKeys = {}
+
+            repeat
+                local result = redis.call('SCAN', cursor, 'MATCH', pattern, 'COUNT', 1000)
+                cursor = result[1]
+                local keys = result[2]
+
+                for i = 1, #keys do
+                    redis.call('DEL', keys[i])
+                    table.insert(deletedKeys, keys[i])
+                end
+            until cursor == '0'
+            return deletedKeys";
+
+        // Execute the Lua script and get the deleted keys as a RedisResult array
+        var result = (RedisResult[])await _redisDb.ScriptEvaluateAsync(script, values: [cacheKeyPattern], 
+            flags: (CommandFlags)flags).ConfigureAwait(false);
+        
+        // Convert the result to a List<string> and return it
+        var deletedKeys = result?.Select(x => (string)x).ToArray() ?? [];
+        LogMessage($"Deleted {deletedKeys.Length} keys by pattern `{pattern}` on Redis server. \n" + result);
+
+        foreach (var key in deletedKeys)
+            _memoryCache.Remove(key);
+
+        await PublishBusAsync(RedisMessageBusActionType.InvalidateCacheKeys, deletedKeys).ConfigureAwait(false);
+        return deletedKeys;
     }
 }
