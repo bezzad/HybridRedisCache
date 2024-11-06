@@ -942,7 +942,14 @@ public partial class HybridCache
         return result;
     }
 
-    public async Task<string[]> RemoveWithPatternOnRedisAsync(string pattern, Flags flags = Flags.None)
+    public Version GetServerVersion(Flags flags = Flags.None)
+    {
+        using var activity = PopulateActivity(OperationTypes.GetServerVersion);
+        var servers = GetServers(flags);
+        return servers.First().Version;
+    }
+    
+    public async ValueTask<long> RemoveWithPatternOnRedisAsync(string pattern, Flags flags = Flags.None)
     {
         using var activity = PopulateActivity(OperationTypes.BatchDeleteCache);
         pattern.NotNullOrWhiteSpace(nameof(pattern));
@@ -980,6 +987,6 @@ public partial class HybridCache
             _memoryCache.Remove(key);
 
         await PublishBusAsync(RedisMessageBusActionType.InvalidateCacheKeys, deletedKeys).ConfigureAwait(false);
-        return deletedKeys;
+        return deletedKeys.LongLength;
     }
 }

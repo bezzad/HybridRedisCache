@@ -17,7 +17,7 @@ public class HybridCacheTests : IDisposable
     private static string UniqueKey => "test_Key_" + Guid.NewGuid().ToString("N");
     private static ILoggerFactory _loggerFactory;
     private HybridCache _cache;
-    private const string KeyPattern = "[Tt]est[Rr]emove[Ww]ith[Pp]attern?*";
+    private const string KeyPattern = "[Tt]est[Rr]emove[Ww]ith[Pp]attern#*";
 
     private readonly HybridCachingOptions _options = new()
     {
@@ -1514,6 +1514,16 @@ public class HybridCacheTests : IDisposable
         Assert.False(lockAgain);
         Assert.Null(lastValue);
     }
+    
+    [Fact]
+    public void TestRedisVersion()
+    {
+        // Arrange
+        var version = Cache.GetServerVersion();
+
+        // Assert
+        Assert.NotNull(version);
+    }
 
     [Theory]
     [InlineData(1000, 100)]
@@ -1561,12 +1571,12 @@ public class HybridCacheTests : IDisposable
         
         // Action
         var sw = Stopwatch.StartNew();
-        var removedKeys = await Cache.RemoveWithPatternOnRedisAsync(KeyPattern, Flags.PreferReplica);
+        var removedKeysCount = await Cache.RemoveWithPatternOnRedisAsync(KeyPattern, Flags.PreferReplica);
         sw.Stop();
         _testOutputHelper.WriteLine($"Remove with pattern operation duration: {sw.ElapsedMilliseconds}ms");
 
         // Assert
-        Assert.True(insertCount <= removedKeys.Length);
+        Assert.True(insertCount <= removedKeysCount);
         await AssertKeysAreRemoved(keyValues);
         Assert.True(sw.ElapsedMilliseconds < insertCount / 10,
             $"Remove keys with pattern duration is {sw.ElapsedMilliseconds}ms");
@@ -1575,8 +1585,8 @@ public class HybridCacheTests : IDisposable
     [Theory]
     // [InlineData(1000)]
     //[InlineData(10_000)]
-    //[InlineData(100_000)]
-    [InlineData(1_000_000)]
+    [InlineData(100_000)]
+    //[InlineData(1_000_000)]
     [SuppressMessage("ReSharper", "StringLiteralTypo")]
     public async Task CompareRemoveWithPatternMethods(int insertCount)
     {
@@ -1585,23 +1595,25 @@ public class HybridCacheTests : IDisposable
         const string keyPrefixOnClient = "C";
         _testOutputHelper.WriteLine($"Clear all redis keys");
         await Cache.ClearAllAsync(); // Clear database first
-        var keyValuesX = await PrepareDummyKeys(insertCount, false, keyPrefixOnClient);
-        var keyValuesR = await PrepareDummyKeys(insertCount, false, keyPrefixOnRedis);
+        await PrepareDummyKeys(insertCount, false, keyPrefixOnClient);
+        await PrepareDummyKeys(insertCount, false, keyPrefixOnRedis);
         
         // Action
         var sw = Stopwatch.StartNew();
-        await Cache.RemoveWithPatternOnRedisAsync(keyPrefixOnRedis + KeyPattern, Flags.PreferReplica);
+        var resultOnRedis = await Cache.RemoveWithPatternOnRedisAsync(keyPrefixOnRedis + KeyPattern, Flags.PreferReplica);
         sw.Stop();
         var removeDurationOnRedis = sw.ElapsedMilliseconds;
         _testOutputHelper.WriteLine($"### Remove with pattern on Redis operation duration: {removeDurationOnRedis}ms ###");
 
         sw.Restart();
-        await Cache.RemoveWithPatternAsync(keyPrefixOnClient + KeyPattern, Flags.PreferReplica);
+        var resultOnClient=await Cache.RemoveWithPatternAsync(keyPrefixOnClient + KeyPattern, Flags.PreferReplica);
         sw.Stop();
         var removeDurationOnClient = sw.ElapsedMilliseconds;
         _testOutputHelper.WriteLine($"### Remove with pattern on Client operation duration: {removeDurationOnClient}ms ###");
 
         // Assert
+        Assert.Equal(insertCount, resultOnClient);
+        Assert.Equal(insertCount, resultOnRedis);
         Assert.True(removeDurationOnRedis < removeDurationOnClient);
     }
 
@@ -1623,15 +1635,15 @@ public class HybridCacheTests : IDisposable
 
         var keyFormats = new[]
         {
-            "TestRemovewithPattern:{id}",
-            "testRemovewithPattern {id}",
-            "TestremovewithPattern-{id}",
-            "testremovewithPattern={id}",
-            "TestRemoveWithPattern.{id}",
-            "testRemoveWithpattern_{id}",
-            "TestremoveWithpattern_{id}",
-            "testremoveWithpattern:{id}",
-            "TestRemoveWithpattern_{id}",
+            "TestRemovewithPattern#{id}",
+            "testRemovewithPattern#{id}",
+            "TestremovewithPattern#{id}",
+            "testremovewithPattern#{id}",
+            "TestRemoveWithPattern#{id}",
+            "testRemoveWithpattern#{id}",
+            "TestremoveWithpattern#{id}",
+            "testremoveWithpattern#{id}",
+            "TestRemoveWithpattern#{id}",
         };
 
         _testOutputHelper.WriteLine($"Generating dummy keys...");

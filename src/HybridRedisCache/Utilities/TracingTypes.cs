@@ -43,7 +43,8 @@ internal enum OperationTypes
     GetServerTime,
     Echo,
     DatabaseSize,
-    GetSentinelInfo
+    GetSentinelInfo,
+    GetServerVersion
 }
 
 internal enum RetrievalStrategy

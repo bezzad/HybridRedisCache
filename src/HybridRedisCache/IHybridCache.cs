@@ -335,6 +335,26 @@ public interface IHybridCache
     ValueTask<long> RemoveWithPatternAsync(string pattern, bool fireAndForget, CancellationToken token);
 
     /// <summary>
+    /// Deletes all keys in Redis that match the specified pattern, operating entirely on the Redis server side.
+    /// This operation uses Lua scripting and the SCAN command to efficiently locate and delete keys, avoiding 
+    /// the need to fetch them to the client side for deletion.
+    /// </summary>
+    /// <param name="pattern">The pattern to match Redis keys against (e.g., "my-prefix:*").</param>
+    /// <param name="flags">Optional command flags to control the behavior of this Redis command.</param>
+    /// <returns>A task that represents the asynchronous deleted keys as string array</returns>
+    /// <remarks>
+    /// <para>
+    /// Since this operation may delete unknown keys from Redis, it also invalidates all local caches
+    /// as they may now be out-of-date. Therefore, after this operation completes, all local caches
+    /// should be cleared to ensure consistency.
+    /// </para>
+    /// <para>
+    /// This operation requires Redis version 2.8.0 or higher, as it relies on the SCAN command and Lua scripting support.
+    /// </para>
+    /// </remarks>
+    ValueTask<long> RemoveWithPatternOnRedisAsync(string pattern, Flags flags = Flags.None);
+    
+    /// <summary>
     /// Asynchronously removes a cached value with a key pattern.
     /// </summary>
     /// <param name="pattern">pattern to search keys. must have * in the key. like:  key_*_test_*</param>
@@ -547,22 +567,7 @@ public interface IHybridCache
     Task<double> ValueDecrementAsync(string key, double value, Flags flags = Flags.None);
 
     /// <summary>
-    /// Deletes all keys in Redis that match the specified pattern, operating entirely on the Redis server side.
-    /// This operation uses Lua scripting and the SCAN command to efficiently locate and delete keys, avoiding 
-    /// the need to fetch them to the client side for deletion.
+    /// Gets the Redis version of the connected server.
     /// </summary>
-    /// <param name="pattern">The pattern to match Redis keys against (e.g., "my-prefix:*").</param>
-    /// <param name="flags">Optional command flags to control the behavior of this Redis command.</param>
-    /// <returns>A task that represents the asynchronous deleted keys as string array</returns>
-    /// <remarks>
-    /// <para>
-    /// Since this operation may delete unknown keys from Redis, it also invalidates all local caches
-    /// as they may now be out-of-date. Therefore, after this operation completes, all local caches
-    /// should be cleared to ensure consistency.
-    /// </para>
-    /// <para>
-    /// This operation requires Redis version 2.8.0 or higher, as it relies on the SCAN command and Lua scripting support.
-    /// </para>
-    /// </remarks>
-    Task<string[]> RemoveWithPatternOnRedisAsync(string pattern, Flags flags = Flags.None);
+    Version GetServerVersion(Flags flags = Flags.None);
 }
