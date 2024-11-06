@@ -1514,7 +1514,7 @@ public class HybridCacheTests : IDisposable
         Assert.False(lockAgain);
         Assert.Null(lastValue);
     }
-    
+
     [Fact]
     public void TestRedisVersion()
     {
@@ -1540,8 +1540,8 @@ public class HybridCacheTests : IDisposable
         // Arrange
         _testOutputHelper.WriteLine($"Clear all redis keys");
         await Cache.ClearAllAsync(); // Clear database first
-        var keyValues = await PrepareDummyKeys(insertCount);
-        
+        var keyValues = await PrepareDummyKeys(insertCount, keyPrefix: "", localCacheEnable: false, generateNoiseKeys: true);
+
         // Action
         var sw = Stopwatch.StartNew();
         var removedKeys = await Cache.RemoveWithPatternAsync(KeyPattern,
@@ -1556,7 +1556,7 @@ public class HybridCacheTests : IDisposable
         Assert.True(sw.ElapsedMilliseconds < (insertCount / 100) + (insertCount / batchRemovePackSize * 10) + 100,
             $"Remove keys with pattern duration is {sw.ElapsedMilliseconds}ms");
     }
-    
+
     [Theory]
     [InlineData(1000)]
     [InlineData(10_000)]
@@ -1567,8 +1567,8 @@ public class HybridCacheTests : IDisposable
         // Arrange
         _testOutputHelper.WriteLine($"Clear all redis keys");
         await Cache.ClearAllAsync(); // Clear database first
-        var keyValues = await PrepareDummyKeys(insertCount);
-        
+        var keyValues = await PrepareDummyKeys(insertCount, keyPrefix: "", localCacheEnable: false, generateNoiseKeys: true);
+
         // Action
         var sw = Stopwatch.StartNew();
         var removedKeysCount = await Cache.RemoveWithPatternOnRedisAsync(KeyPattern, Flags.PreferReplica);
@@ -1581,7 +1581,7 @@ public class HybridCacheTests : IDisposable
         Assert.True(sw.ElapsedMilliseconds < insertCount / 10,
             $"Remove keys with pattern duration is {sw.ElapsedMilliseconds}ms");
     }
-    
+
     [Theory]
     // [InlineData(1000)]
     //[InlineData(10_000)]
@@ -1597,19 +1597,22 @@ public class HybridCacheTests : IDisposable
         await Cache.ClearAllAsync(); // Clear database first
         await PrepareDummyKeys(insertCount, false, keyPrefixOnClient);
         await PrepareDummyKeys(insertCount, false, keyPrefixOnRedis);
-        
+
         // Action
         var sw = Stopwatch.StartNew();
-        var resultOnRedis = await Cache.RemoveWithPatternOnRedisAsync(keyPrefixOnRedis + KeyPattern, Flags.PreferReplica);
+        var resultOnRedis =
+            await Cache.RemoveWithPatternOnRedisAsync(keyPrefixOnRedis + KeyPattern, Flags.PreferReplica);
         sw.Stop();
         var removeDurationOnRedis = sw.ElapsedMilliseconds;
-        _testOutputHelper.WriteLine($"### Remove with pattern on Redis operation duration: {removeDurationOnRedis}ms ###");
+        _testOutputHelper.WriteLine(
+            $"### Remove with pattern on Redis operation duration: {removeDurationOnRedis}ms ###");
 
         sw.Restart();
-        var resultOnClient=await Cache.RemoveWithPatternAsync(keyPrefixOnClient + KeyPattern, Flags.PreferReplica);
+        var resultOnClient = await Cache.RemoveWithPatternAsync(keyPrefixOnClient + KeyPattern, Flags.PreferReplica);
         sw.Stop();
         var removeDurationOnClient = sw.ElapsedMilliseconds;
-        _testOutputHelper.WriteLine($"### Remove with pattern on Client operation duration: {removeDurationOnClient}ms ###");
+        _testOutputHelper.WriteLine(
+            $"### Remove with pattern on Client operation duration: {removeDurationOnClient}ms ###");
 
         // Assert
         Assert.Equal(insertCount, resultOnClient);
@@ -1618,8 +1621,8 @@ public class HybridCacheTests : IDisposable
     }
 
     [SuppressMessage("ReSharper", "StringLiteralTypo")]
-    private async Task<Dictionary<string, string>> PrepareDummyKeys(int insertCount, bool localCacheEnable = true, 
-        string keyPrefix = "")
+    private async Task<Dictionary<string, string>> PrepareDummyKeys(int insertCount, bool localCacheEnable = true,
+        string keyPrefix = "", bool generateNoiseKeys = false)
     {
         keyPrefix ??= string.Empty;
         var hybridOptions = new HybridCacheEntry
@@ -1652,23 +1655,26 @@ public class HybridCacheTests : IDisposable
             .Select(_ => Random.Shared.GetItems(keyFormats, 1).First()
                 .Replace("{id}", Guid.NewGuid().ToString()))
             .ToDictionary(key => keyPrefix + key, key => key);
-        
+
         _testOutputHelper.WriteLine($"Generating dummy noise keys...");
 
-        var noiseKeys = Enumerable.Range(0, insertCount)
-            .Select(_ => Guid.NewGuid().ToString("N"))
-            .ToDictionary(key => keyPrefix + key, key => key);
+        if (generateNoiseKeys)
+        {
+            var noiseKeys = Enumerable.Range(0, insertCount)
+                .Select(_ => Guid.NewGuid().ToString("N"))
+                .ToDictionary(key => keyPrefix + key, key => key);
+
+            await Cache.SetAllAsync(noiseKeys, hybridOptions);
+            _testOutputHelper.WriteLine($"{noiseKeys.Count} keys added to redis as noise keys");
+        }
         
         _testOutputHelper.WriteLine($"Adding dummy keys...");
-
         await Cache.SetAllAsync(keyValues, hybridOptions);
         _testOutputHelper.WriteLine($"{keyValues.Count} keys added to redis as pattern searchable keys");
-        await Cache.SetAllAsync(noiseKeys, hybridOptions);
-        _testOutputHelper.WriteLine($"{noiseKeys.Count} keys added to redis as noise keys");
 
         return keyValues;
     }
-    
+
     private async Task AssertKeysAreRemoved(Dictionary<string, string> keyValues)
     {
         foreach (var keyValue in keyValues)
