@@ -59,7 +59,40 @@ public partial class HybridCache : IHybridCache, IDisposable
 
         // Subscribe to Redis key-space events to invalidate cache entries on all instances
         _redisSubscriber.Subscribe(_messagesChannel, OnMessage, CommandFlags.FireAndForget);
+        _redisSubscriber.Subscribe("__keyspace@0__:" + option.InstancesSharedName + ":*", (channel, type) =>
+        {
+            var key = GetKey(channel);
+
+            switch (type)
+            {
+                case "set":
+                    _logger.LogInformation($"set: {key} => {DateTime.Now}");
+                    break;
+                case "del":
+                    _logger.LogInformation($"del: {key} => {DateTime.Now}");
+                    break;
+                case "expired":
+                    _logger.LogInformation($"expired: {key} => {DateTime.Now}");
+                    break;
+                default:
+                    _logger.LogInformation($"def: {type}: {key} => {DateTime.Now}");
+                    break;
+                    
+            }
+        });
         redis.ConnectionRestored += OnReconnect;
+    }
+    
+    static string GetKey(string channel)
+    {
+        var index = channel.IndexOf(':');
+
+        if (index >= 0 && index < channel.Length - 1)
+        {
+            return channel[(index + 1)..];
+        }
+
+        return channel;
     }
 
     private void CreateLocalCache()
@@ -90,8 +123,7 @@ public partial class HybridCache : IHybridCache, IDisposable
             return; // filter out messages from the current instance
 
         var firstKey = message.Keys.First();
-        LogMessage(
-            $"OnMessage: A {message.BusActionType} message received from instance {message.InstanceId} with first key: {firstKey}");
+        //LogMessage($"OnMessage: A {message.BusActionType} message received from instance {message.InstanceId} with first key: {firstKey}");
 
         switch (message.BusActionType)
         {

@@ -22,7 +22,7 @@ public class HybridCacheTests : IDisposable
     private readonly HybridCachingOptions _options = new()
     {
         InstancesSharedName = "my-test-app",
-        RedisConnectString = "localhost:6379",
+        RedisConnectString = "localhost:6379", // STAGE "172.23.44.61:6379", 
         ThrowIfDistributedCacheError = true,
         AbortOnConnectFail = false,
         ConnectRetry = 3,
@@ -1636,7 +1636,7 @@ public class HybridCacheTests : IDisposable
     [Theory]
     [InlineData(1000)]
     //[InlineData(10_000)]
-    // [InlineData(100_000)]
+    //[InlineData(100_000)]
     [SuppressMessage("ReSharper", "StringLiteralTypo")]
     public async Task TestDeleteKeysByPatternOnRedisAsync(int insertCount)
     {
@@ -1659,10 +1659,11 @@ public class HybridCacheTests : IDisposable
     }
 
     [Theory]
-    [InlineData(1000)]
+    //[InlineData(1000)]
     //[InlineData(10_000)]
-    //[InlineData(100_000)]
+    [InlineData(100_000)]
     [SuppressMessage("ReSharper", "StringLiteralTypo")]
+
     public async Task CompareRemoveWithPatternMethods(int insertCount)
     {
         // Arrange
@@ -1695,5 +1696,16 @@ public class HybridCacheTests : IDisposable
         Assert.True(removeDurationOnRedis < removeDurationOnClient);
     }
 
-    
+    [Fact]
+    public async Task TestEnableRedisKeySpace()
+    {
+        await Cache.EnableRedisKeySpace();
+
+        await Cache.SetAsync("test1", "testvalue");
+        if (await Cache.TryLockKeyAsync("lock", "asdfsdf"))
+        {
+            await Task.Delay(5000);
+            await Cache.TryReleaseLockAsync("lock", "asdfsdf");
+        }
+    }    
 }

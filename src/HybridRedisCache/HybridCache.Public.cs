@@ -6,6 +6,24 @@
 /// </summary>
 public partial class HybridCache
 {
+    public async Task EnableRedisKeySpace()
+    {
+        var servers = GetServers(Flags.None);
+        foreach (var server in servers)
+        {
+            // Set the notify-keyspace-events configuration
+            // Explanation of notify-keyspace-events Flags
+            //
+            //     K enables keyspace events.
+            //     x enables expired events (notification when a key expires).
+            //     g enables general events (like set, del).
+            //     e enables evicted events (notification when a key is evicted).
+            //     $ includes commands, notifying when they are executed.
+            //
+            await server.ConfigSetAsync("notify-keyspace-events", "Kxge$");
+        }
+    }
+    
     public bool Exists(string key, Flags flags = Flags.PreferMaster)
     {
         using var activity = PopulateActivity(OperationTypes.KeyLookup);
@@ -970,20 +988,18 @@ public partial class HybridCache
         local pattern = ARGV[1]
         local cursor = '0'
         local deletedKeys = {}
-
         repeat
             -- Perform SCAN with the given pattern and cursor
             local result = redis.call('SCAN', cursor, 'MATCH', pattern, 'COUNT', 1000)
             cursor = result[1]
             local keys = result[2]
-
-            -- Append matching keys to matchedKeys array
-            for i = 1, #keys do
-                redis.call('UNLINK', keys[i])
-                table.insert(deletedKeys, keys[i])
-            end
-        -- SCAN ends when cursor returns to '0'
-        until cursor == '0'
+            if #keys > 0 then
+                for i = 1, #keys do
+                    redis.call('UNLINK', keys[i])
+                    table.insert(deletedKeys, keys[i])
+                end
+            end        
+        until cursor == '0' -- SCAN ends when cursor returns to '0'
         return deletedKeys";
 
         // Execute the Lua script and get the deleted keys as a RedisResult array
@@ -994,8 +1010,7 @@ public partial class HybridCache
         var deletedKeys = result?.Select(x => (string)x).ToArray() ?? [];
         LogMessage($"Deleted {deletedKeys.Length} keys by pattern `{pattern}` on Redis server. \n" + result);
 
-        foreach (var key in deletedKeys)
-            _memoryCache.Remove(key);
+        Parallel.ForEach(deletedKeys, key => _memoryCache.Remove(key));
 
         await PublishBusAsync(RedisMessageBusActionType.InvalidateCacheKeys, deletedKeys).ConfigureAwait(false);
         return deletedKeys.LongLength;
