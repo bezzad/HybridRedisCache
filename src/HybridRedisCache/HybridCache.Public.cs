@@ -949,26 +949,37 @@ public partial class HybridCache
         return servers.First().Version;
     }
     
+    public Dictionary<string, string> GetServerFeatures(Flags flags = Flags.None)
+    {
+        using var activity = PopulateActivity(OperationTypes.GetSentinelInfo);
+        var servers = GetServers(flags);
+        var features = servers.First().Features;
+        var featureList = typeof(RedisFeatures)
+            .GetProperties()
+            .ToDictionary(x => x.Name, x => x.GetValue(features)?.ToString());
+        return featureList;
+    }
+    
     public async ValueTask<long> RemoveWithPatternOnRedisAsync(string pattern, Flags flags = Flags.None)
     {
         using var activity = PopulateActivity(OperationTypes.BatchDeleteCache);
         pattern.NotNullOrWhiteSpace(nameof(pattern));
         var cacheKeyPattern = GetCacheKey(pattern);
 
-        const string script = @"
+        const string luaScript = @"
         local pattern = ARGV[1]
         local cursor = '0'
         local deletedKeys = {}
 
         repeat
             -- Perform SCAN with the given pattern and cursor
-            local result = redis.call('SCAN', cursor, 'MATCH', pattern, 'COUNT', 100)
+            local result = redis.call('SCAN', cursor, 'MATCH', pattern, 'COUNT', 1000)
             cursor = result[1]
             local keys = result[2]
 
             -- Append matching keys to matchedKeys array
             for i = 1, #keys do
-                redis.call('PEXPIRE', keys[i], 1)  -- Set each key to expire in 1 millisecond
+                redis.call('UNLINK', keys[i])
                 table.insert(deletedKeys, keys[i])
             end
         -- SCAN ends when cursor returns to '0'
@@ -976,7 +987,7 @@ public partial class HybridCache
         return deletedKeys";
 
         // Execute the Lua script and get the deleted keys as a RedisResult array
-        var result = (RedisResult[])await _redisDb.ScriptEvaluateAsync(script, values: [cacheKeyPattern], 
+        var result = (RedisResult[])await _redisDb.ScriptEvaluateAsync(luaScript, values: [cacheKeyPattern], 
             flags: (CommandFlags)flags).ConfigureAwait(false);
         
         // Convert the result to a List<string> and return it

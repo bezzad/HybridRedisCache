@@ -570,4 +570,9 @@ public interface IHybridCache
     /// Gets the Redis version of the connected server.
     /// </summary>
     Version GetServerVersion(Flags flags = Flags.None);
+
+    /// <summary>
+    /// Gets the features available to the connected server.
+    /// </summary>
+    Dictionary<string, string> GetServerFeatures(Flags flags = Flags.None);
 }
