@@ -352,7 +352,7 @@ public interface IHybridCache
     /// This operation requires Redis version 2.8.0 or higher, as it relies on the SCAN command and Lua scripting support.
     /// </para>
     /// </remarks>
-    ValueTask<long> RemoveWithPatternOnRedisAsync(string pattern, Flags flags = Flags.None);
+    ValueTask RemoveWithPatternOnRedisAsync(string pattern, Flags flags = Flags.None);
     
     /// <summary>
     /// Asynchronously removes a cached value with a key pattern.

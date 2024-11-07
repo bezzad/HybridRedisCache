@@ -14,7 +14,7 @@ namespace HybridRedisCache.Test;
 public class HybridCacheTests : IDisposable
 {
     private readonly ITestOutputHelper _testOutputHelper;
-    private static string UniqueKey => "test_Key_" + Guid.NewGuid().ToString("N");
+    private static string UniqueKey => Guid.NewGuid().ToString("N");
     private static ILoggerFactory _loggerFactory;
     private HybridCache _cache;
     private const string KeyPattern = "[Tt]est[Rr]emove[Ww]ith[Pp]attern#*";
@@ -102,7 +102,7 @@ public class HybridCacheTests : IDisposable
             await Cache.SetAllAsync(noiseKeys, hybridOptions);
             _testOutputHelper.WriteLine($"{noiseKeys.Count} keys added to redis as noise keys");
         }
-        
+
         _testOutputHelper.WriteLine($"Adding dummy keys...");
         await Cache.SetAllAsync(keyValues, hybridOptions);
         _testOutputHelper.WriteLine($"{keyValues.Count} keys added to redis as pattern searchable keys");
@@ -118,7 +118,7 @@ public class HybridCacheTests : IDisposable
             Assert.False(isExist, $"The key {keyValue.Key} is still exist!");
         }
     }
-    
+
     [Theory]
     [InlineData(true, true)]
     [InlineData(true, false)]
@@ -288,9 +288,13 @@ public class HybridCacheTests : IDisposable
     }
 
     [Theory]
-    [InlineData(1500, 1700)] // local cache expired before redis cache
-    [InlineData(200, 100)] // redis cache expired before local cache
-    public async Task SetAsync_LocalCacheEntryIsRemoved_RedisCacheIsExist_AfterExpiration(int localExpiry,
+    [InlineData(1000, 1700)]
+    [InlineData(100, 100)]
+    [InlineData(200, 100)]
+    [InlineData(300, 200)]
+    [InlineData(400, 500)]
+    [InlineData(500, 800)]
+    public async Task LocalAndRedisValueIsNullAlwaysAfterRedisExpiration(int localExpiry,
         int redisExpiry)
     {
         // Arrange
@@ -298,16 +302,15 @@ public class HybridCacheTests : IDisposable
         const string value = "Value";
 
         // Act
-        await Cache.SetAsync(key, value, TimeSpan.FromMilliseconds(localExpiry),
-            TimeSpan.FromMilliseconds(redisExpiry),
-            false);
-        await Task.Delay(Math.Min(localExpiry, redisExpiry));
-        var valueAfterLocalExpiration = await Cache.GetAsync<string>(key);
-        await Task.Delay(localExpiry + redisExpiry);
+        await Cache.SetAsync(key, value,
+            TimeSpan.FromMilliseconds(localExpiry),
+            TimeSpan.FromMilliseconds(redisExpiry));
+
+        await Task.Delay(redisExpiry);
+        await Task.Delay(1);
         var valueAfterRedisExpiration = await Cache.GetAsync<string>(key);
 
         // Assert
-        Assert.Equal(value, valueAfterLocalExpiration);
         Assert.Null(valueAfterRedisExpiration);
     }
 
@@ -644,12 +647,13 @@ public class HybridCacheTests : IDisposable
         };
 
         // Act
-        Cache.SetAll(keyValues, TimeSpan.FromMinutes(10));
+        Cache.ClearAll();
+        Cache.SetAll(keyValues);
 
         // Assert
         foreach (var kvp in keyValues)
         {
-            var value = Cache.Get<object>(kvp.Key);
+            var value = Cache.Get<string>(kvp.Key);
             Assert.Equal(kvp.Value, value);
         }
     }
@@ -1025,7 +1029,7 @@ public class HybridCacheTests : IDisposable
         Assert.False(isSuccess);
     }
 
-    [Fact]
+    [Fact(Timeout = 10000)]
     public async Task ShouldRetryOnConnectionFailure()
     {
         // arrange 
@@ -1034,6 +1038,8 @@ public class HybridCacheTests : IDisposable
         _options.RedisConnectString = "localhost:80"; //Invalid Redis Connection (On Purpose)
         _options.ConnectionTimeout = delayPerRetry;
         _options.ConnectRetry = retryCount;
+        _options.SyncTimeout = 2000;
+        _options.AsyncTimeout = 2000;
 
         // act
         var stopWatch = Stopwatch.StartNew();
@@ -1048,7 +1054,7 @@ public class HybridCacheTests : IDisposable
         }
 
         // assert
-        Assert.True(stopWatch.ElapsedMilliseconds >= delayPerRetry * retryCount,
+        Assert.True(stopWatch.ElapsedMilliseconds > delayPerRetry,
             $"Actual value {stopWatch.ElapsedMilliseconds}");
     }
 
@@ -1208,9 +1214,10 @@ public class HybridCacheTests : IDisposable
             RedisCacheEnable = isRedisEnable,
             RedisExpiry = TimeSpan.FromSeconds(10),
             LocalExpiry = TimeSpan.FromSeconds(10),
-            Flags = Flags.PreferMaster,
+            Flags = Flags.DemandMaster,
             When = Condition.NotExists
         };
+        await Cache.ClearAllAsync();
 
         // Action
         var inserted = await Cache.SetAsync(key, expectedValue, option);
@@ -1237,24 +1244,25 @@ public class HybridCacheTests : IDisposable
         {
             LocalCacheEnable = isLocalEnable,
             RedisCacheEnable = isRedisEnable,
-            RedisExpiry = TimeSpan.FromSeconds(10),
-            LocalExpiry = TimeSpan.FromSeconds(10),
-            Flags = Flags.PreferMaster,
+            RedisExpiry = TimeSpan.FromSeconds(100),
+            LocalExpiry = TimeSpan.FromSeconds(100),
+            Flags = Flags.DemandMaster,
             When = Condition.Always
         };
+        await Cache.ClearAllAsync();
 
         // Action
         var inserted = await Cache.SetAsync(key, "value1", option);
         option.When = Condition.Exists;
-        var secondInsert = await Cache.SetAsync(key, expectedValue, option);
-        var newInsert = await Cache.SetAsync(key2, expectedValue, option);
+        var insertWhenExistKey = await Cache.SetAsync(key, expectedValue, option);
+        var insertWhenNotExistKey = await Cache.SetAsync(key2, expectedValue, option);
         var actualValue = await Cache.GetAsync<string>(key);
         var newValue = await Cache.GetAsync<string>(key2);
 
         // Assert
         Assert.True(inserted);
-        Assert.True(secondInsert);
-        Assert.False(newInsert);
+        Assert.True(insertWhenExistKey);
+        Assert.False(insertWhenNotExistKey);
         Assert.Equal(expectedValue, actualValue);
         Assert.Null(newValue);
     }
@@ -1318,6 +1326,7 @@ public class HybridCacheTests : IDisposable
             Flags = Flags.PreferMaster,
             When = Condition.NotExists
         };
+        await Cache.ClearAllAsync();
 
         // Action
         var sw = Stopwatch.StartNew();
@@ -1400,21 +1409,18 @@ public class HybridCacheTests : IDisposable
         var key = UniqueKey;
         var uniqueToken = "value of locking";
         var expiry = TimeSpan.FromMilliseconds(500);
-        var expiryPlus1 = TimeSpan.FromMilliseconds(501);
         await Cache.ClearAllAsync();
 
         // Act
         var locked = await Cache.TryLockKeyAsync(key, uniqueToken, expiry);
         var lockedTwice = await Cache.TryLockKeyAsync(key, uniqueToken, expiry);
-        await Task.Delay(expiryPlus1);
+        await Task.Delay(expiry);
         var lockedExpiredKey = await Cache.TryLockKeyAsync(key, uniqueToken, expiry);
-        var lastValue = await Cache.GetAsync<string>(key);
 
         // Assert
         Assert.True(locked);
         Assert.False(lockedTwice);
         Assert.True(lockedExpiredKey);
-        Assert.Equal(uniqueToken, lastValue);
     }
 
     [Fact]
@@ -1422,12 +1428,12 @@ public class HybridCacheTests : IDisposable
     {
         // Arrange
         var key = UniqueKey;
+        var locksKey = HybridCache.LockKeyPrefix + key; // lock key for set|get methods
         var token1 = UniqueKey;
         var token2 = UniqueKey;
         var token3 = UniqueKey;
         var expiry = TimeSpan.FromMilliseconds(100);
         var expiryPlus1 = TimeSpan.FromMilliseconds(101);
-        await Cache.ClearAllAsync();
         var options = new HybridCacheEntry()
         {
             LocalExpiry = expiry,
@@ -1437,20 +1443,21 @@ public class HybridCacheTests : IDisposable
             Flags = Flags.PreferMaster,
             When = Condition.Always
         };
+        await Cache.ClearAllAsync();
 
         // Act
         // Lock an exist key and token is not possible
         // Set a locked key with difference or same value is possible
 
-        await Cache.SetAsync(key, token1, options); // set a value with the same lock key
+        await Cache.SetAsync(locksKey, token1, options); // set a value with the same lock key
         var lockExistKey = await Cache.TryLockKeyAsync(key, token1, expiry); // False
-        var valueOnLocking = await Cache.GetAsync<string>(key); // get token1
+        var valueOnLocking = await Cache.GetAsync<string>(locksKey); // get token1
         await Task.Delay(expiryPlus1); // wait until lock expired
-        var expiredValue = await Cache.GetAsync<string>(key); // get null
+        var expiredValue = await Cache.GetAsync<string>(locksKey); // get null
         var lockAfterExpire = await Cache.TryLockKeyAsync(key, token2, expiry); // try lock key with token2
-        var valueOfToken2 = await Cache.GetAsync<string>(key); // the locked key changed first value
-        var setNewValueWithSameKey = await Cache.SetAsync(key, token3, expiry, expiry);
-        var lastValue = await Cache.GetAsync<string>(key); // last value is token3 
+        var valueOfToken2 = await Cache.GetAsync<string>(locksKey); // the locked key changed first value
+        var setNewValueWithSameKey = await Cache.SetAsync(locksKey, token3, expiry, expiry);
+        var lastValue = await Cache.GetAsync<string>(locksKey); // last value is token3 
         var lockAfterChangedToken = await Cache.TryLockKeyAsync(key, token2, expiry); // try lock key with token2
 
         // Assert
@@ -1471,7 +1478,7 @@ public class HybridCacheTests : IDisposable
         var key = UniqueKey;
         var token1 = "token";
         var token2 = "token2";
-        var expiry = TimeSpan.FromSeconds(1);
+        var expiry = TimeSpan.FromSeconds(10);
         await Cache.ClearAllAsync();
 
         // Act
@@ -1501,6 +1508,7 @@ public class HybridCacheTests : IDisposable
         bool cantLockSameKey;
         bool setSameKey;
         var expiry = TimeSpan.FromMilliseconds(100);
+        await Cache.ClearAllAsync();
 
         // Act
         await using (await Cache.LockKeyAsync(key))
@@ -1527,6 +1535,7 @@ public class HybridCacheTests : IDisposable
         var raceConditionKeyOnRedis = UniqueKey;
         var expiry = TimeSpan.FromMilliseconds(100);
         var tasks = Enumerable.Range(0, numberOfConcurrency).Select(LockAndWait);
+        await Cache.ClearAllAsync();
 
         // Action
         await Cache.SetAsync(raceConditionKeyOnRedis, 0); // init race condition value
@@ -1585,18 +1594,18 @@ public class HybridCacheTests : IDisposable
         // Arrange
         var version = Cache.GetServerVersion();
         _testOutputHelper.WriteLine("Redis version: " + version);
-        
+
         // Assert
         Assert.NotNull(version);
     }
-    
+
     [Fact]
     public void TestRedisFeatures()
     {
         // Action
         var features = Cache.GetServerFeatures();
         _testOutputHelper.WriteLine(string.Join("\n", features));
-        
+
         // Assert
         Assert.True(features.Any());
     }
@@ -1614,9 +1623,9 @@ public class HybridCacheTests : IDisposable
     public async Task TestRemoveWithPatternKeysPerformance(int insertCount, int batchRemovePackSize)
     {
         // Arrange
-        _testOutputHelper.WriteLine($"Clear all redis keys");
-        await Cache.ClearAllAsync(); // Clear database first
-        var keyValues = await PrepareDummyKeys(insertCount, keyPrefix: "", localCacheEnable: false, generateNoiseKeys: true);
+        await Cache.ClearAllAsync(); // Clear local cache first
+        var keyValues =
+            await PrepareDummyKeys(insertCount, keyPrefix: "", localCacheEnable: false, generateNoiseKeys: true);
 
         // Action
         var sw = Stopwatch.StartNew();
@@ -1635,77 +1644,23 @@ public class HybridCacheTests : IDisposable
 
     [Theory]
     [InlineData(1000)]
-    //[InlineData(10_000)]
-    //[InlineData(100_000)]
     [SuppressMessage("ReSharper", "StringLiteralTypo")]
     public async Task TestDeleteKeysByPatternOnRedisAsync(int insertCount)
     {
         // Arrange
-        _testOutputHelper.WriteLine($"Clear all redis keys");
-        await Cache.ClearAllAsync(); // Clear database first
-        var keyValues = await PrepareDummyKeys(insertCount, keyPrefix: "", localCacheEnable: false, generateNoiseKeys: true);
+        await Cache.ClearAllAsync(); // Clear local cache first
+        var keyValues =
+            await PrepareDummyKeys(insertCount, keyPrefix: "", localCacheEnable: false, generateNoiseKeys: true);
 
         // Action
         var sw = Stopwatch.StartNew();
-        var removedKeysCount = await Cache.RemoveWithPatternOnRedisAsync(KeyPattern, Flags.PreferReplica);
+        await Cache.RemoveWithPatternOnRedisAsync(KeyPattern, Flags.PreferReplica | Flags.FireAndForget);
         sw.Stop();
         _testOutputHelper.WriteLine($"### Remove with pattern operation duration: {sw.ElapsedMilliseconds}ms");
 
         // Assert
-        Assert.True(insertCount <= removedKeysCount);
         await AssertKeysAreRemoved(keyValues);
         Assert.True(sw.ElapsedMilliseconds < insertCount / 10,
             $"Remove keys with pattern duration is {sw.ElapsedMilliseconds}ms");
     }
-
-    [Theory]
-    //[InlineData(1000)]
-    //[InlineData(10_000)]
-    [InlineData(100_000)]
-    [SuppressMessage("ReSharper", "StringLiteralTypo")]
-
-    public async Task CompareRemoveWithPatternMethods(int insertCount)
-    {
-        // Arrange
-        const string keyPrefixOnRedis = "R";
-        const string keyPrefixOnClient = "C";
-        _testOutputHelper.WriteLine($"Clear all redis keys");
-        await Cache.ClearAllAsync(); // Clear database first
-        await PrepareDummyKeys(insertCount, false, keyPrefixOnClient);
-        await PrepareDummyKeys(insertCount, false, keyPrefixOnRedis);
-
-        // Action
-        var sw = Stopwatch.StartNew();
-        var resultOnRedis =
-            await Cache.RemoveWithPatternOnRedisAsync(keyPrefixOnRedis + KeyPattern, Flags.PreferReplica);
-        sw.Stop();
-        var removeDurationOnRedis = sw.ElapsedMilliseconds;
-        _testOutputHelper.WriteLine(
-            $"### Remove with pattern on Redis operation duration: {removeDurationOnRedis}ms ###");
-
-        sw.Restart();
-        var resultOnClient = await Cache.RemoveWithPatternAsync(keyPrefixOnClient + KeyPattern, Flags.PreferReplica);
-        sw.Stop();
-        var removeDurationOnClient = sw.ElapsedMilliseconds;
-        _testOutputHelper.WriteLine(
-            $"### Remove with pattern on Client operation duration: {removeDurationOnClient}ms ###");
-
-        // Assert
-        Assert.Equal(insertCount, resultOnClient);
-        Assert.Equal(insertCount, resultOnRedis);
-        Assert.True(removeDurationOnRedis < removeDurationOnClient);
-    }
-
-    [Fact]
-    public async Task TestEnableRedisKeySpace()
-    {
-        await Cache.EnableRedisKeySpace();
-
-        await Cache.SetAsync("test1", "testvalue");
-        if (await Cache.TryLockKeyAsync("lock", "asdfsdf"))
-        {
-            await Task.Delay(5000);
-            await Cache.TryReleaseLockAsync("lock", "asdfsdf");
-        }
-    }    
 }

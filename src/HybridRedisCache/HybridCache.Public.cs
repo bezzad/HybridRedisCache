@@ -6,24 +6,6 @@
 /// </summary>
 public partial class HybridCache
 {
-    public async Task EnableRedisKeySpace()
-    {
-        var servers = GetServers(Flags.None);
-        foreach (var server in servers)
-        {
-            // Set the notify-keyspace-events configuration
-            // Explanation of notify-keyspace-events Flags
-            //
-            //     K enables keyspace events.
-            //     x enables expired events (notification when a key expires).
-            //     g enables general events (like set, del).
-            //     e enables evicted events (notification when a key is evicted).
-            //     $ includes commands, notifying when they are executed.
-            //
-            await server.ConfigSetAsync("notify-keyspace-events", "Kxge$");
-        }
-    }
-    
     public bool Exists(string key, Flags flags = Flags.PreferMaster)
     {
         using var activity = PopulateActivity(OperationTypes.KeyLookup);
@@ -92,18 +74,16 @@ public partial class HybridCache
         key.NotNullOrWhiteSpace(nameof(key));
         SetExpiryTimes(ref localExpiry, ref redisExpiry);
         var cacheKey = GetCacheKey(key);
-
-        // Write Redis just when the local caching is successful
-        if (localCacheEnable && !SetLocalMemory(cacheKey, value, localExpiry, when))
-            return false;
+        var inserted = true;
 
         try
         {
             if (redisCacheEnable)
-                if (_redisDb.StringSet(cacheKey, value.Serialize(),
-                        keepTtl ? null : redisExpiry,
-                        keepTtl, when: (When)when, flags: (CommandFlags)flags) == false)
-                    return false;
+            {
+                inserted = _redisDb.StringSet(cacheKey, value.Serialize(),
+                    keepTtl ? null : redisExpiry,
+                    keepTtl, when: (When)when, flags: (CommandFlags)flags);
+            }
         }
         catch (Exception ex)
         {
@@ -117,9 +97,13 @@ public partial class HybridCache
             return false;
         }
 
-        // When create/update cache, send message to bus so that other clients can remove it.
-        PublishBus(RedisMessageBusActionType.InvalidateCacheKeys, cacheKey);
-        return true;
+        // Wait to Redis set operation to be completed
+        // KeySpace sent a signal and removed local cache
+        // So, now we can set the local cache
+        if (inserted && localCacheEnable)
+            return SetLocalMemory(cacheKey, value, localExpiry, when);
+
+        return inserted;
     }
 
     public Task<bool> SetAsync<T>(string key, T value, TimeSpan? localExpiry, TimeSpan? redisExpiry, bool fireAndForget)
@@ -143,21 +127,15 @@ public partial class HybridCache
         key.NotNullOrWhiteSpace(nameof(key));
         SetExpiryTimes(ref localExpiry, ref redisExpiry);
         var cacheKey = GetCacheKey(key);
-
-        // Write Redis just when the local caching is successful
-        if (localCacheEnable && !SetLocalMemory(cacheKey, value, localExpiry, when))
-            return false;
+        var inserted = true;
 
         try
         {
             if (redisCacheEnable)
             {
-                var result = await _redisDb.StringSetAsync(cacheKey, value.Serialize(),
+                inserted = await _redisDb.StringSetAsync(cacheKey, value.Serialize(),
                     keepTtl ? null : redisExpiry,
                     keepTtl, when: (When)when, flags: (CommandFlags)flags).ConfigureAwait(false);
-
-                if (result == false)
-                    return false;
             }
         }
         catch (Exception ex)
@@ -172,9 +150,13 @@ public partial class HybridCache
             return false;
         }
 
-        // When create/update cache, send message to bus so that other clients can remove it.
-        await PublishBusAsync(RedisMessageBusActionType.InvalidateCacheKeys, cacheKey).ConfigureAwait(false);
-        return true;
+        // Wait to Redis set operation to be completed
+        // KeySpace sent a signal and removed local cache
+        // So, now we can set the local cache
+        if (inserted && localCacheEnable)
+            return SetLocalMemory(cacheKey, value, localExpiry, when);
+
+        return inserted;
     }
 
     public bool SetAll<T>(IDictionary<string, T> value, TimeSpan? localExpiry, TimeSpan? redisExpiry,
@@ -201,21 +183,17 @@ public partial class HybridCache
 
         foreach (var kvp in value)
         {
+            var inserted = true;
             var cacheKey = GetCacheKey(kvp.Key);
-
-            // Write Redis just when the local caching is successful
-            if (localCacheEnable && !SetLocalMemory(cacheKey, kvp.Value, localExpiry, when))
-            {
-                result = false;
-                continue;
-            }
 
             try
             {
                 if (redisCacheEnable)
-                    result &= _redisDb.StringSet(cacheKey, kvp.Value.Serialize(),
+                {
+                    inserted = _redisDb.StringSet(cacheKey, kvp.Value.Serialize(),
                         keepTtl ? null : redisExpiry,
                         keepTtl, when: (When)when, flags: (CommandFlags)flags);
+                }
             }
             catch (Exception ex)
             {
@@ -226,12 +204,18 @@ public partial class HybridCache
                     throw;
                 }
 
-                return false;
+                inserted = false;
             }
+
+            // Wait to Redis set operation to be completed
+            // KeySpace sent a signal and removed local cache
+            // So, now we can set the local cache
+            if (inserted && localCacheEnable)
+                inserted = SetLocalMemory(cacheKey, value, localExpiry, when);
+
+            result &= inserted;
         }
 
-        // send message to bus 
-        PublishBus(RedisMessageBusActionType.InvalidateCacheKeys, value.Keys.ToArray());
         return result;
     }
 
@@ -261,21 +245,17 @@ public partial class HybridCache
 
         foreach (var kvp in value)
         {
+            var inserted = true;
             var cacheKey = GetCacheKey(kvp.Key);
-
-            // Write Redis just when the local caching is successful
-            if (localCacheEnable && !SetLocalMemory(cacheKey, kvp.Value, localExpiry, when))
-            {
-                result = false;
-                continue;
-            }
 
             try
             {
                 if (redisCacheEnable)
-                    result &= await _redisDb.StringSetAsync(cacheKey, kvp.Value.Serialize(),
+                {
+                    inserted = await _redisDb.StringSetAsync(cacheKey, kvp.Value.Serialize(),
                         keepTtl ? null : redisExpiry,
                         keepTtl, when: (When)when, flags: (CommandFlags)flags).ConfigureAwait(false);
+                }
             }
             catch (Exception ex)
             {
@@ -286,13 +266,18 @@ public partial class HybridCache
                     throw;
                 }
 
-                result = false;
+                inserted = false;
             }
+
+            // Wait to Redis set operation to be completed
+            // KeySpace sent a signal and removed local cache
+            // So, now we can set the local cache
+            if (inserted && localCacheEnable)
+                inserted = SetLocalMemory(cacheKey, value, localExpiry, when);
+
+            result &= inserted;
         }
 
-        // send message to bus 
-        await PublishBusAsync(RedisMessageBusActionType.InvalidateCacheKeys, value.Keys.ToArray())
-            .ConfigureAwait(false);
         return result;
     }
 
@@ -325,7 +310,8 @@ public partial class HybridCache
                 throw;
         }
 
-        LogMessage($"distributed cache can not get the value of `{key}` key");
+        LogMessage($"distributed cache can not get the value of key[{key}]");
+        activity?.SetCacheHitActivity(CacheResultType.Miss, cacheKey);
         return value;
     }
 
@@ -337,35 +323,13 @@ public partial class HybridCache
     public T Get<T>(string key, Func<string, T> dataRetriever, TimeSpan? localExpiry = null,
         TimeSpan? redisExpiry = null, Flags flags = Flags.PreferMaster)
     {
-        using var activity = PopulateActivity(OperationTypes.GetCache);
+        if (TryGetValue(key, out T value)) return value;
+
+        using var activity = PopulateActivity(OperationTypes.SetCacheWithDataRetriever);
         key.NotNullOrWhiteSpace(nameof(key));
         SetExpiryTimes(ref localExpiry, ref redisExpiry);
         var cacheKey = GetCacheKey(key);
-
-        if (_memoryCache.TryGetValue(cacheKey, out T value))
-        {
-            activity?.SetRetrievalStrategyActivity(RetrievalStrategy.MemoryCache);
-            activity?.SetCacheHitActivity(CacheResultType.Hit, cacheKey);
-            return value;
-        }
-
-        try
-        {
-            var redisValue = _redisDb.StringGetWithExpiry(cacheKey, (CommandFlags)flags);
-            if (TryUpdateLocalCache(cacheKey, redisValue, localExpiry, out value))
-            {
-                activity?.SetRetrievalStrategyActivity(RetrievalStrategy.RedisCache);
-                activity?.SetCacheHitActivity(CacheResultType.Hit, cacheKey);
-                return value;
-            }
-        }
-        catch (Exception ex)
-        {
-            LogMessage($"Redis cache get error, [{key}]", ex);
-            if (_options.ThrowIfDistributedCacheError)
-                throw;
-        }
-
+        
         try
         {
             value = dataRetriever(key);
@@ -379,12 +343,13 @@ public partial class HybridCache
         }
         catch (Exception ex)
         {
-            LogMessage($"get with data retriever error [{key}]", ex);
+            LogMessage($"get with data retriever for key [{key}] error", ex);
             if (_options.ThrowIfDistributedCacheError)
                 throw;
         }
 
-        LogMessage($"distributed cache can not get the value of `{key}` key. Data retriever also had problem.");
+        LogMessage($"distributed cache can not get the value of key[{key}]. Data retriever also had problem.");
+        activity?.SetCacheHitActivity(CacheResultType.Miss, cacheKey);
         return value;
     }
 
@@ -403,7 +368,6 @@ public partial class HybridCache
         try
         {
             var redisValue = await _redisDb.StringGetWithExpiryAsync(cacheKey).ConfigureAwait(false);
-
             if (TryUpdateLocalCache(cacheKey, redisValue, null, out value))
             {
                 activity?.SetRetrievalStrategyActivity(RetrievalStrategy.RedisCache);
@@ -418,7 +382,7 @@ public partial class HybridCache
                 throw;
         }
 
-        LogMessage($"distributed cache can not get the value of `{key}` key");
+        LogMessage($"distributed cache can not get the value of key[{key}].");
         activity?.SetCacheHitActivity(CacheResultType.Miss, cacheKey);
         return value;
     }
@@ -439,55 +403,33 @@ public partial class HybridCache
     public async Task<T> GetAsync<T>(string key, Func<string, Task<T>> dataRetriever,
         TimeSpan? localExpiry = null, TimeSpan? redisExpiry = null, Flags flags = Flags.PreferMaster)
     {
-        using var activity = PopulateActivity(OperationTypes.GetCache);
+        if (TryGetValue(key, out T value)) return value;
+
+        using var activity = PopulateActivity(OperationTypes.SetCacheWithDataRetriever);
         key.NotNullOrWhiteSpace(nameof(key));
         SetExpiryTimes(ref localExpiry, ref redisExpiry);
         var cacheKey = GetCacheKey(key);
-
-        if (_memoryCache.TryGetValue(cacheKey, out T value))
-        {
-            activity?.SetRetrievalStrategyActivity(RetrievalStrategy.MemoryCache);
-            activity?.SetCacheHitActivity(CacheResultType.Hit, cacheKey);
-            return value;
-        }
-
-        try
-        {
-            var redisValue = await _redisDb.StringGetWithExpiryAsync(cacheKey, (CommandFlags)flags)
-                .ConfigureAwait(false);
-            if (TryUpdateLocalCache(cacheKey, redisValue, localExpiry, out value))
-            {
-                activity?.SetRetrievalStrategyActivity(RetrievalStrategy.RedisCache);
-                activity?.SetCacheHitActivity(CacheResultType.Hit, cacheKey);
-                return value;
-            }
-        }
-        catch (Exception ex)
-        {
-            LogMessage($"Redis cache get error, [{key}]", ex);
-            if (_options.ThrowIfDistributedCacheError)
-                throw;
-        }
 
         try
         {
             value = await dataRetriever(key).ConfigureAwait(false);
             if (value is not null)
             {
+                await SetAsync(key, value, localExpiry, redisExpiry, flags).ConfigureAwait(false);
                 activity?.SetRetrievalStrategyActivity(RetrievalStrategy.DataRetrieverExecution);
                 activity?.SetCacheHitActivity(CacheResultType.Miss, cacheKey);
-                await SetAsync(key, value, localExpiry, redisExpiry, flags).ConfigureAwait(false);
                 return value;
             }
         }
         catch (Exception ex)
         {
-            LogMessage($"get with data retriever error [{key}]", ex);
+            LogMessage($"get with data retriever for key [{key}] error", ex);
             if (_options.ThrowIfDistributedCacheError)
                 throw;
         }
 
-        LogMessage($"distributed cache can not get the value of `{key}` key. Data retriever also had a problem.");
+        LogMessage($"distributed cache can not get the value of key[{key}]. Data retriever also had a problem.");
+        activity?.SetCacheHitActivity(CacheResultType.Miss, cacheKey);
         return value;
     }
 
@@ -521,7 +463,8 @@ public partial class HybridCache
                 throw;
         }
 
-        LogMessage($"distributed cache can not get the value of `{key}` key");
+        LogMessage($"distributed cache can not get the value of key[{key}].");
+        activity?.SetCacheHitActivity(CacheResultType.Miss, cacheKey);
         return false;
     }
 
@@ -545,7 +488,7 @@ public partial class HybridCache
     {
         using var activity = PopulateActivity(OperationTypes.BatchDeleteCache);
         keys.NotNullAndCountGtZero(nameof(keys));
-        var cacheKeys = Array.ConvertAll(keys, GetCacheKey);
+        var cacheKeys = Array.ConvertAll(keys, key => GetCacheKey(key));
         try
         {
             // distributed cache at first
@@ -565,9 +508,6 @@ public partial class HybridCache
         }
 
         Array.ForEach(cacheKeys, _memoryCache.Remove);
-
-        // send message to bus 
-        PublishBus(RedisMessageBusActionType.InvalidateCacheKeys, cacheKeys);
         return true;
     }
 
@@ -591,7 +531,7 @@ public partial class HybridCache
     {
         using var activity = PopulateActivity(OperationTypes.BatchDeleteCache);
         keys.NotNullAndCountGtZero(nameof(keys));
-        var cacheKeys = Array.ConvertAll(keys, GetCacheKey);
+        var cacheKeys = Array.ConvertAll(keys, key => GetCacheKey(key));
         try
         {
             var result = await _redisDb
@@ -614,9 +554,6 @@ public partial class HybridCache
         }
 
         Array.ForEach(cacheKeys, _memoryCache.Remove);
-
-        // send message to bus 
-        await PublishBusAsync(RedisMessageBusActionType.InvalidateCacheKeys, cacheKeys).ConfigureAwait(false);
         return true;
     }
 
@@ -673,10 +610,7 @@ public partial class HybridCache
             removedCount += batch.Count;
             batch.Clear();
             await _redisDb.KeyDeleteAsync(redisKeys, (CommandFlags)flags);
-            Array.ForEach(keys, _memoryCache.Remove);
-
-            // send message to bus 
-            await PublishBusAsync(RedisMessageBusActionType.InvalidateCacheKeys, keys).ConfigureAwait(false);
+            Parallel.ForEach(keys, _memoryCache.Remove);
         }
     }
 
@@ -735,7 +669,7 @@ public partial class HybridCache
             }
             else
             {
-                await _redisDb.PingAsync().ConfigureAwait(false);
+                // await _redisDb.PingAsync().ConfigureAwait(false);
                 await server.PingAsync().ConfigureAwait(false);
             }
         }
@@ -747,13 +681,13 @@ public partial class HybridCache
     public void FlushLocalCaches()
     {
         ClearLocalMemory();
-        PublishBus(RedisMessageBusActionType.ClearAllLocalCache, ClearAllKey);
+        PublishBus(MessageType.ClearLocalCache, _instanceId);
     }
 
     public async Task FlushLocalCachesAsync()
     {
         ClearLocalMemory();
-        await PublishBusAsync(RedisMessageBusActionType.ClearAllLocalCache, ClearAllKey).ConfigureAwait(false);
+        await PublishBusAsync(MessageType.ClearLocalCache, _instanceId).ConfigureAwait(false);
     }
 
     public TimeSpan? GetExpiration(string cacheKey)
@@ -860,7 +794,7 @@ public partial class HybridCache
     {
         using var activity = PopulateActivity(OperationTypes.LockKey);
         expiry ??= TimeSpan.MaxValue;
-        var cacheKey = GetCacheKey(key);
+        var cacheKey = GetCacheKey(key, true);
         return _redisDb.LockTakeAsync(cacheKey, token.Serialize(), expiry.Value, (CommandFlags)flags);
     }
 
@@ -869,7 +803,7 @@ public partial class HybridCache
         using var activity = PopulateActivity(OperationTypes.LockKeyObject);
         var token = Guid.NewGuid().ToString("N");
         var lockObject = new RedisLockObject(this, key, token);
-        var cacheKey = GetCacheKey(key);
+        var cacheKey = GetCacheKey(key, true);
 
         while (true)
         {
@@ -897,7 +831,7 @@ public partial class HybridCache
     public Task<bool> TryExtendLockAsync(string key, string token, TimeSpan? expiry, Flags flags = Flags.None)
     {
         using var activity = PopulateActivity(OperationTypes.ExtendLockKey);
-        var cacheKey = GetCacheKey(key);
+        var cacheKey = GetCacheKey(key, true);
         return _redisDb.LockExtendAsync(cacheKey, token.Serialize(),
             expiry ?? _options.DefaultDistributedExpirationTime, (CommandFlags)flags);
     }
@@ -905,10 +839,9 @@ public partial class HybridCache
     public async Task<bool> TryReleaseLockAsync(string key, string token, Flags flags = Flags.None)
     {
         using var activity = PopulateActivity(OperationTypes.ReleaseLock);
-        var cacheKey = GetCacheKey(key);
+        var cacheKey = GetCacheKey(key, true);
         if (await _redisDb.LockReleaseAsync(cacheKey, token.Serialize(), (CommandFlags)flags))
         {
-            await PublishBusAsync(RedisMessageBusActionType.NotifyLockReleased, cacheKey);
             return true;
         }
 
@@ -918,10 +851,9 @@ public partial class HybridCache
     public bool TryReleaseLock(string key, string token, Flags flags = Flags.None)
     {
         using var activity = PopulateActivity(OperationTypes.ReleaseLock);
-        var cacheKey = GetCacheKey(key);
+        var cacheKey = GetCacheKey(key, true);
         if (_redisDb.LockRelease(cacheKey, token.Serialize(), (CommandFlags)flags))
         {
-            PublishBus(RedisMessageBusActionType.NotifyLockReleased, cacheKey);
             return true;
         }
 
@@ -966,53 +898,39 @@ public partial class HybridCache
         var servers = GetServers(flags);
         return servers.First().Version;
     }
-    
+
     public Dictionary<string, string> GetServerFeatures(Flags flags = Flags.None)
     {
-        using var activity = PopulateActivity(OperationTypes.GetSentinelInfo);
-        var servers = GetServers(flags);
+        var servers = GetServers(Flags.PreferMaster);
         var features = servers.First().Features;
         var featureList = typeof(RedisFeatures)
             .GetProperties()
             .ToDictionary(x => x.Name, x => x.GetValue(features)?.ToString());
         return featureList;
     }
-    
-    public async ValueTask<long> RemoveWithPatternOnRedisAsync(string pattern, Flags flags = Flags.None)
+
+    public async ValueTask RemoveWithPatternOnRedisAsync(string pattern, Flags flags = Flags.None)
     {
         using var activity = PopulateActivity(OperationTypes.BatchDeleteCache);
         pattern.NotNullOrWhiteSpace(nameof(pattern));
         var cacheKeyPattern = GetCacheKey(pattern);
+        LogMessage($"Remove keys by pattern `{pattern}` on Redis server.");
 
         const string luaScript = @"
         local pattern = ARGV[1]
         local cursor = '0'
-        local deletedKeys = {}
         repeat
             -- Perform SCAN with the given pattern and cursor
             local result = redis.call('SCAN', cursor, 'MATCH', pattern, 'COUNT', 1000)
             cursor = result[1]
             local keys = result[2]
             if #keys > 0 then
-                for i = 1, #keys do
-                    redis.call('UNLINK', keys[i])
-                    table.insert(deletedKeys, keys[i])
-                end
+                redis.call('UNLINK', unpack(keys))
             end        
-        until cursor == '0' -- SCAN ends when cursor returns to '0'
-        return deletedKeys";
+        until cursor == '0'";
 
         // Execute the Lua script and get the deleted keys as a RedisResult array
-        var result = (RedisResult[])await _redisDb.ScriptEvaluateAsync(luaScript, values: [cacheKeyPattern], 
+        await _redisDb.ScriptEvaluateAsync(luaScript, values: [cacheKeyPattern],
             flags: (CommandFlags)flags).ConfigureAwait(false);
-        
-        // Convert the result to a List<string> and return it
-        var deletedKeys = result?.Select(x => (string)x).ToArray() ?? [];
-        LogMessage($"Deleted {deletedKeys.Length} keys by pattern `{pattern}` on Redis server. \n" + result);
-
-        Parallel.ForEach(deletedKeys, key => _memoryCache.Remove(key));
-
-        await PublishBusAsync(RedisMessageBusActionType.InvalidateCacheKeys, deletedKeys).ConfigureAwait(false);
-        return deletedKeys.LongLength;
     }
 }

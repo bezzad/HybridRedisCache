@@ -44,7 +44,8 @@ internal enum OperationTypes
     Echo,
     DatabaseSize,
     GetSentinelInfo,
-    GetServerVersion
+    GetServerVersion,
+    SetCacheWithDataRetriever
 }
 
 internal enum RetrievalStrategy
