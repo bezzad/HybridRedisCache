@@ -56,7 +56,7 @@ public partial class HybridCache : IHybridCache, IDisposable
         _redisSubscriber = redis.GetSubscriber();
         _logger = loggerFactory?.CreateLogger(nameof(HybridCache));
         SetRedisServersConfigs();
-        _keySpaceChannel = new RedisChannel($"__keyspace@{_redisDb.Database}__:" + option.InstancesSharedName + ":*",
+        _keySpaceChannel = new RedisChannel($"__keyspace@{_redisDb.Database}__:{option.InstancesSharedName}:*",
             RedisChannel.PatternMode.Pattern);
 
         // Subscribe to Redis key-space events to invalidate cache entries on all instances
