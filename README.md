@@ -170,6 +170,15 @@ Other features of `HybridCache` include:
 * Client synchronization with Redis messages: Keeps all clients in sync through Redis bus messages. For example, if a key is updated or removed by one client, other clients will automatically clear the key from their local cache, ensuring consistency across instances.
 
 Overall, `HybridCache` provides a powerful and flexible caching solution that helps enhance the performance and scalability of your applications while ensuring that cached data remains consistent across all instances.
+
+## When should I enable caching?
+
+Each time the value of a cached key is modified in the database, 
+Redis pushes an invalidation message to all the clients that are caching the key. 
+This tells the clients to flush the key’s locally cached value, which is invalid. 
+This behavior implies a trade-off between local cache hits and invalidation messages: 
+keys that show a local cache hit rate greater than the invalidation message rate are the best candidates for local tracking and caching.
+
 ## Installation of Redis Cache with docker
 
 ### Step 1
