@@ -46,7 +46,7 @@ public class BenchmarkManager
             InstancesSharedName = nameof(BenchmarkManager),
             DefaultDistributedExpirationTime = TimeSpan.FromMinutes(200),
             DefaultLocalExpirationTime = TimeSpan.FromMinutes(200),
-            RedisConnectString = $"{redisIP}:{redisPort},allowAdmin=true,keepAlive=500",
+            RedisConnectionString = $"{redisIP}:{redisPort},allowAdmin=true,keepAlive=500",
             ThrowIfDistributedCacheError = false,
             ConnectRetry = 0
         });

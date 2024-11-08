@@ -11,14 +11,14 @@ namespace HybridRedisCache.Test;
 
 public abstract class BaseCacheTest : IDisposable
 {
+    private HybridCache _cache;
     protected readonly ITestOutputHelper TestOutputHelper;
     protected static string UniqueKey => Guid.NewGuid().ToString("N");
-    private static ILoggerFactory _loggerFactory;
-    private HybridCache _cache;
+    protected static ILoggerFactory _loggerFactory;
     protected readonly HybridCachingOptions Options = new()
     {
         InstancesSharedName = "xunit-tests",
-        RedisConnectString = "localhost:6379", // STAGE "172.23.44.61:6379", 
+        RedisConnectionString = "localhost:6379,allowAdmin=true", // STAGE "172.23.44.61:6379", 
         ThrowIfDistributedCacheError = true,
         AbortOnConnectFail = false,
         ConnectRetry = 3,

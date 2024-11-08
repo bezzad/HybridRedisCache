@@ -39,9 +39,10 @@ public partial class HybridCache : IHybridCache, IDisposable
         _options = option;
         _activity = new TracingActivity(option.TracingActivitySourceName).Source;
         CreateLocalCache();
-        var redisConfig = ConfigurationOptions.Parse(option.RedisConnectString, true);
+        var redisConfig = ConfigurationOptions.Parse(option.RedisConnectionString, true);
         redisConfig.AbortOnConnectFail = option.AbortOnConnectFail;
         redisConfig.ConnectRetry = option.ConnectRetry;
+        redisConfig.ReconnectRetryPolicy = new ExponentialRetry(5000); // defaults maxDeltaBackoff to 10000 ms
         redisConfig.ClientName = option.InstancesSharedName + ":" + _instanceId;
         redisConfig.AsyncTimeout = option.AsyncTimeout;
         redisConfig.SyncTimeout = option.SyncTimeout;
@@ -50,47 +51,64 @@ public partial class HybridCache : IHybridCache, IDisposable
         redisConfig.AllowAdmin = option.AllowAdmin;
         redisConfig.SocketManager =
             option.ThreadPoolSocketManagerEnable ? SocketManager.ThreadPool : SocketManager.Shared;
+        // redisConfig.LoggerFactory = loggerFactory;
         var redis = ConnectionMultiplexer.Connect(redisConfig);
-
+        redis.ConnectionRestored += OnReconnect;
         _redisDb = redis.GetDatabase();
         _redisSubscriber = redis.GetSubscriber();
         _logger = loggerFactory?.CreateLogger(nameof(HybridCache));
-        SetRedisServersConfigs();
-        _keySpaceChannel = new RedisChannel($"__keyspace@{_redisDb.Database}__:{option.InstancesSharedName}:*",
-            RedisChannel.PatternMode.Pattern);
 
         // Subscribe to Redis key-space events to invalidate cache entries on all instances
+        _keySpaceChannel = new RedisChannel($"__keyspace@{_redisDb.Database}__:{option.InstancesSharedName}:*",
+            RedisChannel.PatternMode.Pattern);
         _redisSubscriber.Subscribe(_keySpaceChannel, OnMessage, CommandFlags.FireAndForget);
-        redis.ConnectionRestored += OnReconnect;
+        
+        // Subscribe to the __redis__:invalidate channel
+        _redisSubscriber.Subscribe(new RedisChannel("__redis__:invalidate", RedisChannel.PatternMode.Literal),
+            (channel, message) => LogMessage($"redis:invalidate: {channel}: {message}"), CommandFlags.FireAndForget);
+        
+        SetRedisServersConfigs();
     }
 
     private void SetRedisServersConfigs()
     {
-        var servers = GetServers(Flags.PreferMaster);
-        foreach (var server in servers)
-        {
-            // Set the notify-keyspace-events configuration
-            // Explanation of notify-keyspace-events Flags
-            //
-            //    K     Keyspace events, published with __keyspace@<db>__ prefix.
-            //    E     Keyevent events, published with __keyevent@<db>__ prefix.
-            //    g     Generic commands (non-type specific) like DEL, EXPIRE, RENAME, ...
-            //    $     String commands
-            //    l     List commands
-            //    s     Set commands
-            //    h     Hash commands
-            //    z     Sorted set commands
-            //    t     Stream commands
-            //    d     Module key type events
-            //    x     Expired events (events generated every time a key expires)
-            //    e     Evicted events (events generated when a key is evicted for maxmemory)
-            //    m     Key miss events (events generated when a key that doesn't exist is accessed)
-            //    n     New key events (Note: not included in the 'A' class)
-            //    A     Alias for "g$lshztxed", so that the "AKE" string means all the events except "m" and "n".
-            // 
-            // https://redis.io/docs/latest/develop/use/keyspace-notifications/
-            server.ConfigSet("notify-keyspace-events", "KA");
-        }
+        // _redisDb.Execute("CLIENT", "SETNAME", _options.InstancesSharedName + ":" + _instanceId);
+        var clientId = (long)_redisDb.Execute("CLIENT", "ID");
+
+        // Set the notify-keyspace-events configuration
+        // Explanation of notify-keyspace-events Flags
+        //
+        //    K     Keyspace events, published with __keyspace@<db>__ prefix.
+        //    E     Keyevent events, published with __keyevent@<db>__ prefix.
+        //    g     Generic commands (non-type specific) like DEL, EXPIRE, RENAME, ...
+        //    $     String commands
+        //    l     List commands
+        //    s     Set commands
+        //    h     Hash commands
+        //    z     Sorted set commands
+        //    t     Stream commands
+        //    d     Module key type events
+        //    x     Expired events (events generated every time a key expires)
+        //    e     Evicted events (events generated when a key is evicted for maxmemory)
+        //    m     Key miss events (events generated when a key that doesn't exist is accessed)
+        //    n     New key events (Note: not included in the 'A' class)
+        //    A     Alias for "g$lshztxed", so that the "AKE" string means all the events except "m" and "n".
+        // 
+        // https://redis.io/docs/latest/develop/use/keyspace-notifications/
+        _redisDb.Execute("CONFIG", "SET", "notify-keyspace-events", "AK$");
+
+        // Enable tracking with broadcast mode
+        _redisDb.Execute("CLIENT", "TRACKING", "ON", "BCAST");
+        
+        // Enable tracking with specific key prefixes to reduce overhead
+        // _redisDb.Execute($"CLIENT", "TRACKING", "ON", "REDIRECT", clientId, "BCAST", "PREFIX",
+        //     $"{_options.InstancesSharedName}:*", "NOLOOP");
+
+        // Enable CLIENT TRACKING in OPTIN mode
+        // _redisDb.Execute("CLIENT", "TRACKING", "ON", "REDIRECT", clientId, "OPTIN");
+
+        // Now you can use CLIENT CACHING YES
+        // _redisDb.Execute("CLIENT", "CACHING", "YES");
     }
 
     private void CreateLocalCache()
@@ -274,7 +292,7 @@ public partial class HybridCache : IHybridCache, IDisposable
 
         if (localExpiry.Value <= TimeSpan.Zero) return false;
 
-        SetLocalMemory(cacheKey, value, localExpiry.Value, Condition.Always); 
+        SetLocalMemory(cacheKey, value, localExpiry.Value, Condition.Always);
         return true;
     }
 

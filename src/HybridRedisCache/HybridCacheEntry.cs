@@ -3,10 +3,10 @@
 public class HybridCacheEntry(
     TimeSpan? localExpiry = null,
     TimeSpan? redisExpiry = null,
-    bool fireAndForget = true,
+    bool fireAndForget = false,
     bool localCacheEnable = true,
     bool redisCacheEnable = true,
-    Flags flags = Flags.PreferMaster,
+    Flags flags = Flags.None,
     Condition when = Condition.Always,
     bool keepTtl = false)
 {

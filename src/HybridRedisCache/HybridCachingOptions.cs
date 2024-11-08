@@ -1,6 +1,6 @@
 ﻿namespace HybridRedisCache;
 
-public class HybridCachingOptions
+public record HybridCachingOptions
 {
     /// <summary>
     /// Gets or sets a value indicating whether the connection should be aborted if the connection fails to reach the distributed cache.
@@ -29,7 +29,7 @@ public class HybridCachingOptions
     /// <summary>
     /// Redis connection string
     /// </summary>
-    public string RedisConnectString { get; set; } = "localhost:6379";
+    public string RedisConnectionString { get; set; } = "localhost:6379";
 
     /// <summary>
     /// Gets or sets the name of the instance which is shared between instances.

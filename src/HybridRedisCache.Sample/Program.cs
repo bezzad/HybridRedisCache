@@ -10,7 +10,7 @@ var options = new HybridCachingOptions()
     DefaultDistributedExpirationTime = TimeSpan.FromDays(1),
     InstancesSharedName = "SampleApp",
     ThrowIfDistributedCacheError = true,
-    RedisConnectString = "localhost:6379,allowAdmin=true,keepAlive=180,defaultDatabase=0",
+    RedisConnectionString = "localhost:6379,allowAdmin=true,keepAlive=180,defaultDatabase=0",
     ConnectRetry = 10,
     EnableLogging = true,
     EnableTracing = true,

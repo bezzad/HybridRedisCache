@@ -47,7 +47,7 @@ builder.Services.AddSwaggerGen(c =>
 
 builder.Services.AddHybridRedisCaching(options =>
 {
-    options.RedisConnectString = builder.Configuration["RedisConnection"];
+    options.RedisConnectionString = builder.Configuration["RedisConnection"];
     options.InstancesSharedName = "RedisCacheSystem.Sample.WebAPI";
     options.DefaultLocalExpirationTime = TimeSpan.FromMinutes(120);
     options.DefaultDistributedExpirationTime = TimeSpan.FromDays(10);
