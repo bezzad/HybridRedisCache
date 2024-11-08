@@ -778,15 +778,14 @@ public class HybridCacheTests : IDisposable
         var value1 = "value1";
         var value2 = "value2";
 
-        await Cache.SetAsync(key1, value1, TimeSpan.FromMinutes(1),
-            TimeSpan.FromMilliseconds(1)); // without redis caching
-        await Cache.SetAsync(key2, value2, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(1), fireAndForget: false);
+        await Cache.SetAsync(key1, value1, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(1), redisCacheEnable: false); // without redis caching
+        await Cache.SetAsync(key2, value2, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(1));
 
         // Act
         var value1B = await Cache.GetAsync<string>(key1);
         var value2B = await Cache.GetAsync<string>(key2);
         await Cache.FlushLocalCachesAsync();
-        await Task.Delay(100);
+        await Task.Delay(50);
         var value1A = await Cache.GetAsync<string>(key1);
         var value2A = await Cache.GetAsync<string>(key2);
 
