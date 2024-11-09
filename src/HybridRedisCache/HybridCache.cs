@@ -63,9 +63,10 @@ public partial class HybridCache : IHybridCache, IDisposable
             RedisChannel.PatternMode.Pattern);
         _redisSubscriber.Subscribe(_keySpaceChannel, OnMessage, CommandFlags.FireAndForget);
         
-        // Subscribe to the __redis__:invalidate channel
-        _redisSubscriber.Subscribe(new RedisChannel("__redis__:invalidate", RedisChannel.PatternMode.Literal),
-            (channel, message) => LogMessage($"redis:invalidate: {channel}: {message}"), CommandFlags.FireAndForget);
+        // TODO: Subscribe to the __redis__:invalidate channel in next version of Redis
+        // _redisSubscriber.Subscribe(new RedisChannel("__redis__:invalidate", RedisChannel.PatternMode.Auto),
+        //     (channel, message) => 
+        //         LogMessage($"redis:invalidate: {channel}: {message}"), CommandFlags.FireAndForget);
         
         SetRedisServersConfigs();
     }
@@ -95,10 +96,10 @@ public partial class HybridCache : IHybridCache, IDisposable
         //    A     Alias for "g$lshztxed", so that the "AKE" string means all the events except "m" and "n".
         // 
         // https://redis.io/docs/latest/develop/use/keyspace-notifications/
-        _redisDb.Execute("CONFIG", "SET", "notify-keyspace-events", "AK$");
+        _redisDb.Execute("CONFIG", "SET", "notify-keyspace-events", "KA");
 
         // Enable tracking with broadcast mode
-        _redisDb.Execute("CLIENT", "TRACKING", "ON", "BCAST");
+        // _redisDb.Execute("CLIENT", "TRACKING", "ON", "BCAST");
         
         // Enable tracking with specific key prefixes to reduce overhead
         // _redisDb.Execute($"CLIENT", "TRACKING", "ON", "REDIRECT", clientId, "BCAST", "PREFIX",

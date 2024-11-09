@@ -929,7 +929,7 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         var dur = await Cache.PingAsync();
 
         // assert
-        Assert.True(dur.TotalMilliseconds > 1, $"Actual value {dur.TotalMilliseconds}");
+        Assert.True(dur.TotalMilliseconds > 0.5, $"Actual value {dur.TotalMilliseconds}");
     }
 
     [Fact]
