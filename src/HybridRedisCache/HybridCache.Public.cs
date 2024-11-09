@@ -101,7 +101,7 @@ public partial class HybridCache
         // KeySpace sent a signal and removed local cache
         // So, now we can set the local cache
         if (inserted && localCacheEnable)
-            return SetLocalMemory(cacheKey, value, localExpiry, when);
+            inserted = SetLocalMemory(cacheKey, value, localExpiry, when);
 
         if (inserted && _options.SupportOldInvalidateBus)
             PublishBus(MessageType.SetCache, cacheKey);
@@ -157,7 +157,7 @@ public partial class HybridCache
         // KeySpace sent a signal and removed local cache
         // So, now we can set the local cache
         if (inserted && localCacheEnable)
-            return SetLocalMemory(cacheKey, value, localExpiry, redisCacheEnable ? Condition.Always : when);
+            inserted = SetLocalMemory(cacheKey, value, localExpiry, redisCacheEnable ? Condition.Always : when);
 
         if (inserted && _options.SupportOldInvalidateBus)
             await PublishBusAsync(MessageType.SetCache, cacheKey);
@@ -217,9 +217,7 @@ public partial class HybridCache
             // KeySpace sent a signal and removed local cache
             // So, now we can set the local cache
             if (inserted && localCacheEnable)
-            {
                 inserted = SetLocalMemory(cacheKey, value, localExpiry, redisCacheEnable ? Condition.Always : when);
-            }
 
             if (inserted && _options.SupportOldInvalidateBus)
                 PublishBus(MessageType.SetCache, cacheKey);
@@ -284,9 +282,7 @@ public partial class HybridCache
             // KeySpace sent a signal and removed local cache
             // So, now we can set the local cache
             if (inserted && localCacheEnable)
-            {
                 inserted = SetLocalMemory(cacheKey, value, localExpiry, redisCacheEnable ? Condition.Always : when);
-            }
 
             if (inserted && _options.SupportOldInvalidateBus)
                 await PublishBusAsync(MessageType.SetCache, cacheKey);

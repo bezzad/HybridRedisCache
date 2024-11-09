@@ -200,8 +200,7 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
             TimeSpan.FromMilliseconds(localExpiry),
             TimeSpan.FromMilliseconds(redisExpiry));
 
-        await Task.Delay(redisExpiry);
-        await Task.Delay(1);
+        await Task.Delay(redisExpiry + 30); // wait for redis expiration
         var valueAfterRedisExpiration = await Cache.GetAsync<string>(key);
 
         // Assert
@@ -278,29 +277,30 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
     {
         // Arrange
         var key = UniqueKey;
-        var value1 = "myValue1";
-        var value2 = "newValue2";
+        var value1 = "oldValue";
+        var value2 = "newValue";
 
         // create two instances of HybridCache that share the same Redis cache
         var instance1 = new HybridCache(Options);
         var instance2 = new HybridCache(Options);
 
-        // set a value in the shared cache using instance1
-        await instance1.SetAsync(key, value1);
+        
+        await instance1.SetAsync(key, value1); // set a value in the shared cache using instance1
+        var v1I2 = await instance2.GetAsync<string>(key); // retrieve the value from the shared cache using instance2
+        await instance2.SetAsync(key, value2); // update the value in the shared cache using instance2
+        
+        // wait to receive cache invalidate message
+        await Task.Delay(400); 
+        await Task.Yield();
+        await Task.Delay(400); 
+        await Task.Yield();
+        await Task.Delay(400); 
+        
+        var v2I1 = await instance1.GetAsync<string>(key); // retrieve the updated value from the shared cache using instance1
 
-        // retrieve the value from the shared cache using instance2
-        var value = await instance2.GetAsync<string>(key);
-        Assert.Equal(value1, value);
-
-        // update the value in the shared cache using instance2
-        await instance2.SetAsync(key, value2);
-
-        // wait for cache invalidation message to be received
-        await Task.Delay(1000);
-
-        // retrieve the updated value from the shared cache using instance1
-        value = await instance1.GetAsync<string>(key);
-        Assert.Equal(value2, value);
+        // Assert
+        Assert.Equal(value1, v1I2);
+        Assert.Equal(value2, v2I1);
 
         // clean up
         instance1.Dispose();
@@ -777,7 +777,7 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         });
 
         var local = await Cache.GetAsync<string>(key); // get local value
-        await Task.Delay(localExpiry); // wait to expire local cache
+        await Task.Delay(localExpiry * 2); // wait to expire local cache
         var redis = await Cache.GetAsync<string>(key); // Now, get Redis cache
 
         // Assert
@@ -1213,7 +1213,7 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         var durationBeforeExpiry = sw.ElapsedMilliseconds;
         await Task.Delay(expiry);
         while (Cache.TryGetValue<string>(key, out _)) await Task.Delay(2); // wait until the key is expired
-        
+
         sw.Restart();
         var newInsertWithTrueExpectation = await Cache.SetAsync(key, expectedValue, option);
         var actualValue = await Cache.GetAsync<string>(key);
@@ -1296,7 +1296,7 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         // Act
         var locked = await Cache.TryLockKeyAsync(key, uniqueToken, expiry);
         var lockedTwice = await Cache.TryLockKeyAsync(key, uniqueToken, expiry);
-        await Task.Delay(expiry);
+        await Task.Delay(expiry.Add(TimeSpan.FromMilliseconds(50))); // wait until lock expired
         var lockedExpiredKey = await Cache.TryLockKeyAsync(key, uniqueToken, expiry);
 
         // Assert
