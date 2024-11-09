@@ -18,14 +18,14 @@
     <RepositoryUrl>https://github.com/bezzad/HybridRedisCache</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageTags>redis; cache; in-memory; memcache; RedisMemoryCache; HybridCachePlus; InRedisCache; MemRedisCache; RedisFusionCache; RedisMemCache; RedisInMemoryCache; MemHybridCache; RedisHybridStore; HybridRedisCache</PackageTags>
-    <PackageReleaseNotes>add Redis CommandFlags as Flags enum to package
-add Redis When enum to Set and SetAll methods
-add KeepTTL option to keep last expiration time when set new value
-fixed remove by pattern issue
-improved get keys and remove with pattern performance</PackageReleaseNotes>
+    <PackageReleaseNotes>* Major update to invalidate expired and removed and change keys 
+* Use KeySpace bus feature to sync and track local caches
+* Add SupportOldInvalidateBus option to keep consistency between this and older versions
+* fixed remove by pattern issue with Lua scripts on Redis server-side
+* improve set performance with keyspace</PackageReleaseNotes>
     <IncludeSymbols>True</IncludeSymbols>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
-    <Version>2.4.3</Version>
+    <Version>3.0.0</Version>
   </PropertyGroup>
 
   <ItemGroup>
