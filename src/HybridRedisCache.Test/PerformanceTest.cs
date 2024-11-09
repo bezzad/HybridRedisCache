@@ -7,6 +7,7 @@ using Xunit.Abstractions;
 
 namespace HybridRedisCache.Test;
 
+[Collection("Sequential")]
 public class PerformanceTest(ITestOutputHelper testOutputHelper) : BaseCacheTest(testOutputHelper)
 {
     private const string KeyPattern = "[Tt]est[Rr]emove[Ww]ith[Pp]attern#*";

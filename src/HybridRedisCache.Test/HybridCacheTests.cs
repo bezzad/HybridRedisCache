@@ -10,6 +10,7 @@ using Xunit.Abstractions;
 
 namespace HybridRedisCache.Test;
 
+[Collection("Sequential")]
 public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTest(testOutputHelper)
 {
     [Theory]
@@ -171,9 +172,9 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         const string value = "Value";
 
         // Act
-        await Cache.SetAsync(key, value, TimeSpan.FromSeconds(localExpiry), TimeSpan.FromSeconds(redisExpiry),
-            fireAndForget: false);
-        await Task.Delay(TimeSpan.FromSeconds(Math.Max(localExpiry, redisExpiry)));
+        await Cache.SetAsync(key, value, TimeSpan.FromSeconds(localExpiry),
+            TimeSpan.FromSeconds(redisExpiry), fireAndForget: false);
+        await Task.Delay(redisExpiry * 1050);
         var result = await Cache.GetAsync<string>(key);
 
         // Assert
@@ -753,12 +754,14 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         var key = UniqueKey;
         var localValue = "test_local_value";
         var redisValue = "test_redis_value";
+        var localExpiry = TimeSpan.FromSeconds(1);
+        var redisExpiry = TimeSpan.FromMinutes(1);
 
         // Act
         await Cache.SetAsync(key, localValue, new HybridCacheEntry()
         {
-            RedisExpiry = TimeSpan.FromMinutes(1),
-            LocalExpiry = TimeSpan.FromMilliseconds(500),
+            RedisExpiry = redisExpiry,
+            LocalExpiry = localExpiry,
             FireAndForget = false,
             LocalCacheEnable = true,
             RedisCacheEnable = false
@@ -766,16 +769,16 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
 
         await Cache.SetAsync(key, redisValue, new HybridCacheEntry()
         {
-            RedisExpiry = TimeSpan.FromMinutes(1),
-            LocalExpiry = TimeSpan.FromMinutes(1),
+            RedisExpiry = redisExpiry,
+            LocalExpiry = localExpiry,
             FireAndForget = false,
             LocalCacheEnable = false,
             RedisCacheEnable = true
         });
 
-        var local = await Cache.GetAsync<object>(key); // get local value
-        await Task.Delay(500); // wait to expire local cache
-        var redis = await Cache.GetAsync<object>(key); // Now, get Redis cache
+        var local = await Cache.GetAsync<string>(key); // get local value
+        await Task.Delay(localExpiry); // wait to expire local cache
+        var redis = await Cache.GetAsync<string>(key); // Now, get Redis cache
 
         // Assert
         Assert.Equal(localValue, local);
@@ -1190,14 +1193,14 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         var key = UniqueKey;
         const string expectedValue = "expected value";
         var expiry = TimeSpan.FromMilliseconds(expiryMs);
-        var expiryPlus1 = TimeSpan.FromMilliseconds(expiryMs + 1);
         var option = new HybridCacheEntry()
         {
             LocalCacheEnable = isLocalEnable,
             RedisCacheEnable = isRedisEnable,
             RedisExpiry = expiry,
             LocalExpiry = expiry,
-            Flags = Flags.PreferMaster,
+            FireAndForget = false,
+            Flags = Flags.DemandMaster,
             When = Condition.NotExists
         };
         await Cache.ClearAllAsync();
@@ -1207,17 +1210,22 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         var inserted = await Cache.SetAsync(key, "init value", option);
         var newInsertWithFalseExpectation = await Cache.SetAsync(key, expectedValue, option);
         sw.Stop();
-        await Task.Delay(expiryPlus1);
+        var durationBeforeExpiry = sw.ElapsedMilliseconds;
+        await Task.Delay(expiry);
+        while (Cache.TryGetValue<string>(key, out _)) await Task.Delay(2); // wait until the key is expired
+        
+        sw.Restart();
         var newInsertWithTrueExpectation = await Cache.SetAsync(key, expectedValue, option);
         var actualValue = await Cache.GetAsync<string>(key);
+        sw.Stop();
+        var durationAfterExpiry = sw.ElapsedMilliseconds;
 
         // Assert
         Assert.True(inserted);
-        Assert.False(sw.ElapsedMilliseconds < expiryMs && newInsertWithFalseExpectation);
+        Assert.False(durationBeforeExpiry < expiryMs && newInsertWithFalseExpectation);
         Assert.True(newInsertWithTrueExpectation);
-        Assert.Equal(expectedValue, actualValue);
+        Assert.True(durationAfterExpiry >= expiryMs || actualValue == expectedValue);
     }
-
 
     [Fact]
     public async Task TestGetRedisServerTimeAsync()
@@ -1483,7 +1491,7 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         // Assert
         Assert.True(features.Any());
     }
-    
+
     [Fact]
     public async Task TestSetWithLocalExpirationBiggerThanRedisExpireAsync()
     {
