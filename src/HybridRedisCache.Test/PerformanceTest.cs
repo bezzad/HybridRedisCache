@@ -85,7 +85,6 @@ public class PerformanceTest(ITestOutputHelper testOutputHelper) : BaseCacheTest
         Assert.True(insertedSecondTime);
     }
 
-
     [Theory]
     [InlineData(1000, 100)]
     [InlineData(10_000, 100)]
