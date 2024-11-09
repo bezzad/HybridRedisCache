@@ -103,6 +103,9 @@ public partial class HybridCache
         if (inserted && localCacheEnable)
             return SetLocalMemory(cacheKey, value, localExpiry, when);
 
+        if (inserted && _options.SupportOldInvalidateBus)
+            PublishBus(MessageType.SetCache, cacheKey);
+
         return inserted;
     }
 
@@ -154,7 +157,10 @@ public partial class HybridCache
         // KeySpace sent a signal and removed local cache
         // So, now we can set the local cache
         if (inserted && localCacheEnable)
-            return SetLocalMemory(cacheKey, value, localExpiry, when);
+            return SetLocalMemory(cacheKey, value, localExpiry, redisCacheEnable ? Condition.Always : when);
+
+        if (inserted && _options.SupportOldInvalidateBus)
+            await PublishBusAsync(MessageType.SetCache, cacheKey);
 
         return inserted;
     }
@@ -211,7 +217,12 @@ public partial class HybridCache
             // KeySpace sent a signal and removed local cache
             // So, now we can set the local cache
             if (inserted && localCacheEnable)
-                inserted = SetLocalMemory(cacheKey, value, localExpiry, when);
+            {
+                inserted = SetLocalMemory(cacheKey, value, localExpiry, redisCacheEnable ? Condition.Always : when);
+            }
+
+            if (inserted && _options.SupportOldInvalidateBus)
+                PublishBus(MessageType.SetCache, cacheKey);
 
             result &= inserted;
         }
@@ -273,7 +284,12 @@ public partial class HybridCache
             // KeySpace sent a signal and removed local cache
             // So, now we can set the local cache
             if (inserted && localCacheEnable)
-                inserted = SetLocalMemory(cacheKey, value, localExpiry, when);
+            {
+                inserted = SetLocalMemory(cacheKey, value, localExpiry, redisCacheEnable ? Condition.Always : when);
+            }
+
+            if (inserted && _options.SupportOldInvalidateBus)
+                await PublishBusAsync(MessageType.SetCache, cacheKey);
 
             result &= inserted;
         }
@@ -329,7 +345,7 @@ public partial class HybridCache
         key.NotNullOrWhiteSpace(nameof(key));
         SetExpiryTimes(ref localExpiry, ref redisExpiry);
         var cacheKey = GetCacheKey(key);
-        
+
         try
         {
             value = dataRetriever(key);

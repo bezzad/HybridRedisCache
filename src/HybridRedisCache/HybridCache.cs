@@ -14,13 +14,13 @@ public partial class HybridCache : IHybridCache, IDisposable
     private readonly ISubscriber _redisSubscriber;
     private readonly ILogger _logger;
     private readonly RedisChannel _keySpaceChannel;
-    private const int ExponentialRetryMilliseconds = 100;
+    private readonly RedisChannel _invalidateChannel;
     private IMemoryCache _memoryCache;
     private IMemoryCache _recentlySetKeys;
     private readonly TimeSpan _timeWindow = TimeSpan.FromSeconds(5); // Expiration time window
-
-    private int _retryPublishCounter;
     internal const string LockKeyPrefix = "lock/";
+
+    internal record CacheInvalidationMessage(string InstanceId, params string[] CacheKeys);
 
     /// <summary>
     /// This method initializes the HybridCache instance and subscribes to Redis key-space events 
@@ -58,16 +58,19 @@ public partial class HybridCache : IHybridCache, IDisposable
         _redisSubscriber = redis.GetSubscriber();
         _logger = loggerFactory?.CreateLogger(nameof(HybridCache));
 
+        _invalidateChannel = option.SupportOldInvalidateBus
+            ? new RedisChannel(_options.InstancesSharedName + ":invalidate", RedisChannel.PatternMode.Literal)
+            : new RedisChannel("__redis__:invalidate", RedisChannel.PatternMode.Literal);
+
         // Subscribe to Redis key-space events to invalidate cache entries on all instances
         _keySpaceChannel = new RedisChannel($"__keyspace@{_redisDb.Database}__:{option.InstancesSharedName}:*",
             RedisChannel.PatternMode.Pattern);
+
         _redisSubscriber.Subscribe(_keySpaceChannel, OnMessage, CommandFlags.FireAndForget);
-        
-        // TODO: Subscribe to the __redis__:invalidate channel in next version of Redis
-        // _redisSubscriber.Subscribe(new RedisChannel("__redis__:invalidate", RedisChannel.PatternMode.Auto),
-        //     (channel, message) => 
-        //         LogMessage($"redis:invalidate: {channel}: {message}"), CommandFlags.FireAndForget);
-        
+        _redisSubscriber.Subscribe(_invalidateChannel,
+            (channel, message) => { LogMessage($"OnInvalidateMessage: {channel}: {message}"); },
+            CommandFlags.FireAndForget);
+
         SetRedisServersConfigs();
     }
 
@@ -100,10 +103,10 @@ public partial class HybridCache : IHybridCache, IDisposable
 
         // Enable tracking with broadcast mode
         // _redisDb.Execute("CLIENT", "TRACKING", "ON", "BCAST");
-        
+
         // Enable tracking with specific key prefixes to reduce overhead
-        // _redisDb.Execute($"CLIENT", "TRACKING", "ON", "REDIRECT", clientId, "BCAST", "PREFIX",
-        //     $"{_options.InstancesSharedName}:*", "NOLOOP");
+        _redisDb.Execute($"CLIENT", "TRACKING", "ON", "REDIRECT", clientId, "BCAST", "PREFIX",
+            $"{_options.InstancesSharedName}:*", "NOLOOP");
 
         // Enable CLIENT TRACKING in OPTIN mode
         // _redisDb.Execute("CLIENT", "TRACKING", "ON", "REDIRECT", clientId, "OPTIN");
@@ -135,9 +138,14 @@ public partial class HybridCache : IHybridCache, IDisposable
         // and invalidate the corresponding key in their local MemoryCache.
 
         var key = GetChannelKey(channel);
-        LogMessage($"{nameof(OnMessage)}: {type} => {key}");
 
-        if (type.Is(MessageType.SetKey))
+        if (type.Is(MessageType.ExpireKey))
+        {
+            // ignore the set TTL events
+            return;
+        }
+
+        if (type.Is(MessageType.SetCache))
         {
             // Check if the key exists in the cache (i.e., was set by this instance)
             if (_recentlySetKeys.TryGetValue(key, out _))
@@ -147,10 +155,13 @@ public partial class HybridCache : IHybridCache, IDisposable
                 _recentlySetKeys.Remove(key);
                 return;
             }
+
             _memoryCache.Remove(key);
+            return;
         }
-        else if (type.Is(MessageType.RemoveKey) ||
-                 type.Is(MessageType.ExpiredKey))
+
+        if (type.Is(MessageType.RemoveKey) ||
+            type.Is(MessageType.ExpiredKey))
         {
             _memoryCache.Remove(key);
             _recentlySetKeys.Remove(key);
@@ -162,12 +173,17 @@ public partial class HybridCache : IHybridCache, IDisposable
                     LogMessage($"{nameof(OnMessage)}: Continue to lock the `{key}` key.");
                     tcs.SetResult();
                 }
+
+                return;
             }
         }
-        else if (type.Is(MessageType.ClearLocalCache) &&
-                 key != GetCacheKey(_instanceId)) // ignore self instance from duplicate clearing
+
+        if (type.Is(MessageType.ClearLocalCache) &&
+            key != GetCacheKey(_instanceId)) // ignore self instance from duplicate clearing
         {
+            LogMessage($"{nameof(OnMessage)}: Clearing local cache");
             ClearLocalMemory();
+            return;
         }
 
         return;
@@ -218,41 +234,57 @@ public partial class HybridCache : IHybridCache, IDisposable
         }
     }
 
-    private async Task PublishBusAsync(MessageType type, string key)
+    private async ValueTask PublishBusAsync(MessageType type, params string[] cacheKeys)
     {
         try
         {
-            await _redisDb.PublishAsync(_keySpaceChannel.ToString().Replace("*", key),
-                    type.GetValue(), CommandFlags.FireAndForget)
-                .ConfigureAwait(false);
-        }
-        catch
-        {
-            // Retry to publish message
-            if (_retryPublishCounter++ < _options.ConnectRetry)
+            if (cacheKeys?.Any() != true) return;
+
+            if (_options.SupportOldInvalidateBus)
             {
-                await Task.Delay(ExponentialRetryMilliseconds * _retryPublishCounter).ConfigureAwait(false);
-                await PublishBusAsync(type, key).ConfigureAwait(false);
+                // include the instance ID in the pub/sub message payload to update another instances
+                // Note: in new version, HybridCache uses the redis keyspace feature to invalidate the local cache
+                var message = new CacheInvalidationMessage(_instanceId, cacheKeys);
+                await _redisDb.PublishAsync(_invalidateChannel, message.Serialize(), CommandFlags.FireAndForget)
+                    .ConfigureAwait(false);
             }
+
+            if (type == MessageType.ClearLocalCache)
+            {
+                await _redisDb.PublishAsync(_keySpaceChannel.ToString().Replace("*", cacheKeys[0]),
+                        type.GetValue(), CommandFlags.FireAndForget)
+                    .ConfigureAwait(false);
+            }
+        }
+        catch (Exception ex)
+        {
+            LogMessage("PublishBusAsync error: " + ex.Message);
         }
     }
 
-    private void PublishBus(MessageType type, string key)
+    private void PublishBus(MessageType type, params string[] cacheKeys)
     {
         try
         {
-            // include the instance ID in the pub/sub message payload to update another instances
-            _redisDb.Publish(_keySpaceChannel.ToString().Replace("*", key),
-                type.GetValue(), CommandFlags.FireAndForget);
-        }
-        catch
-        {
-            // Retry to publish message
-            if (_retryPublishCounter++ < _options.ConnectRetry)
+            if (cacheKeys?.Any() != true) return;
+
+            if (_options.SupportOldInvalidateBus)
             {
-                Thread.Sleep(ExponentialRetryMilliseconds * _retryPublishCounter);
-                PublishBus(type, key);
+                // include the instance ID in the pub/sub message payload to update another instances
+                // Note: in new version, HybridCache uses the redis keyspace feature to invalidate the local cache
+                var message = new CacheInvalidationMessage(_instanceId, cacheKeys);
+                _redisDb.Publish(_invalidateChannel, message.Serialize(), CommandFlags.FireAndForget);
             }
+
+            if (type == MessageType.ClearLocalCache)
+            {
+                _redisDb.Publish(_keySpaceChannel.ToString().Replace("*", cacheKeys[0]),
+                    type.GetValue(), CommandFlags.FireAndForget);
+            }
+        }
+        catch (Exception ex)
+        {
+            LogMessage("PublishBusAsync error: " + ex.Message);
         }
     }
 

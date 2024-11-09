@@ -76,7 +76,7 @@ public class PerformanceTest(ITestOutputHelper testOutputHelper) : BaseCacheTest
         {
             fetched &= Cache.TryGetValue(key, out string value);
             // testOutputHelper.WriteLine($"key[{key}]: " + value);
-            await Task.Delay(500);
+            await Task.Delay(50);
         }
 
         // Assert

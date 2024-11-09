@@ -9,12 +9,13 @@ using Xunit.Abstractions;
 
 namespace HybridRedisCache.Test;
 
+[Collection("Sequential")] // run tests in order
 public abstract class BaseCacheTest : IDisposable
 {
     private HybridCache _cache;
+    private static ILoggerFactory _loggerFactory;
     protected readonly ITestOutputHelper TestOutputHelper;
     protected static string UniqueKey => Guid.NewGuid().ToString("N");
-    protected static ILoggerFactory _loggerFactory;
     protected readonly HybridCachingOptions Options = new()
     {
         InstancesSharedName = "xunit-tests",
@@ -30,7 +31,8 @@ public abstract class BaseCacheTest : IDisposable
         ConnectionTimeout = 5000,
         ThreadPoolSocketManagerEnable = true,
         EnableTracing = true,
-        EnableLogging = true
+        EnableLogging = true,
+        SupportOldInvalidateBus = false
     };
 
     // Lazy Cache: options change inner methods and after that create Cache with first call
@@ -40,7 +42,7 @@ public abstract class BaseCacheTest : IDisposable
     {
         TestOutputHelper = testOutputHelper;
         // Create an ILoggerFactory that logs to the ITestOutputHelper
-        _loggerFactory = LoggerFactory.Create(builder =>
+        _loggerFactory = Microsoft.Extensions.Logging.LoggerFactory.Create(builder =>
         {
             builder.AddProvider(new TestOutputLoggerProvider(testOutputHelper));
         });
