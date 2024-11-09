@@ -176,6 +176,11 @@ public partial class HybridCache : IHybridCache, IDisposable
 
                 return;
             }
+
+            if (_options.SupportOldInvalidateBus)
+            {
+                PublishBus(MessageType.RemoveKey, key);
+            }
         }
 
         if (type.Is(MessageType.ClearLocalCache) &&
