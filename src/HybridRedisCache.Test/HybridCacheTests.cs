@@ -1483,4 +1483,24 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         // Assert
         Assert.True(features.Any());
     }
+    
+    [Fact]
+    public async Task TestSetWithLocalExpirationBiggerThanRedisExpireAsync()
+    {
+        // Arrange
+        var key = UniqueKey;
+        var localExpiry = TimeSpan.FromSeconds(10);
+        var redisExpiry = TimeSpan.FromMilliseconds(500);
+
+        // Act
+        var inserted = await Cache.SetAsync(key, "test value", localExpiry, redisExpiry, Flags.DemandMaster);
+        var canRead = Cache.TryGetValue<string>(key, out var _);
+        await Task.Delay(TimeSpan.FromSeconds(1));
+        var canReadAfterRedisExpiration = Cache.TryGetValue<string>(key, out _);
+
+        // Assert
+        Assert.True(inserted);
+        Assert.True(canRead);
+        Assert.False(canReadAfterRedisExpiration);
+    }
 }
