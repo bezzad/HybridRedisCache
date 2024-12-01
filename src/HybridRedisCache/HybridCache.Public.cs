@@ -415,7 +415,8 @@ public partial class HybridCache
     public async Task<T> GetAsync<T>(string key, Func<string, Task<T>> dataRetriever,
         TimeSpan? localExpiry = null, TimeSpan? redisExpiry = null, Flags flags = Flags.PreferMaster)
     {
-        if (TryGetValue(key, out T value)) return value;
+        var resp = await TryGetValueAsync<T>(key);
+        if (resp.success) return resp.value;
 
         using var activity = PopulateActivity(OperationTypes.SetCacheWithDataRetriever);
         key.NotNullOrWhiteSpace(nameof(key));
@@ -424,7 +425,7 @@ public partial class HybridCache
 
         try
         {
-            value = await dataRetriever(key).ConfigureAwait(false);
+            var value = await dataRetriever(key).ConfigureAwait(false);
             if (value is not null)
             {
                 await SetAsync(key, value, localExpiry, redisExpiry, flags).ConfigureAwait(false);
@@ -442,15 +443,16 @@ public partial class HybridCache
 
         LogMessage($"distributed cache can not get the value of key[{key}]. Data retriever also had a problem.");
         activity?.SetCacheHitActivity(CacheResultType.Miss, cacheKey);
-        return value;
+        return default;
     }
 
     public bool TryGetValue<T>(string key, out T value)
     {
         using var activity = PopulateActivity(OperationTypes.GetCache);
-
         key.NotNullOrWhiteSpace(nameof(key));
         var cacheKey = GetCacheKey(key);
+        
+        // Try to get the value from the memory cache
         if (_memoryCache.TryGetValue(cacheKey, out value))
         {
             activity?.SetRetrievalStrategyActivity(RetrievalStrategy.MemoryCache);
@@ -480,6 +482,42 @@ public partial class HybridCache
         return false;
     }
 
+    public  async ValueTask<(bool success, T value)> TryGetValueAsync<T>(string key)
+    {
+        using var activity = PopulateActivity(OperationTypes.GetCache);
+        key.NotNullOrWhiteSpace(nameof(key));
+        var cacheKey = GetCacheKey(key);
+        
+        // Try to get the value from the memory cache
+        if (_memoryCache.TryGetValue(cacheKey, out T value))
+        {
+            activity?.SetRetrievalStrategyActivity(RetrievalStrategy.MemoryCache);
+            activity?.SetCacheHitActivity(CacheResultType.Hit, cacheKey);
+            return (true, value);
+        }
+
+        try
+        {
+            var redisValue = await _redisDb.StringGetWithExpiryAsync(cacheKey).ConfigureAwait(false);
+            if (TryUpdateLocalCache(cacheKey, redisValue, null, out value))
+            {
+                activity?.SetRetrievalStrategyActivity(RetrievalStrategy.RedisCache);
+                activity?.SetCacheHitActivity(CacheResultType.Hit, cacheKey);
+                return (true, value);
+            }
+        }
+        catch (Exception ex)
+        {
+            LogMessage($"Redis cache get error, [{key}]", ex);
+            if (_options.ThrowIfDistributedCacheError)
+                throw;
+        }
+
+        LogMessage($"distributed cache can not get the value of key[{key}].");
+        activity?.SetCacheHitActivity(CacheResultType.Miss, cacheKey);
+        return (false, default);
+    }
+    
     public bool Remove(string key, bool fireAndForget)
     {
         return Remove(key, fireAndForget ? Flags.FireAndForget : Flags.PreferMaster);

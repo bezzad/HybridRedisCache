@@ -253,6 +253,17 @@ public interface IHybridCache
     bool TryGetValue<T>(string key, out T value);
 
     /// <summary>
+    /// Try gets a cached value with the specified key.
+    /// </summary>
+    /// <typeparam name="T">The type of the cached value.</typeparam>
+    /// <param name="key">The cache key.</param>
+    /// <returns>
+    /// A tuple containing the cached value, or null if the key is not found in the cache,
+    /// and a boolean indicating whether the value was found in the cache.
+    /// </returns>
+    ValueTask<(bool success, T value)> TryGetValueAsync<T>(string key);
+
+    /// <summary>
     /// Removes a cached value with the specified key.
     /// </summary>
     /// <param name="keys">Cache keys to remove.</param>
