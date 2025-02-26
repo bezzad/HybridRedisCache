@@ -101,11 +101,11 @@ builder.Services.AddHybridRedisCaching(options =>
     options.DefaultDistributedExpirationTime = TimeSpan.FromDays(10);
     options.ThrowIfDistributedCacheError = true;
     options.RedisConnectionString = "localhost:6379,redis0:6380,redis1:6380,allowAdmin=true,keepAlive=180";
-    options.BusRetryCount = 10;
+    options.ConnectRetry = 10;
     options.EnableLogging = true;
-    options.EnableTracing = true,
-    ThreadPoolSocketManagerEnable = true,
-    TracingActivitySourceName = nameof(HybridRedisCache),
+    options.EnableTracing = true;
+    options.ThreadPoolSocketManagerEnable = true;
+    options.TracingActivitySourceName = nameof(HybridRedisCache);
     options.FlushLocalCacheOnBusReconnection = true;
 });
 ```
