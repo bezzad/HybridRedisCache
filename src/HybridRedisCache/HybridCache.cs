@@ -58,10 +58,6 @@ public partial class HybridCache : IHybridCache, IDisposable
         _redisSubscriber = redis.GetSubscriber();
         _logger = loggerFactory?.CreateLogger(nameof(HybridCache));
 
-        _invalidateChannel = option.SupportOldInvalidateBus
-            ? new RedisChannel(_options.InstancesSharedName + ":invalidate", RedisChannel.PatternMode.Literal)
-            : new RedisChannel("__redis__:invalidate", RedisChannel.PatternMode.Literal);
-
         // Subscribe to Redis key-space events to invalidate cache entries on all instances
         _keySpaceChannel = new RedisChannel($"__keyspace@{_redisDb.Database}__:{option.InstancesSharedName}:*",
             RedisChannel.PatternMode.Pattern);
@@ -176,11 +172,6 @@ public partial class HybridCache : IHybridCache, IDisposable
 
                 return;
             }
-
-            if (_options.SupportOldInvalidateBus)
-            {
-                PublishBus(MessageType.RemoveKey, key);
-            }
         }
 
         if (type.Is(MessageType.ClearLocalCache) &&
@@ -245,15 +236,6 @@ public partial class HybridCache : IHybridCache, IDisposable
         {
             if (cacheKeys?.Any() != true) return;
 
-            if (_options.SupportOldInvalidateBus)
-            {
-                // include the instance ID in the pub/sub message payload to update another instances
-                // Note: in new version, HybridCache uses the redis keyspace feature to invalidate the local cache
-                var message = new CacheInvalidationMessage(_instanceId, cacheKeys);
-                await _redisDb.PublishAsync(_invalidateChannel, message.Serialize(), CommandFlags.FireAndForget)
-                    .ConfigureAwait(false);
-            }
-
             if (type == MessageType.ClearLocalCache)
             {
                 await _redisDb.PublishAsync(_keySpaceChannel.ToString().Replace("*", cacheKeys[0]),
@@ -272,14 +254,6 @@ public partial class HybridCache : IHybridCache, IDisposable
         try
         {
             if (cacheKeys?.Any() != true) return;
-
-            if (_options.SupportOldInvalidateBus)
-            {
-                // include the instance ID in the pub/sub message payload to update another instances
-                // Note: in new version, HybridCache uses the redis keyspace feature to invalidate the local cache
-                var message = new CacheInvalidationMessage(_instanceId, cacheKeys);
-                _redisDb.Publish(_invalidateChannel, message.Serialize(), CommandFlags.FireAndForget);
-            }
 
             if (type == MessageType.ClearLocalCache)
             {

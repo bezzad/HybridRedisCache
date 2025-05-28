@@ -103,9 +103,6 @@ public partial class HybridCache
         if (inserted && localCacheEnable)
             inserted = SetLocalMemory(cacheKey, value, localExpiry, when);
 
-        if (inserted && _options.SupportOldInvalidateBus)
-            PublishBus(MessageType.SetCache, cacheKey);
-
         return inserted;
     }
 
@@ -158,9 +155,6 @@ public partial class HybridCache
         // So, now we can set the local cache
         if (inserted && localCacheEnable)
             inserted = SetLocalMemory(cacheKey, value, localExpiry, redisCacheEnable ? Condition.Always : when);
-
-        if (inserted && _options.SupportOldInvalidateBus)
-            await PublishBusAsync(MessageType.SetCache, cacheKey);
 
         return inserted;
     }
@@ -218,9 +212,6 @@ public partial class HybridCache
             // So, now we can set the local cache
             if (inserted && localCacheEnable)
                 inserted = SetLocalMemory(cacheKey, value, localExpiry, redisCacheEnable ? Condition.Always : when);
-
-            if (inserted && _options.SupportOldInvalidateBus)
-                PublishBus(MessageType.SetCache, cacheKey);
 
             result &= inserted;
         }
@@ -283,9 +274,6 @@ public partial class HybridCache
             // So, now we can set the local cache
             if (inserted && localCacheEnable)
                 inserted = SetLocalMemory(cacheKey, value, localExpiry, redisCacheEnable ? Condition.Always : when);
-
-            if (inserted && _options.SupportOldInvalidateBus)
-                await PublishBusAsync(MessageType.SetCache, cacheKey);
 
             result &= inserted;
         }

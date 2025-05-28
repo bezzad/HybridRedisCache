@@ -104,12 +104,4 @@ public record HybridCachingOptions
     /// Modifying it afterwards will have no effect on already-created multiplexers.
     /// </remarks>
     public bool ThreadPoolSocketManagerEnable { get; set; } 
-    
-    /// <summary>
-    /// After HybridRedisCache v1.1.0, we have changed the way to invalidate the client local cache.
-    /// In the new version we use the redis keyspace feature to invalidate the local cache.
-    /// If you want to support old way to invalidate the local cache, you can set this property to true.
-    /// Default is true.
-    /// </summary>
-    public bool SupportOldInvalidateBus { get; set; } = true;
 }

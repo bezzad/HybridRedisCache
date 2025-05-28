@@ -32,7 +32,6 @@ public abstract class BaseCacheTest : IDisposable
         ThreadPoolSocketManagerEnable = true,
         EnableTracing = true,
         EnableLogging = true,
-        SupportOldInvalidateBus = false
     };
 
     // Lazy Cache: options change inner methods and after that create Cache with first call
