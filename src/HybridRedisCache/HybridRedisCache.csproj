@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>net6.0;net8.0</TargetFrameworks>
+    <TargetFrameworks>net6.0;net8.0;net9.0</TargetFrameworks>
     <LangVersion>latestMajor</LangVersion>
     <ImplicitUsings>enable</ImplicitUsings>
     <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
@@ -20,9 +20,8 @@
     <PackageTags>redis; cache; in-memory; memcache; RedisMemoryCache; HybridCachePlus; InRedisCache; MemRedisCache; RedisFusionCache; RedisMemCache; RedisInMemoryCache; MemHybridCache; RedisHybridStore; HybridRedisCache</PackageTags>
     <PackageReleaseNotes>* Major update to invalidate expired and removed and change keys 
 * Use KeySpace bus feature to sync and track local caches
-* Add SupportOldInvalidateBus option to keep consistency between this and older versions
-* fixed remove by pattern issue with Lua scripts on Redis server-side
-* improve set performance with keyspace</PackageReleaseNotes>
+* Remove SupportOldInvalidateBus option
+* Add timeout to public redis methods</PackageReleaseNotes>
     <IncludeSymbols>True</IncludeSymbols>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
     <Version>3.0.4</Version>
