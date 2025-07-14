@@ -1,11 +1,15 @@
 ﻿namespace HybridRedisCache;
 
+public delegate void RedisBusMessage(string key, MessageType type);
+
 /// <summary>
 /// The HybridCache class provides a hybrid caching solution that stores cached items in both
 /// an in-memory cache and a Redis cache. 
 /// </summary>
 public partial class HybridCache
 {
+    public event RedisBusMessage OnRedisBusMessage = delegate { };
+
     public bool Exists(string key, Flags flags = Flags.PreferMaster)
     {
         using var activity = PopulateActivity(OperationTypes.KeyLookup);
@@ -439,7 +443,7 @@ public partial class HybridCache
         using var activity = PopulateActivity(OperationTypes.GetCache);
         key.NotNullOrWhiteSpace(nameof(key));
         var cacheKey = GetCacheKey(key);
-        
+
         // Try to get the value from the memory cache
         if (_memoryCache.TryGetValue(cacheKey, out value))
         {
@@ -470,12 +474,12 @@ public partial class HybridCache
         return false;
     }
 
-    public  async ValueTask<(bool success, T value)> TryGetValueAsync<T>(string key)
+    public async ValueTask<(bool success, T value)> TryGetValueAsync<T>(string key)
     {
         using var activity = PopulateActivity(OperationTypes.GetCache);
         key.NotNullOrWhiteSpace(nameof(key));
         var cacheKey = GetCacheKey(key);
-        
+
         // Try to get the value from the memory cache
         if (_memoryCache.TryGetValue(cacheKey, out T value))
         {
@@ -505,7 +509,7 @@ public partial class HybridCache
         activity?.SetCacheHitActivity(CacheResultType.Miss, cacheKey);
         return (false, default);
     }
-    
+
     public bool Remove(string key, bool fireAndForget)
     {
         return Remove(key, fireAndForget ? Flags.FireAndForget : Flags.PreferMaster);
@@ -727,7 +731,7 @@ public partial class HybridCache
         ClearLocalMemory();
         await PublishBusAsync(MessageType.ClearLocalCache, _instanceId).ConfigureAwait(false);
     }
-
+    
     public TimeSpan? GetExpiration(string cacheKey)
     {
         using var activity = PopulateActivity(OperationTypes.GetExpiration);

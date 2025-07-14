@@ -13,14 +13,11 @@ public partial class HybridCache : IHybridCache, IDisposable
     private readonly HybridCachingOptions _options;
     private readonly ISubscriber _redisSubscriber;
     private readonly ILogger _logger;
-    private readonly RedisChannel _keySpaceChannel;
-    private readonly RedisChannel _invalidateChannel;
+    private readonly string _keySpaceChannelName;
     private IMemoryCache _memoryCache;
     private IMemoryCache _recentlySetKeys;
     private readonly TimeSpan _timeWindow = TimeSpan.FromSeconds(5); // Expiration time window
     internal const string LockKeyPrefix = "lock/";
-
-    internal record CacheInvalidationMessage(string InstanceId, params string[] CacheKeys);
 
     /// <summary>
     /// This method initializes the HybridCache instance and subscribes to Redis key-space events 
@@ -59,13 +56,9 @@ public partial class HybridCache : IHybridCache, IDisposable
         _logger = loggerFactory?.CreateLogger(nameof(HybridCache));
 
         // Subscribe to Redis key-space events to invalidate cache entries on all instances
-        _keySpaceChannel = new RedisChannel($"__keyspace@{_redisDb.Database}__:{option.InstancesSharedName}:*",
-            RedisChannel.PatternMode.Pattern);
-
-        _redisSubscriber.Subscribe(_keySpaceChannel, OnMessage, CommandFlags.FireAndForget);
-        _redisSubscriber.Subscribe(_invalidateChannel,
-            (channel, message) => { LogMessage($"OnInvalidateMessage: {channel}: {message}"); },
-            CommandFlags.FireAndForget);
+        _keySpaceChannelName = $"__keyspace@{_redisDb.Database}__:{option.InstancesSharedName}:";
+        var keySpaceChannel = GetRedisKeySpaceChannel("*", RedisChannel.PatternMode.Pattern);
+        _redisSubscriber.Subscribe(keySpaceChannel, OnMessage, CommandFlags.FireAndForget);
 
         SetRedisServersConfigs();
     }
@@ -127,69 +120,68 @@ public partial class HybridCache : IHybridCache, IDisposable
         return activity;
     }
 
-    private void OnMessage(RedisChannel channel, RedisValue type)
+    private void OnMessage(RedisChannel channel, RedisValue val)
     {
         // With this implementation, when a key is updated or removed in Redis,
         // all instances of HybridCache that are subscribed to the pub/sub channel will receive a message
         // and invalidate the corresponding key in their local MemoryCache.
+        var strChannel = (string)channel ?? "";
+        var index = strChannel.IndexOf(':');
+        var key = index >= 0 && index < strChannel.Length - 1
+            ? strChannel[(index + 1)..]
+            : strChannel;
 
-        var key = GetChannelKey(channel);
-
-        if (type.Is(MessageType.ExpireKey))
+        try
         {
-            // ignore the set TTL events
-            return;
-        }
-
-        if (type.Is(MessageType.SetCache))
-        {
-            // Check if the key exists in the cache (i.e., was set by this instance)
-            if (_recentlySetKeys.TryGetValue(key, out _))
+            if (val.Is(MessageType.ExpireKey))
             {
-                // The key was set by this instance; ignore the notification
-                LogMessage($"{nameof(OnMessage)}: Notification ignored for key: {key}");
-                _recentlySetKeys.Remove(key);
+                // ignore the set TTL events
                 return;
             }
 
-            _memoryCache.Remove(key);
-            return;
-        }
-
-        if (type.Is(MessageType.RemoveKey) ||
-            type.Is(MessageType.ExpiredKey))
-        {
-            _memoryCache.Remove(key);
-            _recentlySetKeys.Remove(key);
-            if (key.StartsWith(GetCacheKey(LockKeyPrefix)) &&
-                _lockTasks.TryGetValue(key, out var bag))
+            if (val.Is(MessageType.SetCache))
             {
-                while (bag.TryTake(out var tcs))
+                // Check if the key exists in the cache (i.e., was set by this instance)
+                if (_recentlySetKeys.TryGetValue(key, out _))
                 {
-                    LogMessage($"{nameof(OnMessage)}: Continue to lock the `{key}` key.");
-                    tcs.SetResult();
+                    // The key was set by this instance; ignore the notification
+                    LogMessage($"{nameof(OnMessage)}: Notification ignored for key: {key}");
+                    _recentlySetKeys.Remove(key);
+                    return;
                 }
 
+                _memoryCache.Remove(key);
                 return;
             }
+
+            if (val.Is(MessageType.RemoveKey) ||
+                val.Is(MessageType.ExpiredKey))
+            {
+                _memoryCache.Remove(key);
+                _recentlySetKeys.Remove(key);
+                if (key.StartsWith(GetCacheKey(LockKeyPrefix)) &&
+                    _lockTasks.TryGetValue(key, out var bag))
+                {
+                    while (bag.TryTake(out var tcs))
+                    {
+                        LogMessage($"{nameof(OnMessage)}: Continue to lock the `{key}` key.");
+                        tcs.SetResult();
+                    }
+
+                    return;
+                }
+            }
+
+            if (val.Is(MessageType.ClearLocalCache) &&
+                key != GetCacheKey(_instanceId)) // ignore self-instance from duplicate clearing
+            {
+                LogMessage($"{nameof(OnMessage)}: Clearing local cache");
+                ClearLocalMemory();
+            }
         }
-
-        if (type.Is(MessageType.ClearLocalCache) &&
-            key != GetCacheKey(_instanceId)) // ignore self instance from duplicate clearing
+        finally
         {
-            LogMessage($"{nameof(OnMessage)}: Clearing local cache");
-            ClearLocalMemory();
-            return;
-        }
-
-        return;
-
-        string GetChannelKey(string strChannel)
-        {
-            var index = strChannel.IndexOf(':');
-            return index >= 0 && index < strChannel.Length - 1
-                ? strChannel[(index + 1)..]
-                : strChannel;
+            OnRedisBusMessage?.Invoke(GetPureCacheKey(key), val.GetMessageType());
         }
     }
 
@@ -219,6 +211,13 @@ public partial class HybridCache : IHybridCache, IDisposable
     private string GetCacheKey(string key, bool isLock = false) =>
         $"{_options.InstancesSharedName}:" + (isLock ? LockKeyPrefix : string.Empty) + key;
 
+    private string GetPureCacheKey(string key)
+    {
+        return key.StartsWith(_options.InstancesSharedName + ":")
+            ? key[(_options.InstancesSharedName.Length + 1)..]
+            : key;
+    }
+
     private void KeepRecentSetKey(params string[] keys)
     {
         if (keys.Length == 0) return;
@@ -230,18 +229,12 @@ public partial class HybridCache : IHybridCache, IDisposable
         }
     }
 
-    private async ValueTask PublishBusAsync(MessageType type, params string[] cacheKeys)
+    private async ValueTask PublishBusAsync(MessageType type, string cacheKey)
     {
         try
         {
-            if (cacheKeys?.Any() != true) return;
-
-            if (type == MessageType.ClearLocalCache)
-            {
-                await _redisDb.PublishAsync(_keySpaceChannel.ToString().Replace("*", cacheKeys[0]),
-                        type.GetValue(), CommandFlags.FireAndForget)
-                    .ConfigureAwait(false);
-            }
+            await _redisDb.PublishAsync(GetRedisKeySpaceChannel(cacheKey), type.GetValue(), CommandFlags.FireAndForget)
+                .ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -249,22 +242,23 @@ public partial class HybridCache : IHybridCache, IDisposable
         }
     }
 
-    private void PublishBus(MessageType type, params string[] cacheKeys)
+    private void PublishBus(MessageType type, string cacheKey = "")
     {
         try
         {
-            if (cacheKeys?.Any() != true) return;
-
-            if (type == MessageType.ClearLocalCache)
-            {
-                _redisDb.Publish(_keySpaceChannel.ToString().Replace("*", cacheKeys[0]),
-                    type.GetValue(), CommandFlags.FireAndForget);
-            }
+            _redisDb.Publish(GetRedisKeySpaceChannel(cacheKey), type.GetValue(), CommandFlags.FireAndForget);
         }
         catch (Exception ex)
         {
             LogMessage("PublishBusAsync error: " + ex.Message);
         }
+    }
+
+    private RedisChannel GetRedisKeySpaceChannel(string cacheKey,
+        RedisChannel.PatternMode patternMode = RedisChannel.PatternMode.Auto)
+    {
+        // Note: _keySpaceChannelName included with instance shared name
+        return new RedisChannel(_keySpaceChannelName + cacheKey, patternMode);
     }
 
     private bool SetLocalMemory<T>(string cacheKey, T value, TimeSpan? localExpiry, Condition when)

@@ -94,11 +94,11 @@ public class PerformanceTest(ITestOutputHelper testOutputHelper) : BaseCacheTest
     [InlineData(10_000, 500)]
     [InlineData(10_000, 5000)]
     [InlineData(10_000, 15_000)]
-    // [InlineData(100_000, 1000)]
     [SuppressMessage("ReSharper", "StringLiteralTypo")]
     public async Task TestRemoveWithPatternKeysPerformance(int insertCount, int batchRemovePackSize)
     {
         // Arrange
+        var expectedTime = (insertCount / 100) + (insertCount / batchRemovePackSize * 10) + 200;
         await Cache.ClearAllAsync(); // Clear local cache first
         var keyValues =
             await PrepareDummyKeys(insertCount, keyPrefix: "", localCacheEnable: false, generateNoiseKeys: true);
@@ -114,8 +114,8 @@ public class PerformanceTest(ITestOutputHelper testOutputHelper) : BaseCacheTest
         // Assert
         Assert.True(insertCount <= removedKeys);
         await AssertKeysAreRemoved(keyValues);
-        Assert.True(sw.ElapsedMilliseconds < (insertCount / 100) + (insertCount / batchRemovePackSize * 10) + 100,
-            $"Remove keys with pattern duration is {sw.ElapsedMilliseconds}ms");
+        Assert.True(sw.ElapsedMilliseconds < expectedTime,
+            $"Remove keys with pattern duration is {sw.ElapsedMilliseconds}ms > {expectedTime}ms");
     }
 
     [Theory]

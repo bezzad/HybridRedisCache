@@ -1,6 +1,6 @@
 namespace HybridRedisCache;
 
-internal enum MessageType
+public enum MessageType
 {
     SetCache,
     RemoveKey, // generates a del event for every deleted key.
@@ -8,7 +8,8 @@ internal enum MessageType
     ExpireKey, // events generated when a key is set to expire
     ClearLocalCache, // custom event to clear the local cache
     NewKey, // events generated when a new key is added
-    EvictedKey // events generated when a key is evicted for max memory
+    EvictedKey, // events generated when a key is evicted for max memory
+    BuiltInMessage, // Redis inside messages
 }
 
 internal static class RedisMessageBusActionType
@@ -29,7 +30,24 @@ internal static class RedisMessageBusActionType
             MessageType.ClearLocalCache => "clearmemory",
             MessageType.NewKey => "new",
             MessageType.EvictedKey => "evicted",
+            MessageType.BuiltInMessage => "redis",
             _ => throw new ArgumentOutOfRangeException(nameof(type), type, null)
+        };
+    }
+
+    public static MessageType GetMessageType(this RedisValue value)
+    {
+        return (string)value switch
+        {
+            "set" => MessageType.SetCache,
+            "del" => MessageType.RemoveKey,
+            "expired" => MessageType.ExpiredKey,
+            "expire" => MessageType.ExpireKey,
+            "clearmemory" => MessageType.ClearLocalCache,
+            "new" => MessageType.NewKey,
+            "evicted" => MessageType.EvictedKey,
+            "redis" => MessageType.BuiltInMessage,
+            _ => MessageType.BuiltInMessage
         };
     }
 }

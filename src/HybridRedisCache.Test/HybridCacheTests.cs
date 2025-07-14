@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
@@ -284,19 +285,20 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         var instance1 = new HybridCache(Options);
         var instance2 = new HybridCache(Options);
 
-        
+
         await instance1.SetAsync(key, value1); // set a value in the shared cache using instance1
         var v1I2 = await instance2.GetAsync<string>(key); // retrieve the value from the shared cache using instance2
         await instance2.SetAsync(key, value2); // update the value in the shared cache using instance2
-        
+
         // wait to receive cache invalidate message
-        await Task.Delay(400); 
+        await Task.Delay(400);
         await Task.Yield();
-        await Task.Delay(400); 
+        await Task.Delay(400);
         await Task.Yield();
-        await Task.Delay(400); 
-        
-        var v2I1 = await instance1.GetAsync<string>(key); // retrieve the updated value from the shared cache using instance1
+        await Task.Delay(400);
+
+        var v2I1 = await instance1
+            .GetAsync<string>(key); // retrieve the updated value from the shared cache using instance1
 
         // Assert
         Assert.Equal(value1, v1I2);
@@ -1510,5 +1512,61 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         Assert.True(inserted);
         Assert.True(canRead);
         Assert.False(canReadAfterRedisExpiration);
+    }
+
+    [Fact(Timeout = 10_000)]
+    public async Task TestRedisBusMessagesWhenExpiredKey()
+    {
+        // Arrange
+        var cacheMsg = "test message";
+        var cacheKey = "test_key_" + Guid.NewGuid().ToString("N");
+        var list = new HashSet<MessageType> { MessageType.SetCache, MessageType.ExpiredKey };
+        var semaphore = new SemaphoreSlim(0);
+        Cache.OnRedisBusMessage += (key, type) =>
+        {
+            if (key.Contains(cacheKey) && list.Contains(type))
+                list.Remove(type);
+
+            if (list.Count == 0)
+                semaphore.Release();
+        };
+
+        // Act
+        await Cache.SetAsync(cacheKey, cacheMsg, new HybridCacheEntry
+        {
+            FireAndForget = false,
+            Flags = Flags.PreferMaster,
+            LocalCacheEnable = false,
+            RedisExpiry = TimeSpan.FromMilliseconds(1),
+            When = Condition.NotExists
+        });
+
+        await semaphore.WaitAsync();
+
+        // Assert
+        Assert.True(list.Count == 0);
+    }
+
+    [Fact(Timeout = 10_000)]
+    public async Task TestRedisBusMessagesWhenClearLocalCache()
+    {
+        // Arrange
+        var clearSignalReceived = false;
+        var semaphore = new SemaphoreSlim(0);
+        Cache.OnRedisBusMessage += (key, type) =>
+        {
+            if (type == MessageType.ClearLocalCache)
+            {
+                clearSignalReceived = true;
+                semaphore.Release();
+            }
+        };
+
+        // Act
+        await Cache.FlushLocalCachesAsync();
+        await semaphore.WaitAsync();
+
+        // Assert
+        Assert.True(clearSignalReceived);
     }
 }
