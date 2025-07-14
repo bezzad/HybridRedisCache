@@ -2,7 +2,7 @@
 
     <PropertyGroup>
         <TargetFrameworks>net6.0;net8.0;net9.0</TargetFrameworks>
-        <LangVersion>latestMajor</LangVersion>
+        <LangVersion>default</LangVersion>
         <ImplicitUsings>enable</ImplicitUsings>
         <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
         <Title>HybridRedisCache</Title>

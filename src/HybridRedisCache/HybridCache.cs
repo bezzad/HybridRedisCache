@@ -25,7 +25,7 @@ public partial class HybridCache : IHybridCache, IDisposable
     /// </summary>
     /// <param name="option">Redis connection string and order settings</param>
     /// <param name="loggerFactory">
-    /// Microsoft.Extensions.Logging factory object to configure the logging system and
+    /// Microsoft.Extensions.Logging a factory object to configure the logging system and
     /// create instances of ILogger.
     /// </param>
     public HybridCache(HybridCachingOptions option, ILoggerFactory loggerFactory = null)
@@ -71,8 +71,8 @@ public partial class HybridCache : IHybridCache, IDisposable
         // Set the notify-keyspace-events configuration
         // Explanation of notify-keyspace-events Flags
         //
-        //    K     Keyspace events, published with __keyspace@<db>__ prefix.
-        //    E     Keyevent events, published with __keyevent@<db>__ prefix.
+        //    K     KeySpace events, published with __keyspace@<db>__ prefix.
+        //    E     KeyEvent events, published with __keyevent@<db>__ prefix.
         //    g     Generic commands (non-type specific) like DEL, EXPIRE, RENAME, ...
         //    $     String commands
         //    l     List commands
