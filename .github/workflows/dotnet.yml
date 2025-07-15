@@ -41,13 +41,13 @@ jobs:
         dotnet-version: ${{ matrix.dotnet-version }}
 
     - name: Restore dependencies
-      run: dotnet restore ./src
+      run: dotnet restore ./src/HybridRedisCache.sln
 
     - name: Build solution
-      run: dotnet build -c Release ./src --verbosity minimal
+      run: dotnet build -c Release ./src/HybridRedisCache.sln --verbosity minimal
 
     - name: Run tests
-      run: dotnet test -c Release ./src --verbosity normal --no-build --no-restore
+      run: dotnet test -c Release ./src/HybridRedisCache.sln --verbosity normal --no-build --no-restore
 
       # a new Redis client.
       env:
