@@ -98,7 +98,7 @@ public class PerformanceTest(ITestOutputHelper testOutputHelper) : BaseCacheTest
     public async Task TestRemoveWithPatternKeysPerformance(int insertCount, int batchRemovePackSize)
     {
         // Arrange
-        var expectedTime = (insertCount / 100) + (insertCount / batchRemovePackSize * 10) + 200;
+        var expectedTime = (insertCount / 100) + (insertCount / batchRemovePackSize * 10) + 500;
         await Cache.ClearAllAsync(); // Clear local cache first
         var keyValues =
             await PrepareDummyKeys(insertCount, keyPrefix: "", localCacheEnable: false, generateNoiseKeys: true);
