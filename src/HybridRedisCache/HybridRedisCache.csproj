@@ -19,9 +19,10 @@
         <RepositoryType>git</RepositoryType>
         <PackageTags>redis; cache; in-memory; memcache; RedisMemoryCache; HybridCachePlus; InRedisCache; MemRedisCache; RedisFusionCache; RedisMemCache; RedisInMemoryCache; MemHybridCache; RedisHybridStore; HybridRedisCache</PackageTags>
         <PackageReleaseNotes>
-            * Invalidate expired and removed and change keys
+            * Invalidate expired and removed and change keys with KeySpace channel
             * Use KeySpace bus feature to sync and track local caches
             * Exposed Redis Bus KeySpace channel as public by OnRedisBusMessage event
+            * Disable Client Tracking because not supported on Redis Enterprise Cloud, issue #16
             * Refactor some codes
         </PackageReleaseNotes>
         <IncludeSymbols>True</IncludeSymbols>
