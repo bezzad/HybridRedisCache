@@ -90,12 +90,10 @@ public partial class HybridCache : IHybridCache, IDisposable
         // https://redis.io/docs/latest/develop/use/keyspace-notifications/
         _redisDb.Execute("CONFIG", "SET", "notify-keyspace-events", "KA");
 
-        // Enable tracking with broadcast mode
-        // _redisDb.Execute("CLIENT", "TRACKING", "ON", "BCAST");
-
         // Enable tracking with specific key prefixes to reduce overhead
-        _redisDb.Execute($"CLIENT", "TRACKING", "ON", "REDIRECT", clientId, "BCAST", "PREFIX",
-            $"{_options.InstancesSharedName}:*", "NOLOOP");
+        // Note: Client Tracking not enabled on Redis Enterprise Cloud, issue #16
+        // _redisDb.Execute($"CLIENT", "TRACKING", "ON", "REDIRECT", clientId, "BCAST", "PREFIX",
+        //     $"{_options.InstancesSharedName}:*", "NOLOOP");
 
         // Enable CLIENT TRACKING in OPTIN mode
         // _redisDb.Execute("CLIENT", "TRACKING", "ON", "REDIRECT", clientId, "OPTIN");

@@ -273,32 +273,37 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         Assert.Equal(obj.Age, value.Age);
     }
 
-    [Fact]
+    [Fact(Timeout = 10_000)]
     public async Task TestSharedCache()
     {
         // Arrange
-        var key = UniqueKey;
+        var key = "TestSharedCache_" + UniqueKey;
         var value1 = "oldValue";
         var value2 = "newValue";
+        var locker = new SemaphoreSlim(0, 1); // semaphore to wait for cache invalidate message
 
         // create two instances of HybridCache that share the same Redis cache
         var instance1 = new HybridCache(Options);
         var instance2 = new HybridCache(Options);
-
-
-        await instance1.SetAsync(key, value1); // set a value in the shared cache using instance1
+        instance1.OnRedisBusMessage += (k, type) =>
+        {
+            if (key == k && type == MessageType.SetCache)
+            {
+                // release the semaphore when a cache invalidate message is received
+                locker.Release();
+            }
+        };
+        
+        await instance1.SetAsync(key, value1, TimeSpan.FromSeconds(50), TimeSpan.FromSeconds(50), 
+            Flags.DemandMaster, localCacheEnable: false); // set a value in the shared cache using instance1
+        await locker.WaitAsync(); // wait to receive cache invalidate message
         var v1I2 = await instance2.GetAsync<string>(key); // retrieve the value from the shared cache using instance2
-        await instance2.SetAsync(key, value2); // update the value in the shared cache using instance2
+        await instance2.SetAsync(key, value2, TimeSpan.FromSeconds(50), TimeSpan.FromSeconds(50), 
+            Flags.DemandMaster, localCacheEnable: false); // update the value in the shared cache using instance2
+        await locker.WaitAsync(); // wait to receive cache invalidate message
 
-        // wait to receive cache invalidate message
-        await Task.Delay(400);
-        await Task.Yield();
-        await Task.Delay(400);
-        await Task.Yield();
-        await Task.Delay(400);
-
-        var v2I1 = await instance1
-            .GetAsync<string>(key); // retrieve the updated value from the shared cache using instance1
+        // retrieve the updated value from the shared cache using instance1
+        var v2I1 = await instance1.GetAsync<string>(key); 
 
         // Assert
         Assert.Equal(value1, v1I2);
