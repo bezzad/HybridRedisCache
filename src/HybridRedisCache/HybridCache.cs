@@ -49,6 +49,8 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
         _reconnectSemaphore.Wait();
         try
         {
+            // TODO: first ping Redis server if doesn't pong then create a new one
+            
             if (_connection != null)
             {
                 if (_connection.IsConnected)
