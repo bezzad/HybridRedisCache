@@ -100,7 +100,7 @@ void Get(string[] words)
 {
     if (words.Length == 2)
     {
-        var val = cache.Get<string>(words[1]);
+        var val = cache.Get<string>(words[1], s => s + "_defaultOfDataRetriever");
         Console.WriteLine(val ?? "NULL");
     }
     else
