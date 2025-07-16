@@ -103,5 +103,11 @@ public record HybridCachingOptions
     /// This is only used when a ConnectionMultiplexer is created.
     /// Modifying it afterwards will have no effect on already-created multiplexers.
     /// </remarks>
-    public bool ThreadPoolSocketManagerEnable { get; set; } 
+    public bool ThreadPoolSocketManagerEnable { get; set; }
+
+    /// <summary>
+    /// Enable client tracking with specific key prefixes (client app name) to reduce overhead in KeySpace channel
+    /// Note: Client Tracking not enabled on Redis Enterprise Cloud, issue #16
+    /// </summary>
+    public bool EnableRedisClientTracking { get; set; } = false;
 }

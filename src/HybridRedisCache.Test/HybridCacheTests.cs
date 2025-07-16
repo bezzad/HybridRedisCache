@@ -1207,7 +1207,6 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
             Flags = Flags.DemandMaster,
             When = Condition.NotExists
         };
-        await Cache.ClearAllAsync(Flags.DemandMaster);
 
         // Action
         await Task.Delay(100);
@@ -1219,7 +1218,7 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         sw.Stop();
 
         var durationBeforeExpiry = sw.ElapsedMilliseconds;
-        await Task.Delay(expiry);
+        await Task.Delay(expiry.Add(TimeSpan.FromMilliseconds(100)));
         while (Cache.TryGetValue<string>(key, out _)) await Task.Delay(2); // wait until the key is expired
 
         sw.Restart();

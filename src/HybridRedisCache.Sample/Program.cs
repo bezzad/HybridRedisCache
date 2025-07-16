@@ -16,7 +16,8 @@ var options = new HybridCachingOptions()
     EnableTracing = true,
     ThreadPoolSocketManagerEnable = true,
     FlushLocalCacheOnBusReconnection = true,
-    TracingActivitySourceName = nameof(HybridRedisCache)
+    TracingActivitySourceName = nameof(HybridRedisCache),
+    EnableRedisClientTracking = true
 };
 var cache = new HybridCache(options);
 
