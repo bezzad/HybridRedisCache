@@ -9,13 +9,31 @@ public record HybridCachingOptions
     public bool AbortOnConnectFail { get; set; } = true;
     
     /// <summary>
-    /// Gets or sets a value indicating whether logging is enable or not.
+    /// Indicates whether the Redis connection multiplexer should automatically reconfigure itself
+    /// when the connection fails and the retry policy cannot reconnect.
+    /// This is useful in scenarios where the original DNS endpoint may now resolve to a new address,
+    /// requiring a fresh connection to updated endpoints retrieved from the same DNS provided initially
+    /// in the HybridCache options.
+    /// </summary>
+    public bool ReconfigureOnConnectFail { get; set; } = false;
+
+    /// <summary>
+    /// Specifies the maximum number of reconfiguration attempts allowed after consecutive connection failures.
+    /// If the connection fails and reconfiguration is enabled, the HybridCache will attempt to reconfigure
+    /// and reconnect up to this number of times. Once the limit is reached, an exception will be thrown,
+    /// and the Redis cache will be marked as down to prevent further usage until manual intervention.
+    /// Use <c>0</c> for unlimited retries.
+    /// </summary>
+    public int MaxReconfigureAttempts { get; set; } = 0;
+    
+    /// <summary>
+    /// Gets or sets a value indicating whether logging is enabled or not.
     /// </summary>
     /// <value><c>true</c> if enable logging; otherwise, <c>false</c>.</value>
     public bool EnableLogging { get; set; } = false;
 
     /// <summary>
-    /// Gets or sets a value indicating whether tracing is enable or not.
+    /// Gets or sets a value indicating whether tracing is enabled or not.
     /// </summary>
     /// <value><c>true</c> if enable tracing; otherwise, <c>false</c>.</value>
     public bool EnableTracing { get; set; } = false;

@@ -528,14 +528,14 @@ public partial class HybridCache
 
     public bool Remove(string[] keys, Flags flags = Flags.PreferMaster)
     {
+        var result = 0L;
         using var activity = PopulateActivity(OperationTypes.BatchDeleteCache);
         keys.NotNullAndCountGtZero(nameof(keys));
         var cacheKeys = Array.ConvertAll(keys, key => GetCacheKey(key));
         try
         {
             // distributed cache at first
-            if (_redisDb.KeyDelete(cacheKeys.Select(k => (RedisKey)k).ToArray(), flags: (CommandFlags)flags) == 0)
-                return false;
+            result = _redisDb.KeyDelete(cacheKeys.Select(k => (RedisKey)k).ToArray(), flags: (CommandFlags)flags);
         }
         catch (Exception ex)
         {
@@ -545,12 +545,10 @@ public partial class HybridCache
             {
                 throw;
             }
-
-            return false;
         }
 
         Array.ForEach(cacheKeys, _memoryCache.Remove);
-        return true;
+        return result > 0;
     }
 
     public Task<bool> RemoveAsync(string key, bool fireAndForget)
@@ -561,7 +559,7 @@ public partial class HybridCache
     public Task<bool> RemoveAsync(string key, Flags flags = Flags.PreferMaster)
     {
         using var activity = PopulateActivity(OperationTypes.DeleteCache);
-        return RemoveAsync(new[] { key }, flags);
+        return RemoveAsync([key], flags);
     }
 
     public Task<bool> RemoveAsync(string[] keys, bool fireAndForget)
@@ -571,17 +569,15 @@ public partial class HybridCache
 
     public async Task<bool> RemoveAsync(string[] keys, Flags flags = Flags.PreferMaster)
     {
+        var result = 0L;
         using var activity = PopulateActivity(OperationTypes.BatchDeleteCache);
         keys.NotNullAndCountGtZero(nameof(keys));
         var cacheKeys = Array.ConvertAll(keys, key => GetCacheKey(key));
         try
         {
-            var result = await _redisDb
+            result = await _redisDb
                 .KeyDeleteAsync(cacheKeys.Select(k => (RedisKey)k).ToArray(), flags: (CommandFlags)flags)
                 .ConfigureAwait(false);
-
-            if (result == 0)
-                return false;
         }
         catch (Exception ex)
         {
@@ -591,12 +587,10 @@ public partial class HybridCache
             {
                 throw;
             }
-
-            return false;
         }
 
         Array.ForEach(cacheKeys, _memoryCache.Remove);
-        return true;
+        return result > 0;
     }
 
     public ValueTask<long> RemoveWithPatternAsync(string pattern, bool fireAndForget, CancellationToken token)
@@ -731,7 +725,7 @@ public partial class HybridCache
         ClearLocalMemory();
         await PublishBusAsync(MessageType.ClearLocalCache, _instanceId).ConfigureAwait(false);
     }
-    
+
     public TimeSpan? GetExpiration(string cacheKey)
     {
         using var activity = PopulateActivity(OperationTypes.GetExpiration);
