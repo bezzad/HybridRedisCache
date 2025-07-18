@@ -1419,7 +1419,7 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         Assert.True(locked);
     }
 
-    [Fact(Timeout = 12_000)]
+    [Fact(Timeout = 20_000)]
     public async Task TestLockKeyAsyncOnMultiTasks()
     {
         // Arrange

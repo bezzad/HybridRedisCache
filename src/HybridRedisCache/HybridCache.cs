@@ -253,7 +253,7 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
                 {
                     while (bag.TryTake(out var tcs))
                     {
-                        LogMessage($"{nameof(OnMessage)}: Continue to lock the `{key}` key.");
+                        LogMessage($"{nameof(OnMessage)}: Continue to lock `{key}` key.");
                         tcs.SetResult();
                     }
 
