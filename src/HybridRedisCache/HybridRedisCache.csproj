@@ -12,7 +12,7 @@
             A simple in-memory and Redis hybrid caching solution for .NET applications.
             It provides a way to cache frequently accessed data in memory for fast access and automatically falls back to using Redis as a persistent cache when memory cache capacity is exceeded.
         </Description>
-        <Copyright>2024</Copyright>
+        <Copyright>2025</Copyright>
         <PackageProjectUrl>https://www.nuget.org/packages/HybridRedisCache/</PackageProjectUrl>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <RepositoryUrl>https://github.com/bezzad/HybridRedisCache</RepositoryUrl>
