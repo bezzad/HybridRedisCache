@@ -1578,4 +1578,53 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         // Assert
         Assert.True(clearSignalReceived);
     }
+
+    [Fact]
+    public async Task CacheJustOnRedisAndFetchTwiceWithoutLocalCacheTest()
+    {
+        // When calling the Cache.Get<T> method, if the key does not exist in local memory,
+        // it will fetch the value from Redis and populate the local memory cache using the
+        // same expiration time as the Redis entry.
+        // If the first caller decides not to store the fetched value in the local cache (based on condition checks),
+        // later calls to Get may incorrectly read from the local cache or
+        // trigger another Redis fetch depending on the caching logic.
+
+        // Arrange
+        var cacheKey = nameof(CacheJustOnRedisAndFetchTwiceWithoutLocalCacheTest) + UniqueKey;
+        var value1 = "test value 1";
+        var value2 = "test value 2";
+
+        // create two instances of HybridCache that share the same Redis cache
+        var instance1 = new HybridCache(Options);
+        var instance2 = new HybridCache(Options);
+
+        // Act
+        await instance1.SetAsync(cacheKey, value1, new HybridCacheEntry
+        {
+            FireAndForget = false,
+            LocalCacheEnable = false,
+            RedisCacheEnable = true,
+            RedisExpiry = TimeSpan.FromSeconds(100)
+        });
+        await Task.Delay(10);
+        var readValue1Instance1 = await instance1.GetAsync<string>(cacheKey);
+        var readValue1Instance2 = await instance2.GetAsync<string>(cacheKey);
+
+        await instance2.SetAsync(cacheKey, value2, new HybridCacheEntry
+        {
+            FireAndForget = false,
+            LocalCacheEnable = false,
+            RedisCacheEnable = true,
+            RedisExpiry = TimeSpan.FromSeconds(100)
+        });
+        // can read new value2 which write from another instance
+        var readValue2Instance1 = await instance1.GetAsync<string>(cacheKey);
+        var readValue2Instance2 = await instance2.GetAsync<string>(cacheKey);
+
+        // Assert
+        Assert.Equal(value1, readValue1Instance1);
+        Assert.Equal(value1, readValue1Instance2);
+        Assert.Equal(value2, readValue2Instance1);
+        Assert.Equal(value2, readValue2Instance2);
+    }
 }
