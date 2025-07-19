@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFrameworks>net6.0;net8.0;net9.0</TargetFrameworks>
+        <TargetFrameworks>net8.0;net9.0</TargetFrameworks>
         <LangVersion>default</LangVersion>
         <ImplicitUsings>enable</ImplicitUsings>
         <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
@@ -19,11 +19,12 @@
         <RepositoryType>git</RepositoryType>
         <PackageTags>redis; cache; in-memory; memcache; RedisMemoryCache; HybridCachePlus; InRedisCache; MemRedisCache; RedisFusionCache; RedisMemCache; RedisInMemoryCache; MemHybridCache; RedisHybridStore; HybridRedisCache</PackageTags>
         <PackageReleaseNotes>
-            * Invalidate expired and removed and change keys with KeySpace channel
-            * Use KeySpace bus feature to sync and track local caches
-            * Exposed Redis Bus KeySpace channel as public by OnRedisBusMessage event
-            * Disable Client Tracking because not supported on Redis Enterprise Cloud, issue #16
-            * Refactor some codes
+            - Added support for **KeySpace notifications** to invalidate expired, removed, and changed keys efficiently.
+            - Integrated **KeySpace bus** to synchronize and track local caches across instances.
+            - Exposed Redis KeySpace channel events publicly via the `OnRedisBusMessage` event for external subscriptions.
+            - Disabled Client Tracking due to lack of support on Redis Enterprise Cloud (fixes issue #16).
+            - Introduced **live reconfiguration**, allowing HybridCache to reconnect automatically when Redis IPs or connection configurations change.
+            - Refactored internal code for clarity, stability, and maintainability.
         </PackageReleaseNotes>
         <IncludeSymbols>True</IncludeSymbols>
         <PackageLicenseFile>LICENSE</PackageLicenseFile>
@@ -44,7 +45,7 @@
     <ItemGroup>
         <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="9.0.7"/>
         <PackageReference Include="Newtonsoft.Json" Version="13.0.3"/>
-        <PackageReference Include="StackExchange.Redis" Version="2.8.41"/>
+        <PackageReference Include="StackExchange.Redis" Version="2.8.47" />
     </ItemGroup>
 
 </Project>
