@@ -436,7 +436,7 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         Assert.True(values.All(val => actualValue.Contains(val)), $"value was:{actualValue}");
 
         // clean up
-        Cache.Dispose();
+        await Cache.DisposeAsync();
         return;
 
         async Task GetSetTask(string value)

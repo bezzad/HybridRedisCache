@@ -518,7 +518,7 @@ public partial class HybridCache
     public bool Remove(string key, Flags flags = Flags.PreferMaster)
     {
         using var activity = PopulateActivity(OperationTypes.DeleteCache);
-        return Remove(new[] { key }, flags);
+        return Remove([key], flags);
     }
 
     public bool Remove(string[] keys, bool fireAndForget)
@@ -705,7 +705,6 @@ public partial class HybridCache
             }
             else
             {
-                // await _redisDb.PingAsync().ConfigureAwait(false);
                 await server.PingAsync().ConfigureAwait(false);
             }
         }

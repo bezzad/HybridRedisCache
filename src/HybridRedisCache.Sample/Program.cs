@@ -9,7 +9,7 @@ var options = new HybridCachingOptions()
     ThrowIfDistributedCacheError = false,
     RedisConnectionString = "localhost:6379,allowAdmin=true,keepAlive=180,defaultDatabase=0",
     ConnectRetry = 10,
-    ConnectionTimeout = 2000,
+    ConnectionTimeout = 1000,
     SyncTimeout = 1000,
     AsyncTimeout = 1000,
     AbortOnConnectFail = true,

@@ -19,7 +19,7 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
     private ISubscriber _redisSubscriber;
     private IMemoryCache _memoryCache;
     private IMemoryCache _recentlySetKeys;
-    private int _reconfigureAttemptCount = 0;
+    private int _reconfigureAttemptCount;
     private readonly TimeSpan _timeWindow = TimeSpan.FromSeconds(5); // Expiration time window
     internal const string LockKeyPrefix = "lock/";
 
@@ -41,89 +41,109 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
         _activity = new TracingActivity(option.TracingActivitySourceName).Source;
 
         CreateLocalCache();
-        Connect();
+        var redisConfig = GetConfigurationOptions();
+        Connect(redisConfig);
     }
 
-    private void Connect()
+    private ConfigurationOptions GetConfigurationOptions()
     {
-        _reconnectSemaphore.Wait();
-        try
+        var redisConfig = ConfigurationOptions.Parse(_options.RedisConnectionString, true);
+        redisConfig.AbortOnConnectFail = _options.AbortOnConnectFail;
+        redisConfig.ConnectRetry = _options.ConnectRetry;
+        redisConfig.ReconnectRetryPolicy = new LinearRetry(1000);
+        redisConfig.ClientName = _options.InstancesSharedName + ":" + _instanceId;
+        redisConfig.AsyncTimeout = _options.AsyncTimeout;
+        redisConfig.SyncTimeout = _options.SyncTimeout;
+        redisConfig.ConnectTimeout = _options.ConnectionTimeout;
+        redisConfig.KeepAlive = _options.KeepAlive;
+        redisConfig.AllowAdmin = _options.AllowAdmin;
+        redisConfig.SocketManager = _options.ThreadPoolSocketManagerEnable
+            ? SocketManager.ThreadPool
+            : SocketManager.Shared;
+
+        return redisConfig;
+    }
+
+    private void Connect(ConfigurationOptions redisConfig)
+    {
+        if (_connection?.IsConnected == true)
+            return;
+
+        // Dispose old connection if exists
+        if (_connection != null)
         {
-            // TODO: first ping Redis server if doesn't pong then create a new one
-            
-            if (_connection != null)
+            _connection.ConnectionRestored -= OnReconnect;
+            _connection.ConnectionFailed -= OnConnectionFailed;
+            _connection.ErrorMessage -= OnErrorMessage;
+            _connection.Dispose();
+        }
+
+        // Create a new connection 
+        _connection = ConnectionMultiplexer.Connect(redisConfig);
+        if (!_connection.IsConnected)
+        {
+            throw new RedisConnectionException(ConnectionFailureType.UnableToConnect,
+                "Unable to connect Redis in initializing!");
+        }
+
+        _connection.ConnectionRestored += OnReconnect;
+        _connection.ConnectionFailed += OnConnectionFailed;
+        _connection.ErrorMessage += OnErrorMessage;
+        _redisDb = _connection.GetDatabase();
+        _redisSubscriber = _connection.GetSubscriber();
+
+        // Subscribe to Redis key-space events to invalidate cache entries on all instances
+        _keySpaceChannelName = $"__keyspace@{_redisDb.Database}__:{_options.InstancesSharedName}:";
+        var keySpaceChannel = GetRedisKeySpaceChannel("*", RedisChannel.PatternMode.Pattern);
+        _redisSubscriber.Subscribe(keySpaceChannel, OnMessage, CommandFlags.FireAndForget);
+        SetRedisServersConfigs();
+
+        LogMessage("HybridRedisCache connected and configured at endpoints: " +
+                   string.Join(", ", redisConfig.EndPoints));
+    }
+
+    private async Task TryConnectAsync()
+    {
+        while (true)
+        {
+            await _reconnectSemaphore.WaitAsync().ConfigureAwait(false);
+            try
             {
-                if (_connection.IsConnected)
+                if (_connection?.IsConnected == true)
                 {
-                    LogMessage("Connected to Redis successfully.");
+                    LogMessage("Redis is already connected.");
                     _reconfigureAttemptCount = 0; // reset retry count to use next times
                     return;
                 }
 
-                // disconnect all handlers of _connection to create a new one
-                _connection.ConnectionRestored -= OnReconnect;
-                _connection.ConnectionFailed -= OnConnectionFailed;
-                _connection.ErrorMessage -= OnErrorMessage;
-                _connection.Dispose();
+                var redisConfig = GetConfigurationOptions();
+                // Ping retry strategy before reconfiguration
+                var pingSucceeded = await _redisDb.PingAsync(_options.ConnectRetry).ConfigureAwait(false);
+                if (!pingSucceeded)
+                {
+                    LogMessage($"Redis ping failed after {_options.ConnectRetry} attempts. Proceeding to reconfigure.");
+                    Connect(redisConfig);
+                    _reconfigureAttemptCount = 0;
+                }
             }
-
-            LogMessage($"Attempting reconfiguration (Attempt {_reconfigureAttemptCount}).");
-            var redisConfig = ConfigurationOptions.Parse(_options.RedisConnectionString, true);
-            redisConfig.AbortOnConnectFail = _options.AbortOnConnectFail;
-            redisConfig.ConnectRetry = _options.ConnectRetry;
-            redisConfig.ReconnectRetryPolicy = new LinearRetry(1000);
-            redisConfig.ClientName = _options.InstancesSharedName + ":" + _instanceId;
-            redisConfig.AsyncTimeout = _options.AsyncTimeout;
-            redisConfig.SyncTimeout = _options.SyncTimeout;
-            redisConfig.ConnectTimeout = _options.ConnectionTimeout;
-            redisConfig.KeepAlive = _options.KeepAlive;
-            redisConfig.AllowAdmin = _options.AllowAdmin;
-            redisConfig.SocketManager = _options.ThreadPoolSocketManagerEnable
-                ? SocketManager.ThreadPool
-                : SocketManager.Shared;
-
-            _connection = ConnectionMultiplexer.Connect(redisConfig);
-            if (_connection.IsConnected)
+            catch (Exception ex)
             {
-                _connection.ConnectionRestored += OnReconnect;
-                _connection.ConnectionFailed += OnConnectionFailed;
-                _connection.ErrorMessage += OnErrorMessage;
-                _redisDb = _connection.GetDatabase();
-                _redisSubscriber = _connection.GetSubscriber();
-
-                // Subscribe to Redis key-space events to invalidate cache entries on all instances
-                _keySpaceChannelName = $"__keyspace@{_redisDb.Database}__:{_options.InstancesSharedName}:";
-                var keySpaceChannel = GetRedisKeySpaceChannel("*", RedisChannel.PatternMode.Pattern);
-                _redisSubscriber.Subscribe(keySpaceChannel, OnMessage, CommandFlags.FireAndForget);
-
-                SetRedisServersConfigs();
-
-                LogMessage($"HybridRedisCache connected to Redis at {string.Join(", ", redisConfig.EndPoints)}");
-                _reconfigureAttemptCount = 0; // reset retry count to use next times
-                return;
+                LogMessage("Failed to connect to Redis.", ex);
+                if (!_options.ReconfigureOnConnectFail || (_options.MaxReconfigureAttempts != 0 && // zero is max retry
+                                                           _options.MaxReconfigureAttempts <
+                                                           _reconfigureAttemptCount++))
+                {
+                    LogMessage(
+                        $"Redis reconfiguration failed after {_reconfigureAttemptCount} attempts. " +
+                        "Marking Redis cache as down.", ex);
+                    throw;
+                } // else continue the while( true )
             }
-
-            throw new RedisConnectionException(ConnectionFailureType.UnableToConnect,
-                "Attempting to connect Redis failed!");
-        }
-        catch (Exception ex)
-        {
-            LogMessage("Failed to connect to Redis.", ex);
-            if (!_options.ReconfigureOnConnectFail ||
-                (_options.MaxReconfigureAttempts != 0 && // zero is max retry
-                 _options.MaxReconfigureAttempts < _reconfigureAttemptCount++))
+            finally
             {
-                LogMessage($"Redis reconfiguration failed after {_reconfigureAttemptCount} attempts. " +
-                           "Marking Redis cache as down.", ex);
-                throw;
+                _reconnectSemaphore.Release();
             }
         }
-        finally
-        {
-            _reconnectSemaphore.Release();
-        }
-
-        Connect();
     }
 
     private void OnErrorMessage(object sender, RedisErrorEventArgs e)
@@ -133,8 +153,7 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
 
     private void SetRedisServersConfigs()
     {
-        // _redisDb.Execute("CLIENT", "SETNAME", _options.InstancesSharedName + ":" + _instanceId);
-        var clientId = (long)_redisDb.Execute("CLIENT", "ID");
+        var clientId = _redisDb.Execute("CLIENT", "ID");
 
         // Set the notify-keyspace-events configuration
         // Explanation of notify-keyspace-events Flags
@@ -161,23 +180,21 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
         if (_options.EnableRedisClientTracking)
         {
             // Enable tracking with specific key prefixes to reduce overhead
-            _redisDb.Execute($"CLIENT", "TRACKING", "ON", "REDIRECT", clientId, "BCAST", "PREFIX",
+            _redisDb.Execute($"CLIENT", "TRACKING", "ON", "REDIRECT", (long)clientId, "BCAST", "PREFIX",
                 $"{_options.InstancesSharedName}:*", "NOLOOP");
         }
-
-        // Now you can use CLIENT CACHING YES
-        // _redisDb.Execute("CLIENT", "CACHING", "YES");
     }
 
-    private void OnConnectionFailed(object sender, ConnectionFailedEventArgs e)
+    private async void OnConnectionFailed(object sender, ConnectionFailedEventArgs e)
     {
         LogMessage($"Redis connection failed ({e.FailureType}) at {e.EndPoint}. ", e.Exception);
 
+        // ignore error handling if the user doesn't want to reconfigure connection
         if (!_options.ReconfigureOnConnectFail)
             return;
 
-        Connect();
-        
+        await TryConnectAsync().ConfigureAwait(false);
+
         if (_connection?.IsConnected == true)
             OnReconnect(sender, e);
     }
@@ -451,7 +468,7 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
         _reconnectSemaphore?.Dispose();
 
         await (_redisSubscriber?.UnsubscribeAllAsync() ?? Task.CompletedTask);
-        await (_redisDb?.Multiplexer?.DisposeAsync() ?? ValueTask.CompletedTask);
+        await (_redisDb?.Multiplexer.DisposeAsync() ?? ValueTask.CompletedTask);
         await (_connection?.DisposeAsync() ?? ValueTask.CompletedTask);
 
         LogMessage("HybridRedisCache disposed.");
