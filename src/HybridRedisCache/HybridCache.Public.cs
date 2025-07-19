@@ -1,11 +1,15 @@
 ﻿namespace HybridRedisCache;
 
+public delegate void RedisBusMessage(string key, MessageType type);
+
 /// <summary>
 /// The HybridCache class provides a hybrid caching solution that stores cached items in both
 /// an in-memory cache and a Redis cache. 
 /// </summary>
 public partial class HybridCache
 {
+    public event RedisBusMessage OnRedisBusMessage = delegate { };
+
     public bool Exists(string key, Flags flags = Flags.PreferMaster)
     {
         using var activity = PopulateActivity(OperationTypes.KeyLookup);
@@ -103,9 +107,6 @@ public partial class HybridCache
         if (inserted && localCacheEnable)
             inserted = SetLocalMemory(cacheKey, value, localExpiry, when);
 
-        if (inserted && _options.SupportOldInvalidateBus)
-            PublishBus(MessageType.SetCache, cacheKey);
-
         return inserted;
     }
 
@@ -158,9 +159,6 @@ public partial class HybridCache
         // So, now we can set the local cache
         if (inserted && localCacheEnable)
             inserted = SetLocalMemory(cacheKey, value, localExpiry, redisCacheEnable ? Condition.Always : when);
-
-        if (inserted && _options.SupportOldInvalidateBus)
-            await PublishBusAsync(MessageType.SetCache, cacheKey);
 
         return inserted;
     }
@@ -218,9 +216,6 @@ public partial class HybridCache
             // So, now we can set the local cache
             if (inserted && localCacheEnable)
                 inserted = SetLocalMemory(cacheKey, value, localExpiry, redisCacheEnable ? Condition.Always : when);
-
-            if (inserted && _options.SupportOldInvalidateBus)
-                PublishBus(MessageType.SetCache, cacheKey);
 
             result &= inserted;
         }
@@ -283,9 +278,6 @@ public partial class HybridCache
             // So, now we can set the local cache
             if (inserted && localCacheEnable)
                 inserted = SetLocalMemory(cacheKey, value, localExpiry, redisCacheEnable ? Condition.Always : when);
-
-            if (inserted && _options.SupportOldInvalidateBus)
-                await PublishBusAsync(MessageType.SetCache, cacheKey);
 
             result &= inserted;
         }
@@ -451,7 +443,7 @@ public partial class HybridCache
         using var activity = PopulateActivity(OperationTypes.GetCache);
         key.NotNullOrWhiteSpace(nameof(key));
         var cacheKey = GetCacheKey(key);
-        
+
         // Try to get the value from the memory cache
         if (_memoryCache.TryGetValue(cacheKey, out value))
         {
@@ -482,12 +474,12 @@ public partial class HybridCache
         return false;
     }
 
-    public  async ValueTask<(bool success, T value)> TryGetValueAsync<T>(string key)
+    public async ValueTask<(bool success, T value)> TryGetValueAsync<T>(string key)
     {
         using var activity = PopulateActivity(OperationTypes.GetCache);
         key.NotNullOrWhiteSpace(nameof(key));
         var cacheKey = GetCacheKey(key);
-        
+
         // Try to get the value from the memory cache
         if (_memoryCache.TryGetValue(cacheKey, out T value))
         {
@@ -517,7 +509,7 @@ public partial class HybridCache
         activity?.SetCacheHitActivity(CacheResultType.Miss, cacheKey);
         return (false, default);
     }
-    
+
     public bool Remove(string key, bool fireAndForget)
     {
         return Remove(key, fireAndForget ? Flags.FireAndForget : Flags.PreferMaster);
@@ -526,7 +518,7 @@ public partial class HybridCache
     public bool Remove(string key, Flags flags = Flags.PreferMaster)
     {
         using var activity = PopulateActivity(OperationTypes.DeleteCache);
-        return Remove(new[] { key }, flags);
+        return Remove([key], flags);
     }
 
     public bool Remove(string[] keys, bool fireAndForget)
@@ -536,14 +528,14 @@ public partial class HybridCache
 
     public bool Remove(string[] keys, Flags flags = Flags.PreferMaster)
     {
+        var result = 0L;
         using var activity = PopulateActivity(OperationTypes.BatchDeleteCache);
         keys.NotNullAndCountGtZero(nameof(keys));
         var cacheKeys = Array.ConvertAll(keys, key => GetCacheKey(key));
         try
         {
             // distributed cache at first
-            if (_redisDb.KeyDelete(cacheKeys.Select(k => (RedisKey)k).ToArray(), flags: (CommandFlags)flags) == 0)
-                return false;
+            result = _redisDb.KeyDelete(cacheKeys.Select(k => (RedisKey)k).ToArray(), flags: (CommandFlags)flags);
         }
         catch (Exception ex)
         {
@@ -553,12 +545,10 @@ public partial class HybridCache
             {
                 throw;
             }
-
-            return false;
         }
 
         Array.ForEach(cacheKeys, _memoryCache.Remove);
-        return true;
+        return result > 0;
     }
 
     public Task<bool> RemoveAsync(string key, bool fireAndForget)
@@ -569,7 +559,7 @@ public partial class HybridCache
     public Task<bool> RemoveAsync(string key, Flags flags = Flags.PreferMaster)
     {
         using var activity = PopulateActivity(OperationTypes.DeleteCache);
-        return RemoveAsync(new[] { key }, flags);
+        return RemoveAsync([key], flags);
     }
 
     public Task<bool> RemoveAsync(string[] keys, bool fireAndForget)
@@ -579,17 +569,15 @@ public partial class HybridCache
 
     public async Task<bool> RemoveAsync(string[] keys, Flags flags = Flags.PreferMaster)
     {
+        var result = 0L;
         using var activity = PopulateActivity(OperationTypes.BatchDeleteCache);
         keys.NotNullAndCountGtZero(nameof(keys));
         var cacheKeys = Array.ConvertAll(keys, key => GetCacheKey(key));
         try
         {
-            var result = await _redisDb
+            result = await _redisDb
                 .KeyDeleteAsync(cacheKeys.Select(k => (RedisKey)k).ToArray(), flags: (CommandFlags)flags)
                 .ConfigureAwait(false);
-
-            if (result == 0)
-                return false;
         }
         catch (Exception ex)
         {
@@ -599,12 +587,10 @@ public partial class HybridCache
             {
                 throw;
             }
-
-            return false;
         }
 
         Array.ForEach(cacheKeys, _memoryCache.Remove);
-        return true;
+        return result > 0;
     }
 
     public ValueTask<long> RemoveWithPatternAsync(string pattern, bool fireAndForget, CancellationToken token)
@@ -719,7 +705,6 @@ public partial class HybridCache
             }
             else
             {
-                // await _redisDb.PingAsync().ConfigureAwait(false);
                 await server.PingAsync().ConfigureAwait(false);
             }
         }

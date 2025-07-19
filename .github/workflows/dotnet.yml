@@ -1,15 +1,21 @@
 # This workflow will build a .NET project
 # For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-net
 
-name: .NET Ubuntu x64
+name: Ubuntu x64
 
 on: [push]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
-
     runs-on: ubuntu-latest
-
+    environment: Linux
+    strategy:
+      matrix:
+        dotnet-version: [ 9.0.x ]
     # Service containers to run with `runner-job`
     services:
       # Label used to access the service container
@@ -27,21 +33,21 @@ jobs:
           - 6379:6379
           
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
   
-    - name: Setup .NET 6.0
-      uses: actions/setup-dotnet@v3
+    - name: Setup .NET Core
+      uses: actions/setup-dotnet@v4
       with:
-        dotnet-version: 6.0.x
+        dotnet-version: ${{ matrix.dotnet-version }}
 
     - name: Restore dependencies
-      run: dotnet restore ./src/HybridRedisCache/HybridRedisCache.csproj
+      run: dotnet restore ./src/HybridRedisCache.sln
 
-    - name: Build
-      run: dotnet build ./src/HybridRedisCache/HybridRedisCache.csproj --no-restore
+    - name: Build solution
+      run: dotnet build -c Release ./src/HybridRedisCache.sln --verbosity minimal
 
-    - name: Test
-      run: dotnet test ./src/HybridRedisCache.Test/HybridRedisCache.Test.csproj  --no-build --verbosity normal
+    - name: Run tests
+      run: dotnet test -c Release ./src/HybridRedisCache.sln --verbosity normal --no-build --no-restore
 
       # a new Redis client.
       env:

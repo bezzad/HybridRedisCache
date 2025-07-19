@@ -1,48 +1,51 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-    <TargetFrameworks>net6.0;net8.0</TargetFrameworks>
-    <LangVersion>latestMajor</LangVersion>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
-    <Title>HybridRedisCache</Title>
-    <Company>bezzad</Company>
-    <Authors>bezzad</Authors>
-    <Description>
-      A simple in-memory and Redis hybrid caching solution for .NET applications.
-      It provides a way to cache frequently accessed data in memory for fast access and automatically falls back to using Redis as a persistent cache when memory cache capacity is exceeded.
-    </Description>
-    <Copyright>2024</Copyright>
-    <PackageProjectUrl>https://www.nuget.org/packages/HybridRedisCache/</PackageProjectUrl>
-    <PackageReadmeFile>README.md</PackageReadmeFile>
-    <RepositoryUrl>https://github.com/bezzad/HybridRedisCache</RepositoryUrl>
-    <RepositoryType>git</RepositoryType>
-    <PackageTags>redis; cache; in-memory; memcache; RedisMemoryCache; HybridCachePlus; InRedisCache; MemRedisCache; RedisFusionCache; RedisMemCache; RedisInMemoryCache; MemHybridCache; RedisHybridStore; HybridRedisCache</PackageTags>
-    <PackageReleaseNotes>* Major update to invalidate expired and removed and change keys 
-* Use KeySpace bus feature to sync and track local caches
-* Add SupportOldInvalidateBus option to keep consistency between this and older versions
-* fixed remove by pattern issue with Lua scripts on Redis server-side
-* improve set performance with keyspace</PackageReleaseNotes>
-    <IncludeSymbols>True</IncludeSymbols>
-    <PackageLicenseFile>LICENSE</PackageLicenseFile>
-    <Version>3.0.4</Version>
-  </PropertyGroup>
+    <PropertyGroup>
+        <TargetFrameworks>net8.0;net9.0</TargetFrameworks>
+        <LangVersion>default</LangVersion>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
+        <Title>HybridRedisCache</Title>
+        <Company>bezzad</Company>
+        <Authors>bezzad</Authors>
+        <Description>
+            A simple in-memory and Redis hybrid caching solution for .NET applications.
+            It provides a way to cache frequently accessed data in memory for fast access and automatically falls back to using Redis as a persistent cache when memory cache capacity is exceeded.
+        </Description>
+        <Copyright>2025</Copyright>
+        <PackageProjectUrl>https://www.nuget.org/packages/HybridRedisCache/</PackageProjectUrl>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+        <RepositoryUrl>https://github.com/bezzad/HybridRedisCache</RepositoryUrl>
+        <RepositoryType>git</RepositoryType>
+        <PackageTags>redis; cache; in-memory; memcache; RedisMemoryCache; HybridCachePlus; InRedisCache; MemRedisCache; RedisFusionCache; RedisMemCache; RedisInMemoryCache; MemHybridCache; RedisHybridStore; HybridRedisCache</PackageTags>
+        <PackageReleaseNotes>
+            - Added support for **KeySpace notifications** to invalidate expired, removed, and changed keys efficiently.
+            - Integrated **KeySpace bus** to synchronize and track local caches across instances.
+            - Exposed Redis KeySpace channel events publicly via the `OnRedisBusMessage` event for external subscriptions.
+            - Disabled Client Tracking due to lack of support on Redis Enterprise Cloud (fixes issue #16).
+            - Introduced **live reconfiguration**, allowing HybridCache to reconnect automatically when Redis IPs or connection configurations change.
+            - Refactored internal code for clarity, stability, and maintainability.
+        </PackageReleaseNotes>
+        <IncludeSymbols>True</IncludeSymbols>
+        <PackageLicenseFile>LICENSE</PackageLicenseFile>
+        <Version>3.0.5</Version>
+    </PropertyGroup>
 
-  <ItemGroup>
-    <None Include="..\..\LICENSE">
-      <Pack>True</Pack>
-      <PackagePath>\</PackagePath>
-    </None>
-    <None Include="..\..\README.md">
-      <Pack>True</Pack>
-      <PackagePath>\</PackagePath>
-    </None>
-  </ItemGroup>
+    <ItemGroup>
+        <None Include="..\..\LICENSE">
+            <Pack>True</Pack>
+            <PackagePath>\</PackagePath>
+        </None>
+        <None Include="..\..\README.md">
+            <Pack>True</Pack>
+            <PackagePath>\</PackagePath>
+        </None>
+    </ItemGroup>
 
-  <ItemGroup>
-    <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="9.0.0" />
-    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
-    <PackageReference Include="StackExchange.Redis" Version="2.8.22" />
-  </ItemGroup>
+    <ItemGroup>
+        <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="9.0.7"/>
+        <PackageReference Include="Newtonsoft.Json" Version="13.0.3"/>
+        <PackageReference Include="StackExchange.Redis" Version="2.8.47" />
+    </ItemGroup>
 
 </Project>

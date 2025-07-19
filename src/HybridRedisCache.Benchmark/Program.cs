@@ -1,17 +1,19 @@
 ﻿// See https://aka.ms/new-console-template for more information
-using BenchmarkDotNet.Attributes;
-using HybridRedisCache.Benchmark;
+
 using System.Reflection;
+using BenchmarkDotNet.Attributes;
+
+namespace HybridRedisCache.Benchmark;
 
 public class Program
 {
-    static BenchmarkManager Manager = new() { RepeatCount = 1000 };
+    private static readonly BenchmarkManager Manager = new() { RepeatCount = 1000 };
 
     private static async Task Main()
     {
         Console.Title = "Redis vs. Mem cache benchmark";
-
 #if !DEBUG
+        await Task.Yield();
         BenchmarkDotNet.Running.BenchmarkRunner.Run<BenchmarkManager>();
 #else
         var timesOfExecutions = new Dictionary<string, double>();
@@ -30,13 +32,14 @@ public class Program
             {
                 sw.Restart();
                 PrintBenchmarkMethod(method.Name);
-                if (method!.Invoke(Manager, null) is Task task)
+                if (method.Invoke(Manager, null) is Task task)
                     await task;
                 sw.Stop();
                 timesOfExecutions.Add(method!.Name, sw.ElapsedMilliseconds);
                 PrintBenchmarkValue(sw.ElapsedMilliseconds);
             }
         }
+
         PrintSortedResult(timesOfExecutions);
 #endif
         Console.ReadLine();
@@ -62,13 +65,15 @@ public class Program
         {
             PrintBenchmark(method.Key, method.Value);
         }
+
         PrintLine();
     }
 
     private static void PrintHeader()
     {
         PrintLine();
-        var headerDesc = "|".PadRight(18) + "Test Method Name".PadRight(32) + "|  Duration (milisecond)".PadRight(24) + "  |";
+        var headerDesc = "|".PadRight(18) + "Test Method Name".PadRight(32) + "|  Duration (milisecond)".PadRight(24) +
+                         "  |";
         Console.WriteLine(headerDesc);
     }
 

@@ -9,13 +9,31 @@ public record HybridCachingOptions
     public bool AbortOnConnectFail { get; set; } = true;
     
     /// <summary>
-    /// Gets or sets a value indicating whether logging is enable or not.
+    /// Indicates whether the Redis connection multiplexer should automatically reconfigure itself
+    /// when the connection fails and the retry policy cannot reconnect.
+    /// This is useful in scenarios where the original DNS endpoint may now resolve to a new address,
+    /// requiring a fresh connection to updated endpoints retrieved from the same DNS provided initially
+    /// in the HybridCache options.
+    /// </summary>
+    public bool ReconfigureOnConnectFail { get; set; } = false;
+
+    /// <summary>
+    /// Specifies the maximum number of reconfiguration attempts allowed after consecutive connection failures.
+    /// If the connection fails and reconfiguration is enabled, the HybridCache will attempt to reconfigure
+    /// and reconnect up to this number of times. Once the limit is reached, an exception will be thrown,
+    /// and the Redis cache will be marked as down to prevent further usage until manual intervention.
+    /// Use <c>0</c> for unlimited retries.
+    /// </summary>
+    public int MaxReconfigureAttempts { get; set; } = 0;
+    
+    /// <summary>
+    /// Gets or sets a value indicating whether logging is enabled or not.
     /// </summary>
     /// <value><c>true</c> if enable logging; otherwise, <c>false</c>.</value>
     public bool EnableLogging { get; set; } = false;
 
     /// <summary>
-    /// Gets or sets a value indicating whether tracing is enable or not.
+    /// Gets or sets a value indicating whether tracing is enabled or not.
     /// </summary>
     /// <value><c>true</c> if enable tracing; otherwise, <c>false</c>.</value>
     public bool EnableTracing { get; set; } = false;
@@ -103,13 +121,11 @@ public record HybridCachingOptions
     /// This is only used when a ConnectionMultiplexer is created.
     /// Modifying it afterwards will have no effect on already-created multiplexers.
     /// </remarks>
-    public bool ThreadPoolSocketManagerEnable { get; set; } 
-    
+    public bool ThreadPoolSocketManagerEnable { get; set; }
+
     /// <summary>
-    /// After HybridRedisCache v1.1.0, we have changed the way to invalidate the client local cache.
-    /// In the new version we use the redis keyspace feature to invalidate the local cache.
-    /// If you want to support old way to invalidate the local cache, you can set this property to true.
-    /// Default is true.
+    /// Enable client tracking with specific key prefixes (client app name) to reduce overhead in KeySpace channel
+    /// Note: Client Tracking not enabled on Redis Enterprise Cloud, issue #16
     /// </summary>
-    public bool SupportOldInvalidateBus { get; set; } = true;
+    public bool EnableRedisClientTracking { get; set; } = false;
 }

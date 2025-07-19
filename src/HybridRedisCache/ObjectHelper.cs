@@ -1,4 +1,5 @@
 ﻿[assembly: InternalsVisibleTo("HybridRedisCache.Test")]
+
 namespace HybridRedisCache;
 
 internal static class ObjectHelper
@@ -44,8 +45,30 @@ internal static class ObjectHelper
 
     public static T Deserialize<T>(this string value)
     {
-        return string.IsNullOrWhiteSpace(value) 
-            ? default 
+        return string.IsNullOrWhiteSpace(value)
+            ? default
             : JsonConvert.DeserializeObject<T>(value, JsonSettings);
+    }
+
+    public static async Task<bool> PingAsync(this IDatabase redisDb, int retryCount)
+    {
+        if (redisDb is null)
+            return false;
+
+        for (var i = 0; i < retryCount; i++)
+        {
+            try
+            {
+                var ping = await redisDb.PingAsync().ConfigureAwait(false);
+                return ping < TimeSpan.FromSeconds(2);
+            }
+            catch
+            {
+                // Swallow and retry
+                await Task.Delay(500).ConfigureAwait(false);
+            }
+        }
+
+        return false;
     }
 }
