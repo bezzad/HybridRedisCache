@@ -1590,33 +1590,27 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         // trigger another Redis fetch depending on the caching logic.
 
         // Arrange
-        var cacheKey = nameof(CacheJustOnRedisAndFetchTwiceWithoutLocalCacheTest) + UniqueKey;
+        var cacheKey = UniqueKey;
         var value1 = "test value 1";
         var value2 = "test value 2";
 
         // create two instances of HybridCache that share the same Redis cache
-        var instance1 = new HybridCache(Options);
-        var instance2 = new HybridCache(Options);
-
-        // Act
-        await instance1.SetAsync(cacheKey, value1, new HybridCacheEntry
+        await using var instance1 = new HybridCache(Options);
+        await using var instance2 = new HybridCache(Options);
+        var opt = new HybridCacheEntry
         {
             FireAndForget = false,
             LocalCacheEnable = false,
             RedisCacheEnable = true,
             RedisExpiry = TimeSpan.FromSeconds(100)
-        });
-        await Task.Delay(10);
+        };
+        
+        // Act
+        await instance1.SetAsync(cacheKey, value1, opt);
         var readValue1Instance1 = await instance1.GetAsync<string>(cacheKey);
         var readValue1Instance2 = await instance2.GetAsync<string>(cacheKey);
 
-        await instance2.SetAsync(cacheKey, value2, new HybridCacheEntry
-        {
-            FireAndForget = false,
-            LocalCacheEnable = false,
-            RedisCacheEnable = true,
-            RedisExpiry = TimeSpan.FromSeconds(100)
-        });
+        await instance2.SetAsync(cacheKey, value2, opt);
         // can read new value2 which write from another instance
         var readValue2Instance1 = await instance1.GetAsync<string>(cacheKey);
         var readValue2Instance2 = await instance2.GetAsync<string>(cacheKey);
@@ -1626,5 +1620,45 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         Assert.Equal(value1, readValue1Instance2);
         Assert.Equal(value2, readValue2Instance1);
         Assert.Equal(value2, readValue2Instance2);
+    }
+    
+    [Fact]
+    public async Task CacheHybridAndFetchTripleWithLocalCacheTest()
+    {
+        // Arrange
+        var cacheKey = UniqueKey;
+        var value1 = "test value 1";
+        var value2 = "test value 2";
+        var opt = new HybridCacheEntry
+        {
+            FireAndForget = false,
+            LocalCacheEnable = true,
+            RedisCacheEnable = true,
+            LocalExpiry = TimeSpan.FromSeconds(10),
+            RedisExpiry = TimeSpan.FromSeconds(100)
+        };
+        await using var instance1 = new HybridCache(Options);
+        await using var instance2 = new HybridCache(Options);
+        await using var instance3 = new HybridCache(Options);
+
+        // Act
+        await instance1.SetAsync(cacheKey, value1,opt);
+        var read1Instance1 = await instance1.GetAsync<string>(cacheKey);
+        var read1Instance2 = await instance2.GetAsync<string>(cacheKey);
+        var read1Instance3 = await instance3.GetAsync<string>(cacheKey);
+
+        await instance1.SetAsync(cacheKey, value2, opt);
+        
+        var read2Instance1 = await instance1.GetAsync<string>(cacheKey);
+        var read2Instance2 = await instance2.GetAsync<string>(cacheKey);
+        var read2Instance3 = await instance3.GetAsync<string>(cacheKey);
+
+        // Assert
+        Assert.Equal(value1, read1Instance1);
+        Assert.Equal(value1, read1Instance2);
+        Assert.Equal(value1, read1Instance3);
+        Assert.Equal(value2, read2Instance1);
+        Assert.Equal(value1, read2Instance2); 
+        Assert.Equal(value1, read2Instance3); 
     }
 }

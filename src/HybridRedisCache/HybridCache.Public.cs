@@ -84,7 +84,8 @@ public partial class HybridCache
         {
             if (redisCacheEnable)
             {
-                inserted = _redisDb.StringSet(cacheKey, value.Serialize(),
+                var val = SerializeWithExpiryPrefix(value, localCacheEnable ? localExpiry : null);
+                inserted = _redisDb.StringSet(cacheKey, val,
                     keepTtl ? null : redisExpiry,
                     keepTtl, when: (When)when, flags: (CommandFlags)flags);
             }
@@ -137,7 +138,8 @@ public partial class HybridCache
         {
             if (redisCacheEnable)
             {
-                inserted = await _redisDb.StringSetAsync(cacheKey, value.Serialize(),
+                var val = SerializeWithExpiryPrefix(value, localCacheEnable ? localExpiry : null);
+                inserted = await _redisDb.StringSetAsync(cacheKey, val,
                     keepTtl ? null : redisExpiry,
                     keepTtl, when: (When)when, flags: (CommandFlags)flags).ConfigureAwait(false);
             }
@@ -194,7 +196,8 @@ public partial class HybridCache
             {
                 if (redisCacheEnable)
                 {
-                    inserted = _redisDb.StringSet(cacheKey, kvp.Value.Serialize(),
+                    var val = SerializeWithExpiryPrefix(kvp.Value, localCacheEnable ? localExpiry : null);
+                    inserted = _redisDb.StringSet(cacheKey, val,
                         keepTtl ? null : redisExpiry,
                         keepTtl, when: (When)when, flags: (CommandFlags)flags);
                 }
@@ -256,7 +259,8 @@ public partial class HybridCache
             {
                 if (redisCacheEnable)
                 {
-                    inserted = await _redisDb.StringSetAsync(cacheKey, kvp.Value.Serialize(),
+                    var val = SerializeWithExpiryPrefix(kvp.Value, localCacheEnable ? localExpiry : null);
+                    inserted = await _redisDb.StringSetAsync(cacheKey, val,
                         keepTtl ? null : redisExpiry,
                         keepTtl, when: (When)when, flags: (CommandFlags)flags).ConfigureAwait(false);
                 }
@@ -300,7 +304,7 @@ public partial class HybridCache
         try
         {
             var redisValue = _redisDb.StringGetWithExpiry(cacheKey);
-            if (TryUpdateLocalCache(cacheKey, redisValue, null, out value))
+            if (TryUpdateLocalCache(cacheKey, redisValue, out value))
             {
                 activity?.SetRetrievalStrategyActivity(RetrievalStrategy.RedisCache);
                 activity?.SetCacheHitActivity(CacheResultType.Hit, cacheKey);
@@ -372,7 +376,7 @@ public partial class HybridCache
         try
         {
             var redisValue = await _redisDb.StringGetWithExpiryAsync(cacheKey).ConfigureAwait(false);
-            if (TryUpdateLocalCache(cacheKey, redisValue, null, out value))
+            if (TryUpdateLocalCache(cacheKey, redisValue, out value))
             {
                 activity?.SetRetrievalStrategyActivity(RetrievalStrategy.RedisCache);
                 activity?.SetCacheHitActivity(CacheResultType.Hit, cacheKey);
@@ -455,7 +459,7 @@ public partial class HybridCache
         try
         {
             var redisValue = _redisDb.StringGetWithExpiry(cacheKey);
-            if (TryUpdateLocalCache(cacheKey, redisValue, null, out value))
+            if (TryUpdateLocalCache(cacheKey, redisValue, out value))
             {
                 activity?.SetRetrievalStrategyActivity(RetrievalStrategy.RedisCache);
                 activity?.SetCacheHitActivity(CacheResultType.Hit, cacheKey);
@@ -491,7 +495,7 @@ public partial class HybridCache
         try
         {
             var redisValue = await _redisDb.StringGetWithExpiryAsync(cacheKey).ConfigureAwait(false);
-            if (TryUpdateLocalCache(cacheKey, redisValue, null, out value))
+            if (TryUpdateLocalCache(cacheKey, redisValue, out value))
             {
                 activity?.SetRetrievalStrategyActivity(RetrievalStrategy.RedisCache);
                 activity?.SetCacheHitActivity(CacheResultType.Hit, cacheKey);

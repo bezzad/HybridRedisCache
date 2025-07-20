@@ -1,6 +1,4 @@
-﻿using System.Diagnostics;
-
-namespace HybridRedisCache.Utilities;
+﻿namespace HybridRedisCache;
 
 internal class TracingActivity(string tracingActivitySourceName)
 {
