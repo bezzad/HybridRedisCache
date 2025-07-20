@@ -21,8 +21,8 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
     private IMemoryCache _recentlySetKeys;
     private int _reconfigureAttemptCount;
     private readonly TimeSpan _timeWindow = TimeSpan.FromSeconds(5); // Expiration time window
-    private const string LocalCacheValuePrefix = "#LocExp_"; // to keep local expiration time in redis value
-    private const char LocalCacheValuePostfix = '#'; // to keep local expiration time in redis value
+    private const string LocalCacheValuePrefix = "#__LEXP__"; // to keep local expiration time in redis value
+    private const char LocalCacheValuePostfix = '$'; // to keep local expiration time in redis value
     internal const string LockKeyPrefix = "lock/";
 
     /// <summary>
