@@ -189,16 +189,23 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
 
     private async void OnConnectionFailed(object sender, ConnectionFailedEventArgs e)
     {
-        LogMessage($"Redis connection failed ({e.FailureType}) at {e.EndPoint}. ", e.Exception);
+        try
+        {
+            LogMessage($"Redis connection failed ({e.FailureType}) at {e.EndPoint}. ", e.Exception);
 
-        // ignore error handling if the user doesn't want to reconfigure connection
-        if (!_options.ReconfigureOnConnectFail)
-            return;
+            // ignore error handling if the user doesn't want to reconfigure connection
+            if (!_options.ReconfigureOnConnectFail)
+                return;
 
-        await TryConnectAsync().ConfigureAwait(false);
+            await TryConnectAsync().ConfigureAwait(false);
 
-        if (_connection?.IsConnected == true)
-            OnReconnect(sender, e);
+            if (_connection?.IsConnected == true)
+                OnReconnect(sender, e);
+        }
+        catch (Exception exp)
+        {
+            LogMessage(exp.Message, exp);
+        }
     }
 
     private void OnReconnect(object sender, ConnectionFailedEventArgs e)
@@ -358,7 +365,7 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
         return new RedisChannel(_keySpaceChannelName + cacheKey, patternMode);
     }
 
-    private bool SetLocalMemory<T>(string cacheKey, T value, TimeSpan? localExpiry, Condition when)
+    private bool SetLocalMemory<T>(string cacheKey, T value, TimeSpan? localExpiry, Condition when, bool keepAsRecentSets = true)
     {
         if (when != Condition.Always)
         {
@@ -369,7 +376,10 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
         }
 
         _memoryCache.Set(cacheKey, value, localExpiry ?? _options.DefaultLocalExpirationTime);
-        KeepRecentSetKey(cacheKey);
+        
+        if (keepAsRecentSets)
+            KeepRecentSetKey(cacheKey);
+        
         return true;
     }
 
@@ -421,7 +431,7 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
         value = text.Deserialize<T>();
 
         if (localExpiry > TimeSpan.Zero)
-            SetLocalMemory(cacheKey, value, localExpiry, Condition.Always);
+            SetLocalMemory(cacheKey, value, localExpiry, Condition.Always, false);
 
         return true;
     }
