@@ -183,12 +183,12 @@ public interface IHybridCache
     /// <param name="localExpiry">The expiration time for the local cache entry. If not specified, the default local expiration time is used.</param>
     /// <param name="redisExpiry">The expiration time for the redis cache entry. If not specified, the default distributed expiration time is used.</param>
     /// <param name="flags">The flags to use for this operation.</param>
-    /// <typeparam name="T">The 1st type parameter.</typeparam>
+    /// <param name="localCacheEnable">if method can get from Redis then set local memory or not?</param>
     T Get<T>(string cacheKey, Func<string, T> dataRetriever, TimeSpan? localExpiry = null, TimeSpan? redisExpiry = null,
-        Flags flags = Flags.PreferMaster);
+        Flags flags = Flags.PreferMaster, bool localCacheEnable = true);
 
     /// <summary>
-    /// Get the specified cacheKey, dataRetriever and expiration.
+    /// Get the specified cacheKey, dataRetriever, and expiration.
     /// </summary>
     /// <returns>The get.</returns>
     /// <param name="cacheKey">Cache key.</param>
@@ -214,10 +214,11 @@ public interface IHybridCache
     /// <param name="localExpiry">The expiration time for the local cache entry. If not specified, the default local expiration time is used.</param>
     /// <param name="redisExpiry">The expiration time for the redis cache entry. If not specified, the default distributed expiration time is used.</param>
     /// <param name="fireAndForget">The fire and forget flags to use for this operation.</param>
+    /// <param name="localCacheEnable">if method can get from Redis then set local memory or not?</param>
     /// <typeparam name="T">The 1st type parameter.</typeparam>
     [Obsolete("Please use 'Flags.FireAndForget' instead of 'fireAndForget'")]
     Task<T> GetAsync<T>(string cacheKey, Func<string, Task<T>> dataRetriever, TimeSpan? localExpiry,
-        TimeSpan? redisExpiry, bool fireAndForget);
+        TimeSpan? redisExpiry, bool fireAndForget, bool localCacheEnable);
 
 
     /// <summary>
@@ -229,19 +230,21 @@ public interface IHybridCache
     /// <param name="localExpiry">The expiration time for the local cache entry. If not specified, the default local expiration time is used.</param>
     /// <param name="redisExpiry">The expiration time for the redis cache entry. If not specified, the default distributed expiration time is used.</param>
     /// <param name="flags">The flags to use for this operation.</param>
+    /// <param name="localCacheEnable">if method can get from Redis then set local memory or not?</param>
     /// <typeparam name="T">The 1st type parameter.</typeparam>
     Task<T> GetAsync<T>(string cacheKey, Func<string, Task<T>> dataRetriever, TimeSpan? localExpiry = null,
-        TimeSpan? redisExpiry = null, Flags flags = Flags.PreferMaster);
+        TimeSpan? redisExpiry = null, Flags flags = Flags.PreferMaster, bool localCacheEnable = true);
 
     /// <summary>
-    /// Asynchronously get the specified cacheKey, dataRetriever and expiration.
+    /// Asynchronously get the specified cacheKey, dataRetriever, and expiration.
     /// </summary>
     /// <returns>The get.</returns>
     /// <param name="cacheKey">Cache key.</param>
     /// <param name="dataRetriever">Data retriever.</param>
     /// <param name="cacheEntry">Parameters of caching an entry like expiration</param>
+    /// <param name="localCacheEnable">if method can get from Redis then set local memory or not?</param>
     /// <typeparam name="T">The 1st type parameter.</typeparam>
-    Task<T> GetAsync<T>(string cacheKey, Func<string, Task<T>> dataRetriever, HybridCacheEntry cacheEntry);
+    Task<T> GetAsync<T>(string cacheKey, Func<string, Task<T>> dataRetriever, HybridCacheEntry cacheEntry, bool localCacheEnable);
 
     /// <summary>
     /// Try gets a cached value with the specified key.

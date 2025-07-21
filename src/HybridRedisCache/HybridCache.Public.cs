@@ -325,11 +325,12 @@ public partial class HybridCache
 
     public T Get<T>(string key, Func<string, T> dataRetriever, HybridCacheEntry cacheEntry)
     {
-        return Get(key, dataRetriever, cacheEntry.LocalExpiry, cacheEntry.RedisExpiry, cacheEntry.Flags);
+        return Get(key, dataRetriever, cacheEntry.LocalExpiry, cacheEntry.RedisExpiry, cacheEntry.Flags,
+            cacheEntry.LocalCacheEnable);
     }
 
     public T Get<T>(string key, Func<string, T> dataRetriever, TimeSpan? localExpiry = null,
-        TimeSpan? redisExpiry = null, Flags flags = Flags.PreferMaster)
+        TimeSpan? redisExpiry = null, Flags flags = Flags.PreferMaster, bool localCacheEnable = true)
     {
         if (TryGetValue(key, out T value)) return value;
 
@@ -343,7 +344,7 @@ public partial class HybridCache
             value = dataRetriever(key);
             if (value is not null)
             {
-                Set(key, value, localExpiry, redisExpiry, flags);
+                Set(key, value, localExpiry, redisExpiry, flags, localCacheEnable: localCacheEnable);
                 activity?.SetRetrievalStrategyActivity(RetrievalStrategy.DataRetrieverExecution);
                 activity?.SetCacheHitActivity(CacheResultType.Miss, cacheKey);
                 return value;
@@ -402,14 +403,15 @@ public partial class HybridCache
     }
 
     public Task<T> GetAsync<T>(string key, Func<string, Task<T>> dataRetriever,
-        TimeSpan? localExpiry, TimeSpan? redisExpiry, bool fireAndForget)
+        TimeSpan? localExpiry, TimeSpan? redisExpiry, bool fireAndForget, bool localCacheEnable = true)
     {
         return GetAsync(key, dataRetriever, localExpiry, redisExpiry,
-            fireAndForget ? Flags.FireAndForget : Flags.PreferMaster);
+            fireAndForget ? Flags.FireAndForget : Flags.PreferMaster, localCacheEnable);
     }
 
     public async Task<T> GetAsync<T>(string key, Func<string, Task<T>> dataRetriever,
-        TimeSpan? localExpiry = null, TimeSpan? redisExpiry = null, Flags flags = Flags.PreferMaster)
+        TimeSpan? localExpiry = null, TimeSpan? redisExpiry = null,
+        Flags flags = Flags.PreferMaster, bool localCacheEnable = true)
     {
         var resp = await TryGetValueAsync<T>(key);
         if (resp.success) return resp.value;
@@ -424,7 +426,8 @@ public partial class HybridCache
             var value = await dataRetriever(key).ConfigureAwait(false);
             if (value is not null)
             {
-                await SetAsync(key, value, localExpiry, redisExpiry, flags).ConfigureAwait(false);
+                await SetAsync(key, value, localExpiry, redisExpiry, flags, localCacheEnable: localCacheEnable)
+                    .ConfigureAwait(false);
                 activity?.SetRetrievalStrategyActivity(RetrievalStrategy.DataRetrieverExecution);
                 activity?.SetCacheHitActivity(CacheResultType.Miss, cacheKey);
                 return value;
