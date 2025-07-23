@@ -10,7 +10,7 @@ using Xunit.Abstractions;
 
 namespace HybridRedisCache.Test;
 
-// [Collection("Sequential")] // run tests in order
+[Collection("Sequential")] // run tests in order
 public abstract class BaseCacheTest : IAsyncLifetime
 {
     private HybridCache _cache;
