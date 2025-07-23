@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
@@ -51,7 +50,7 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         const string value = "cache value";
 
         // Act
-        await Cache.SetAsync(key, value, TimeSpan.FromMilliseconds(1), TimeSpan.FromSeconds(10), false);
+        await Cache.SetAsync(key, value, TimeSpan.FromMilliseconds(1), TimeSpan.FromSeconds(10));
         await Task.Delay(100);
         var result = await Cache.GetAsync<string>(key);
 
@@ -67,7 +66,7 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         var value = 12345679.5;
 
         // Act
-        await Cache.SetAsync(key, value, TimeSpan.FromTicks(1), TimeSpan.FromSeconds(600), false);
+        await Cache.SetAsync(key, value, TimeSpan.FromTicks(1), TimeSpan.FromSeconds(600));
         await Task.Delay(100);
         var result = await Cache.GetAsync<double>(key);
 
@@ -174,7 +173,7 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
 
         // Act
         await Cache.SetAsync(key, value, TimeSpan.FromSeconds(localExpiry),
-            TimeSpan.FromSeconds(redisExpiry), fireAndForget: false);
+            TimeSpan.FromSeconds(redisExpiry));
         await Task.Delay(redisExpiry * 1050);
         var result = await Cache.GetAsync<string>(key);
 
@@ -183,25 +182,35 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
     }
 
     [Theory]
+    [InlineData(1000, 3000)]
     [InlineData(1000, 1700)]
+    [InlineData(1000, 100)]
     [InlineData(100, 100)]
     [InlineData(200, 100)]
     [InlineData(300, 200)]
     [InlineData(400, 500)]
     [InlineData(500, 800)]
-    public async Task LocalAndRedisValueIsNullAlwaysAfterRedisExpiration(int localExpiry,
-        int redisExpiry)
+    public async Task LocalAndRedisValueIsNullAlwaysAfterRedisExpiration(int localExpiry, int redisExpiry)
     {
         // Arrange
         var key = UniqueKey;
         const string value = "Value";
+        var localExp = TimeSpan.FromMilliseconds(localExpiry);
+        var redisExp = TimeSpan.FromMilliseconds(redisExpiry);
 
         // Act
-        await Cache.SetAsync(key, value,
-            TimeSpan.FromMilliseconds(localExpiry),
-            TimeSpan.FromMilliseconds(redisExpiry));
+        await Cache.SetAsync(key, value, localExp, redisExp,
+            localCacheEnable: true, redisCacheEnable: true);
 
-        await Task.Delay(redisExpiry + 30); // wait for redis expiration
+        var exp = await Cache.GetExpirationAsync(key);
+        var delay = Stopwatch.StartNew();
+        await Task.Delay(redisExpiry + 20); // wait for redis expiration
+        delay.Stop();
+        var exp2 = await Cache.GetExpirationAsync(key);
+        testOutputHelper.WriteLine($"Exp1: {exp?.TotalMilliseconds}, " +
+                                   $"Delay: {delay.Elapsed.TotalMilliseconds}" +
+                                   $"Exp2: {exp2?.TotalMilliseconds}, ");
+
         var valueAfterRedisExpiration = await Cache.GetAsync<string>(key);
 
         // Assert
@@ -217,7 +226,7 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         var expiryTimeMin = 2;
 
         // Act
-        await Cache.SetAsync(key, value, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(expiryTimeMin), false);
+        await Cache.SetAsync(key, value, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(expiryTimeMin));
         var expiration = await Cache.GetExpirationAsync(key);
 
         // Assert
@@ -233,7 +242,7 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         var expiryTimeMin = 2;
 
         // Act
-        Cache.Set(key, value, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(expiryTimeMin), false);
+        Cache.Set(key, value, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(expiryTimeMin));
         var expiration = Cache.GetExpiration(key);
 
         // Assert
@@ -273,7 +282,6 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         Assert.Equal(obj.Age, value.Age);
     }
 
-    
 
     [Fact]
     public void TestMultiThreadedCacheOperations()
@@ -288,6 +296,7 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
                 var threadKey = UniqueKey;
                 var threadValue = "test_threading_value";
 
+                // ReSharper disable AccessToDisposedClosure
                 // perform cache operations on the cache instance
                 Cache.Set(threadKey, threadValue);
                 Thread.Sleep(10);
@@ -334,7 +343,7 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         var retrievedObject = Cache.Get<IComplexObject>(key);
 
         // Assert
-        // verify that the retrieved object is equal to the original object
+        // verifying that the retrieved object is equal to the original object
         Assert.Equal(complexValue.Name, retrievedObject.Name);
         Assert.Equal(complexValue.Age, retrievedObject.Age);
         Assert.Equal(complexValue.Address.Street, retrievedObject.Address.Street);
@@ -364,12 +373,12 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         };
 
         // Act
-        await Cache.SetAsync(key, complexValue, TimeSpan.FromTicks(1), TimeSpan.FromSeconds(60), false);
+        await Cache.SetAsync(key, complexValue, TimeSpan.FromTicks(1), TimeSpan.FromSeconds(60));
         await Task.Delay(100);
         var retrievedObject = Cache.Get<IComplexObject>(key);
 
         // Assert
-        // verify that the retrieved object is equal to the original object
+        // verifying that the retrieved object is equal to the original object
         Assert.Equal(complexValue.Name, retrievedObject.Name);
         Assert.Equal(complexValue.Age, retrievedObject.Age);
         Assert.Equal(complexValue.Address.Street, retrievedObject.Address.Street);
@@ -402,7 +411,7 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
 
         async Task GetSetTask(string value)
         {
-            // wait for the initial value to be set by another thread
+            // wait for another thread to set the initial value
             try
             {
                 await locker.WaitAsync();
@@ -771,7 +780,7 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
 
         await foreach (var key in Cache.KeysAsync(keyPattern + "*"))
         {
-            // Search with pattern
+            // Search with a pattern
             foundKeys.Add(key);
         }
 
@@ -802,7 +811,7 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
 
         await foreach (var key in Cache.KeysAsync("*" + string.Format(keyPattern, "*"))) // "*keyPattern_*_X"
         {
-            // Search with pattern
+            // Search with a pattern
             foundKeys.Add(key);
         }
 
@@ -901,31 +910,32 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
     }
 
     [Fact]
-    public async Task TestLocalExpirationAfterSecondRecacheFromRedisWithNewExpiry()
+    public async Task ExpireLocalCacheAfterSecondSetFromRedisWithNewExpiryTest()
     {
         var key = UniqueKey;
         const int value = 1213;
         var localExpire = TimeSpan.FromSeconds(1);
-        var nearToRedisExpire = TimeSpan.FromSeconds(3);
-        var redisExpire = TimeSpan.FromSeconds(4);
+        var nearToRedisExpire = localExpire * 2; // 2sec
+        var redisExpire = nearToRedisExpire * 2; // 4sec
 
         // act
-        await Cache.SetAsync(key, value, localExpire, redisExpire, false);
+        await Cache.SetAsync(key, value, localExpire, redisExpire);
 
-        // wait 3sec to near to redis expiry time (local cache expired)
+        // wait 3 sec to near to redis expiry time (local cache expired)
         await Task.Delay(nearToRedisExpire);
 
         // fetch redis value and update local cache with new expiration time
-        var isSuccess = Cache.TryGetValue(key, out int _);
+        var canFetchRedisValue = Cache.TryGetValue(key, out int fetchedValue);
 
-        // Wait 1 second to make sure that Redis has also expired and
+        // Wait 1.5 second to make sure that Redis has also expired and
         // the local cache should not be alive.
-        await Task.Delay(localExpire);
-        var isFailed = Cache.TryGetValue(key, out int _);
+        await Task.Delay(nearToRedisExpire.Add(TimeSpan.FromMilliseconds(500)));
+        var canFetchLocalValue = Cache.TryGetValue(key, out int _);
 
         // assert
-        Assert.True(isSuccess);
-        Assert.False(isFailed);
+        Assert.Equal(value, fetchedValue);
+        Assert.True(canFetchRedisValue);
+        Assert.False(canFetchLocalValue);
     }
 
     [Fact]
@@ -944,7 +954,7 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         // act
         await Cache.SetAsync(key, value, entry);
 
-        // wait 1sec 
+        // wait 1 sec 
         await Task.Delay(TimeSpan.FromSeconds(1));
         var isSuccess = Cache.TryGetValue(key, out int _);
 
@@ -1268,7 +1278,7 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         // Act
         var locked = await Cache.TryLockKeyAsync(key, uniqueToken, expiry);
         var lockedTwice = await Cache.TryLockKeyAsync(key, uniqueToken, expiry);
-        await Task.Delay(expiry.Add(TimeSpan.FromMilliseconds(50))); // wait until lock expired
+        await Task.Delay(expiry.Add(TimeSpan.FromMilliseconds(50))); // wait until the lock expired
         var lockedExpiredKey = await Cache.TryLockKeyAsync(key, uniqueToken, expiry);
 
         // Assert
@@ -1300,18 +1310,18 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         await Cache.ClearAllAsync();
 
         // Act
-        // Lock an exist key and token is not possible
+        // Lock an existed key and token is not possible
         // Set a locked key with difference or same value is possible
 
         await Cache.SetAsync(locksKey, token1, options); // set a value with the same lock key
         var lockExistKey = await Cache.TryLockKeyAsync(key, token1, expiry); // False
         var valueOnLocking = await Cache.GetAsync<string>(locksKey); // get token1
-        await Task.Delay(expiryPlus1); // wait until lock expired
+        await Task.Delay(expiryPlus1); // wait until the lock expired
         var expiredValue = await Cache.GetAsync<string>(locksKey); // get null
         var lockAfterExpire = await Cache.TryLockKeyAsync(key, token2, expiry); // try lock key with token2
         var valueOfToken2 = await Cache.GetAsync<string>(locksKey); // the locked key changed first value
         var setNewValueWithSameKey = await Cache.SetAsync(locksKey, token3, expiry, expiry);
-        var lastValue = await Cache.GetAsync<string>(locksKey); // last value is token3 
+        var lastValue = await Cache.GetAsync<string>(locksKey); // the last value is token3 
         var lockAfterChangedToken = await Cache.TryLockKeyAsync(key, token2, expiry); // try lock key with token2
 
         // Assert
@@ -1523,7 +1533,7 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         // Arrange
         var clearSignalReceived = false;
         var semaphore = new SemaphoreSlim(0);
-        Cache.OnRedisBusMessage += (key, type) =>
+        Cache.OnRedisBusMessage += (_, type) =>
         {
             if (type == MessageType.ClearLocalCache)
             {
@@ -1539,5 +1549,4 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         // Assert
         Assert.True(clearSignalReceived);
     }
-
 }
