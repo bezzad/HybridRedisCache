@@ -5,23 +5,23 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Testcontainers.Redis;
+using Testcontainers.Xunit;
 using Xunit;
 using Xunit.Abstractions;
 
 namespace HybridRedisCache.Test;
 
 // [Collection("Sequential")] // run tests in order
-public abstract class BaseCacheTest : IAsyncLifetime
+public abstract class BaseCacheTest : ContainerTest<RedisBuilder, RedisContainer>, IAsyncDisposable
 {
     private HybridCache _cache;
     private static ILoggerFactory _loggerFactory;
     protected readonly ITestOutputHelper TestOutputHelper;
-    private RedisContainer _redisContainer;
     protected static string UniqueKey => Guid.NewGuid().ToString("N");
     protected HybridCachingOptions Options => new()
     {
         InstancesSharedName = "xunit-tests",
-        RedisConnectionString = _redisContainer.GetConnectionString(), 
+        RedisConnectionString = Container.GetConnectionString(), 
         ThrowIfDistributedCacheError = true,
         AbortOnConnectFail = false,
         ConnectRetry = 3,
@@ -39,7 +39,7 @@ public abstract class BaseCacheTest : IAsyncLifetime
     // Lazy Cache: options change inner methods and after that create Cache with first call
     protected HybridCache Cache => _cache ??= new HybridCache(Options, _loggerFactory);
 
-    protected BaseCacheTest(ITestOutputHelper testOutputHelper)
+    protected BaseCacheTest(ITestOutputHelper testOutputHelper) : base(testOutputHelper)
     {
         TestOutputHelper = testOutputHelper;
         // Create an ILoggerFactory that logs to the ITestOutputHelper
@@ -47,6 +47,18 @@ public abstract class BaseCacheTest : IAsyncLifetime
         {
             builder.AddProvider(new TestOutputLoggerProvider(testOutputHelper));
         });
+    }
+    
+    protected override RedisBuilder Configure(RedisBuilder builder)
+    {
+        // Configure Redis container instance here.
+        return builder.WithImage("redis:latest")
+            // .WithName("HybridRedisCacheContainer")
+            // .WithAutoRemove(false)
+            // .WithPortBinding(6379)
+            // .WithCleanUp(false)
+            .WithReuse(true)
+            .WithLogger(_loggerFactory.CreateLogger("RedisTestContainer"));
     }
     
     protected async Task AssertKeysAreRemoved(Dictionary<string, string> keyValues)
@@ -113,23 +125,8 @@ public abstract class BaseCacheTest : IAsyncLifetime
         return keyValues;
     }
     
-    public async Task DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
-        if (_redisContainer != null) await _redisContainer.DisposeAsync();
         if (_cache != null) await _cache.DisposeAsync();
-    }
-    
-    public async Task InitializeAsync()
-    {
-        _redisContainer = new RedisBuilder()
-            // .WithName("HybridRedisCacheContainer")
-            // .WithReuse(true)
-            // .WithPortBinding("6379")
-            .WithAutoRemove(true)
-            .WithLogger(_loggerFactory.CreateLogger("RedisTestContainer"))
-            .WithImage("redis:latest")
-            .Build();
-
-        await _redisContainer.StartAsync();
     }
 }

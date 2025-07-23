@@ -206,7 +206,7 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         await Task.Delay(redisExpiry + 20); // wait for redis expiration
         delay.Stop();
         var exp2 = await Cache.GetExpirationAsync(key);
-        testOutputHelper.WriteLine($"Exp1: {exp?.TotalMilliseconds}, " +
+        TestOutputHelper.WriteLine($"Exp1: {exp?.TotalMilliseconds}, " +
                                    $"Delay: {delay.Elapsed.TotalMilliseconds}" +
                                    $"Exp2: {exp2?.TotalMilliseconds}, ");
 
