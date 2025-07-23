@@ -57,7 +57,7 @@ public abstract class BaseCacheTest : ContainerTest<RedisBuilder, RedisContainer
             // .WithAutoRemove(false)
             // .WithPortBinding(6379)
             // .WithCleanUp(false)
-            .WithReuse(true)
+            // .WithReuse(true)
             .WithLogger(_loggerFactory.CreateLogger("RedisTestContainer"));
     }
     
