@@ -6,7 +6,6 @@ using Xunit.Abstractions;
 
 namespace HybridRedisCache.Test;
 
-[Collection("Sequential")]
 public class IntegrationTests(ITestOutputHelper testOutputHelper) : BaseCacheTest(testOutputHelper)
 {
     [Theory(Timeout = 1000_000)]

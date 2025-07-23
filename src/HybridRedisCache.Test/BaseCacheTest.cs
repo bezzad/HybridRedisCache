@@ -4,22 +4,24 @@ using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using Testcontainers.Redis;
 using Xunit;
 using Xunit.Abstractions;
 
 namespace HybridRedisCache.Test;
 
-[Collection("Sequential")] // run tests in order
-public abstract class BaseCacheTest : IDisposable
+// [Collection("Sequential")] // run tests in order
+public abstract class BaseCacheTest : IAsyncLifetime
 {
     private HybridCache _cache;
     private static ILoggerFactory _loggerFactory;
     protected readonly ITestOutputHelper TestOutputHelper;
+    private RedisContainer _redisContainer;
     protected static string UniqueKey => Guid.NewGuid().ToString("N");
-    protected readonly HybridCachingOptions Options = new()
+    protected HybridCachingOptions Options => new()
     {
         InstancesSharedName = "xunit-tests",
-        RedisConnectionString = "localhost:6379,allowAdmin=true", // STAGE "172.23.44.61:6379", 
+        RedisConnectionString = _redisContainer.GetConnectionString(), 
         ThrowIfDistributedCacheError = true,
         AbortOnConnectFail = false,
         ConnectRetry = 3,
@@ -41,7 +43,7 @@ public abstract class BaseCacheTest : IDisposable
     {
         TestOutputHelper = testOutputHelper;
         // Create an ILoggerFactory that logs to the ITestOutputHelper
-        _loggerFactory = Microsoft.Extensions.Logging.LoggerFactory.Create(builder =>
+        _loggerFactory = LoggerFactory.Create(builder =>
         {
             builder.AddProvider(new TestOutputLoggerProvider(testOutputHelper));
         });
@@ -110,9 +112,24 @@ public abstract class BaseCacheTest : IDisposable
 
         return keyValues;
     }
-
-    public void Dispose()
+    
+    public async Task DisposeAsync()
     {
-        Cache.Dispose();
+        if (_redisContainer != null) await _redisContainer.DisposeAsync();
+        if (_cache != null) await _cache.DisposeAsync();
+    }
+    
+    public async Task InitializeAsync()
+    {
+        _redisContainer = new RedisBuilder()
+            // .WithName("HybridRedisCacheContainer")
+            // .WithReuse(true)
+            // .WithPortBinding("6379")
+            .WithAutoRemove(true)
+            .WithLogger(_loggerFactory.CreateLogger("RedisTestContainer"))
+            .WithImage("redis:latest")
+            .Build();
+
+        await _redisContainer.StartAsync();
     }
 }

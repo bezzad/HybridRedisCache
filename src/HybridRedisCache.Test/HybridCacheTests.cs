@@ -10,7 +10,6 @@ using Xunit.Abstractions;
 
 namespace HybridRedisCache.Test;
 
-[Collection("Sequential")]
 public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTest(testOutputHelper)
 {
     [Theory]
