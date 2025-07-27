@@ -14,20 +14,20 @@ namespace HybridRedisCache.Benchmark;
 [CategoriesColumn]
 public class BenchmarkManager
 {
-    ConnectionMultiplexer _redisConnection;
-    IMemoryCache _memCache;
-    IRedisCacheService _redisCache;
-    EasyHybridCache _easyHybridCache;
-    HybridCache _hybridCache;
+    private ConnectionMultiplexer _redisConnection;
+    private IMemoryCache _memCache;
+    private IRedisCacheService _redisCache;
+    private EasyHybridCache _easyHybridCache;
+    private HybridCache _hybridCache;
 
-    const int redisPort = 6379;
-    const string redisIP = "127.0.0.1"; // "172.23.44.11"   "127.0.0.1" 
-    const string KeyPrefix = "test_";
-    const int ExpireDurationSecond = 3600;
-    static SampleModel[] _data;
-    static Lazy<SampleModel> _singleModel = new Lazy<SampleModel>(() => _data[0], true);
-    static Lazy<SampleModel> _singleWorseModel = new Lazy<SampleModel>(() => _data[1], true);
-    static string GenerateUniqueKey => KeyPrefix + Guid.NewGuid().ToString("N");
+    private const int RedisPort = 6379;
+    private const string RedisIp = "127.0.0.1"; // "172.23.44.11"   "127.0.0.1" 
+    private const string KeyPrefix = "test_";
+    private const int ExpireDurationSecond = 3600;
+    private static SampleModel[] _data;
+    private static readonly Lazy<SampleModel> SingleModel = new(() => _data[0], true);
+    private static readonly Lazy<SampleModel> SingleWorseModel = new(() => _data[1], true);
+    private static string GenerateUniqueKey => KeyPrefix + Guid.NewGuid().ToString("N");
 
     //[Params(1, 10, 100)]
     public int RepeatCount { get; set; } = 1;
@@ -36,17 +36,17 @@ public class BenchmarkManager
     public void GlobalSetup()
     {
         // Write your initialization code here
-        _redisConnection = ConnectionMultiplexer.Connect($"{redisIP}:{redisPort}");
+        _redisConnection = ConnectionMultiplexer.Connect($"{RedisIp}:{RedisPort}");
         _redisCache = new RedisCacheService(_redisConnection);
         _memCache = new MemoryCache(new MemoryCacheOptions());
-        _easyHybridCache = new EasyHybridCache(redisIP, redisPort);
+        _easyHybridCache = new EasyHybridCache(RedisIp, RedisPort);
         _data ??= Enumerable.Range(0, 10000).Select(_ => SampleModel.Factory()).ToArray();
         _hybridCache = new HybridCache(new HybridCachingOptions()
         {
             InstancesSharedName = nameof(BenchmarkManager),
             DefaultDistributedExpirationTime = TimeSpan.FromMinutes(200),
             DefaultLocalExpirationTime = TimeSpan.FromMinutes(200),
-            RedisConnectionString = $"{redisIP}:{redisPort},allowAdmin=true,keepAlive=500",
+            RedisConnectionString = $"{RedisIp}:{RedisPort},allowAdmin=true,keepAlive=500",
             ThrowIfDistributedCacheError = false,
             ConnectRetry = 0
         });
@@ -130,7 +130,7 @@ public class BenchmarkManager
     {
         // write cache
         for (var i = 0; i < RepeatCount; i++)
-            _hybridCache.Set(KeyPrefix + GenerateUniqueKey, _data[i], TimeSpan.FromSeconds(ExpireDurationSecond), TimeSpan.FromSeconds(ExpireDurationSecond), fireAndForget: true);
+            _hybridCache.Set(KeyPrefix + GenerateUniqueKey, _data[i], TimeSpan.FromSeconds(ExpireDurationSecond), TimeSpan.FromSeconds(ExpireDurationSecond), Flags.FireAndForget);
     }
 
     [BenchmarkCategory("Write"), Benchmark]
@@ -138,7 +138,7 @@ public class BenchmarkManager
     {
         // write cache
         for (var i = 0; i < RepeatCount; i++)
-            await _hybridCache.SetAsync(KeyPrefix + GenerateUniqueKey, _data[i], TimeSpan.FromSeconds(ExpireDurationSecond), TimeSpan.FromSeconds(ExpireDurationSecond), fireAndForget: true);
+            await _hybridCache.SetAsync(KeyPrefix + GenerateUniqueKey, _data[i], TimeSpan.FromSeconds(ExpireDurationSecond), TimeSpan.FromSeconds(ExpireDurationSecond), Flags.FireAndForget);
     }
 
     [BenchmarkCategory("Read"), Benchmark]
@@ -147,12 +147,12 @@ public class BenchmarkManager
         var key = GenerateUniqueKey;
 
         // write single cache
-        _memCache.Set(key, _singleModel.Value, DateTimeOffset.Now.AddSeconds(ExpireDurationSecond));
+        _memCache.Set(key, SingleModel.Value, DateTimeOffset.Now.AddSeconds(ExpireDurationSecond));
 
         // read cache
         for (var i = 0; i < RepeatCount; i++)
             if (_memCache.TryGetValue(key, out string value))
-                ThrowIfIsNotMatch(JsonSerializer.Deserialize<SampleModel>(value), _singleModel.Value);
+                ThrowIfIsNotMatch(JsonSerializer.Deserialize<SampleModel>(value), SingleModel.Value);
     }
 
     [BenchmarkCategory("Read"), Benchmark]
@@ -161,14 +161,14 @@ public class BenchmarkManager
         var key = GenerateUniqueKey;
 
         // write single cache
-        _memCache.Set(key, JsonSerializer.Serialize(_singleModel.Value), DateTimeOffset.Now.AddSeconds(ExpireDurationSecond));
+        _memCache.Set(key, JsonSerializer.Serialize(SingleModel.Value), DateTimeOffset.Now.AddSeconds(ExpireDurationSecond));
 
         // read cache
         for (var i = 0; i < RepeatCount; i++)
         {
             // don't generate correct data when couldn't find, because its already wrote!
-            var value = await _memCache.GetOrCreateAsync(key, _ => Task.FromResult(JsonSerializer.Serialize(_singleWorseModel.Value)));
-            ThrowIfIsNotMatch(JsonSerializer.Deserialize<SampleModel>(value), _singleModel.Value);
+            var value = await _memCache.GetOrCreateAsync(key, _ => Task.FromResult(JsonSerializer.Serialize(SingleWorseModel.Value)));
+            ThrowIfIsNotMatch(JsonSerializer.Deserialize<SampleModel>(value), SingleModel.Value);
         }
     }
 
@@ -178,12 +178,12 @@ public class BenchmarkManager
         var key = GenerateUniqueKey;
 
         // write single cache
-        _redisCache.AddOrUpdate(key, _singleModel.Value, DateTimeOffset.Now.AddSeconds(ExpireDurationSecond));
+        _redisCache.AddOrUpdate(key, SingleModel.Value, DateTimeOffset.Now.AddSeconds(ExpireDurationSecond));
 
         // read cache
         for (var i = 0; i < RepeatCount; i++)
             if (_redisCache.TryGetValue(key, out SampleModel value))
-                ThrowIfIsNotMatch(value, _singleModel.Value);
+                ThrowIfIsNotMatch(value, SingleModel.Value);
     }
 
     [BenchmarkCategory("Read"), Benchmark]
@@ -192,14 +192,14 @@ public class BenchmarkManager
         var key = GenerateUniqueKey;
 
         // write single cache
-        await _redisCache.AddOrUpdateAsync(key, _singleModel.Value, DateTimeOffset.Now.AddSeconds(ExpireDurationSecond));
+        await _redisCache.AddOrUpdateAsync(key, SingleModel.Value, DateTimeOffset.Now.AddSeconds(ExpireDurationSecond));
 
         // read cache
         for (var i = 0; i < RepeatCount; i++)
         {
             // don't generate correct data when couldn't find, because its already wrote!
-            var value = await _redisCache.GetAsync(key, () => Task.FromResult(_singleWorseModel.Value), ExpireDurationSecond);
-            ThrowIfIsNotMatch(value, _singleModel.Value);
+            var value = await _redisCache.GetAsync(key, () => Task.FromResult(SingleWorseModel.Value), ExpireDurationSecond);
+            ThrowIfIsNotMatch(value, SingleModel.Value);
         }
     }
 
@@ -209,7 +209,7 @@ public class BenchmarkManager
         var key = GenerateUniqueKey;
 
         // write single cache
-        _easyHybridCache.Set(key, _singleModel.Value, TimeSpan.FromSeconds(ExpireDurationSecond));
+        _easyHybridCache.Set(key, SingleModel.Value, TimeSpan.FromSeconds(ExpireDurationSecond));
 
         // read cache
         for (var i = 0; i < RepeatCount; i++)
@@ -227,7 +227,7 @@ public class BenchmarkManager
         var key = GenerateUniqueKey;
 
         // write single cache
-        await _easyHybridCache.SetAsync(key, _singleModel.Value, TimeSpan.FromSeconds(ExpireDurationSecond));
+        await _easyHybridCache.SetAsync(key, SingleModel.Value, TimeSpan.FromSeconds(ExpireDurationSecond));
 
         // read cache
         for (var i = 0; i < RepeatCount; i++)
@@ -245,7 +245,7 @@ public class BenchmarkManager
         var key = GenerateUniqueKey;
 
         // write single cache
-        _hybridCache.Set(key, _singleModel.Value, TimeSpan.FromSeconds(ExpireDurationSecond));
+        _hybridCache.Set(key, SingleModel.Value, TimeSpan.FromSeconds(ExpireDurationSecond));
 
         // read cache
         for (var i = 0; i < RepeatCount; i++)
@@ -263,7 +263,7 @@ public class BenchmarkManager
         var key = GenerateUniqueKey;
 
         // write single cache
-        await _hybridCache.SetAsync(key, _singleModel.Value, TimeSpan.FromSeconds(ExpireDurationSecond));
+        await _hybridCache.SetAsync(key, SingleModel.Value, TimeSpan.FromSeconds(ExpireDurationSecond));
 
         // read cache
         for (var i = 0; i < RepeatCount; i++)

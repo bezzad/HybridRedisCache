@@ -21,6 +21,8 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
     private IMemoryCache _recentlySetKeys;
     private int _reconfigureAttemptCount;
     private readonly TimeSpan _timeWindow = TimeSpan.FromSeconds(5); // Expiration time window
+    private const string LocalCacheValuePrefix = "#__LEXP__"; // to keep local expiration time in redis value
+    private const char LocalCacheValuePostfix = '$'; // to keep local expiration time in redis value
     internal const string LockKeyPrefix = "lock/";
 
     /// <summary>
@@ -187,16 +189,23 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
 
     private async void OnConnectionFailed(object sender, ConnectionFailedEventArgs e)
     {
-        LogMessage($"Redis connection failed ({e.FailureType}) at {e.EndPoint}. ", e.Exception);
+        try
+        {
+            LogMessage($"Redis connection failed ({e.FailureType}) at {e.EndPoint}. ", e.Exception);
 
-        // ignore error handling if the user doesn't want to reconfigure connection
-        if (!_options.ReconfigureOnConnectFail)
-            return;
+            // ignore error handling if the user doesn't want to reconfigure connection
+            if (!_options.ReconfigureOnConnectFail)
+                return;
 
-        await TryConnectAsync().ConfigureAwait(false);
+            await TryConnectAsync().ConfigureAwait(false);
 
-        if (_connection?.IsConnected == true)
-            OnReconnect(sender, e);
+            if (_connection?.IsConnected == true)
+                OnReconnect(sender, e);
+        }
+        catch (Exception exp)
+        {
+            LogMessage(exp.Message, exp);
+        }
     }
 
     private void OnReconnect(object sender, ConnectionFailedEventArgs e)
@@ -356,7 +365,7 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
         return new RedisChannel(_keySpaceChannelName + cacheKey, patternMode);
     }
 
-    private bool SetLocalMemory<T>(string cacheKey, T value, TimeSpan? localExpiry, Condition when)
+    private bool SetLocalMemory<T>(string cacheKey, T value, TimeSpan? localExpiry, Condition when, bool keepAsRecentSets = true)
     {
         if (when != Condition.Always)
         {
@@ -367,7 +376,10 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
         }
 
         _memoryCache.Set(cacheKey, value, localExpiry ?? _options.DefaultLocalExpirationTime);
-        KeepRecentSetKey(cacheKey);
+        
+        if (keepAsRecentSets)
+            KeepRecentSetKey(cacheKey);
+        
         return true;
     }
 
@@ -379,21 +391,48 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
             localExpiry = redisExpiry;
     }
 
-    private bool TryUpdateLocalCache<T>(string cacheKey, RedisValueWithExpiry redisValue, TimeSpan? localExpiry,
-        out T value)
+    private string SerializeWithExpiryPrefix(object value, TimeSpan? expiry = null)
+    {
+        var json = value.Serialize();
+
+        if (expiry is null)
+            return json;
+
+        return LocalCacheValuePrefix + expiry.Value.Ticks + LocalCacheValuePostfix + json;
+    }
+
+    private bool TryUpdateLocalCache<T>(string cacheKey, RedisValueWithExpiry redisValue, bool localCacheEnable, out T value)
     {
         value = default;
         if (!redisValue.Expiry.HasValue) return false;
-        value = redisValue.Value.ToString().Deserialize<T>();
-        if (value is null) return false;
 
-        localExpiry ??= _options.DefaultLocalExpirationTime;
-        if (localExpiry > redisValue.Expiry.Value)
-            localExpiry = redisValue.Expiry.Value;
+        var localExpiry = TimeSpan.Zero;
+        var text = redisValue.Value.ToString();
+        if (string.IsNullOrEmpty(text)) return false;
 
-        if (localExpiry.Value <= TimeSpan.Zero) return false;
+        if (text.StartsWith(LocalCacheValuePrefix)) // should be cached in local memory
+        {
+            var indexOfPostfix = text.IndexOf(LocalCacheValuePostfix, LocalCacheValuePrefix.Length);
+            if (indexOfPostfix > LocalCacheValuePrefix.Length)
+            {
+                var expiry = text.Substring(LocalCacheValuePrefix.Length,
+                    indexOfPostfix - LocalCacheValuePrefix.Length);
+                text = text.Substring(indexOfPostfix + 1); // delete prefix value of local cache
 
-        SetLocalMemory(cacheKey, value, localExpiry.Value, Condition.Always);
+                localExpiry = long.TryParse(expiry, out var longTime)
+                    ? new TimeSpan(longTime)
+                    : _options.DefaultLocalExpirationTime;
+
+                if (localExpiry > redisValue.Expiry.Value)
+                    localExpiry = redisValue.Expiry.Value;
+            }
+        }
+
+        value = text.Deserialize<T>();
+
+        if (localExpiry > TimeSpan.Zero && localCacheEnable)
+            SetLocalMemory(cacheKey, value, localExpiry, Condition.Always, false);
+
         return true;
     }
 

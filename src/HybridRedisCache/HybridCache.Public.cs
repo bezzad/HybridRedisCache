@@ -58,11 +58,6 @@ public partial class HybridCache
         return _memoryCache.TryGetValue(cacheKey, out var _);
     }
 
-    public bool Set<T>(string key, T value, TimeSpan? localExpiry, TimeSpan? redisExpiry, bool fireAndForget)
-    {
-        return Set(key, value, localExpiry, redisExpiry, fireAndForget ? Flags.FireAndForget : Flags.PreferMaster);
-    }
-
     public bool Set<T>(string key, T value, HybridCacheEntry cacheEntry)
     {
         return Set(key, value, cacheEntry.LocalExpiry, cacheEntry.RedisExpiry,
@@ -84,7 +79,8 @@ public partial class HybridCache
         {
             if (redisCacheEnable)
             {
-                inserted = _redisDb.StringSet(cacheKey, value.Serialize(),
+                var val = SerializeWithExpiryPrefix(value, localCacheEnable ? localExpiry : null);
+                inserted = _redisDb.StringSet(cacheKey, val,
                     keepTtl ? null : redisExpiry,
                     keepTtl, when: (When)when, flags: (CommandFlags)flags);
             }
@@ -110,12 +106,6 @@ public partial class HybridCache
         return inserted;
     }
 
-    public Task<bool> SetAsync<T>(string key, T value, TimeSpan? localExpiry, TimeSpan? redisExpiry, bool fireAndForget)
-    {
-        return SetAsync(key, value, localExpiry, redisExpiry,
-            flags: fireAndForget ? Flags.FireAndForget : Flags.PreferMaster);
-    }
-
     public Task<bool> SetAsync<T>(string key, T value, HybridCacheEntry cacheEntry)
     {
         return SetAsync(key, value, cacheEntry.LocalExpiry, cacheEntry.RedisExpiry,
@@ -137,7 +127,8 @@ public partial class HybridCache
         {
             if (redisCacheEnable)
             {
-                inserted = await _redisDb.StringSetAsync(cacheKey, value.Serialize(),
+                var val = SerializeWithExpiryPrefix(value, localCacheEnable ? localExpiry : null);
+                inserted = await _redisDb.StringSetAsync(cacheKey, val,
                     keepTtl ? null : redisExpiry,
                     keepTtl, when: (When)when, flags: (CommandFlags)flags).ConfigureAwait(false);
             }
@@ -161,12 +152,6 @@ public partial class HybridCache
             inserted = SetLocalMemory(cacheKey, value, localExpiry, redisCacheEnable ? Condition.Always : when);
 
         return inserted;
-    }
-
-    public bool SetAll<T>(IDictionary<string, T> value, TimeSpan? localExpiry, TimeSpan? redisExpiry,
-        bool fireAndForget)
-    {
-        return SetAll(value, localExpiry, redisExpiry, flags: fireAndForget ? Flags.FireAndForget : Flags.PreferMaster);
     }
 
     public bool SetAll<T>(IDictionary<string, T> value, HybridCacheEntry cacheEntry)
@@ -194,7 +179,8 @@ public partial class HybridCache
             {
                 if (redisCacheEnable)
                 {
-                    inserted = _redisDb.StringSet(cacheKey, kvp.Value.Serialize(),
+                    var val = SerializeWithExpiryPrefix(kvp.Value, localCacheEnable ? localExpiry : null);
+                    inserted = _redisDb.StringSet(cacheKey, val,
                         keepTtl ? null : redisExpiry,
                         keepTtl, when: (When)when, flags: (CommandFlags)flags);
                 }
@@ -223,13 +209,6 @@ public partial class HybridCache
         return result;
     }
 
-    public Task<bool> SetAllAsync<T>(IDictionary<string, T> value, TimeSpan? localExpiry, TimeSpan? redisExpiry,
-        bool fireAndForget)
-    {
-        return SetAllAsync(value, localExpiry, redisExpiry,
-            flags: fireAndForget ? Flags.FireAndForget : Flags.PreferMaster);
-    }
-
     public Task<bool> SetAllAsync<T>(IDictionary<string, T> value, HybridCacheEntry cacheEntry)
     {
         return SetAllAsync(value, cacheEntry.LocalExpiry, cacheEntry.RedisExpiry,
@@ -256,7 +235,8 @@ public partial class HybridCache
             {
                 if (redisCacheEnable)
                 {
-                    inserted = await _redisDb.StringSetAsync(cacheKey, kvp.Value.Serialize(),
+                    var val = SerializeWithExpiryPrefix(kvp.Value, localCacheEnable ? localExpiry : null);
+                    inserted = await _redisDb.StringSetAsync(cacheKey, val,
                         keepTtl ? null : redisExpiry,
                         keepTtl, when: (When)when, flags: (CommandFlags)flags).ConfigureAwait(false);
                 }
@@ -285,7 +265,7 @@ public partial class HybridCache
         return result;
     }
 
-    public T Get<T>(string key)
+    public T Get<T>(string key, bool localCacheEnable = true)
     {
         using var activity = PopulateActivity(OperationTypes.GetCache);
         key.NotNullOrWhiteSpace(nameof(key));
@@ -300,7 +280,7 @@ public partial class HybridCache
         try
         {
             var redisValue = _redisDb.StringGetWithExpiry(cacheKey);
-            if (TryUpdateLocalCache(cacheKey, redisValue, null, out value))
+            if (TryUpdateLocalCache(cacheKey, redisValue, localCacheEnable, out value))
             {
                 activity?.SetRetrievalStrategyActivity(RetrievalStrategy.RedisCache);
                 activity?.SetCacheHitActivity(CacheResultType.Hit, cacheKey);
@@ -321,11 +301,12 @@ public partial class HybridCache
 
     public T Get<T>(string key, Func<string, T> dataRetriever, HybridCacheEntry cacheEntry)
     {
-        return Get(key, dataRetriever, cacheEntry.LocalExpiry, cacheEntry.RedisExpiry, cacheEntry.Flags);
+        return Get(key, dataRetriever, cacheEntry.LocalExpiry, cacheEntry.RedisExpiry, cacheEntry.Flags,
+            cacheEntry.LocalCacheEnable);
     }
 
     public T Get<T>(string key, Func<string, T> dataRetriever, TimeSpan? localExpiry = null,
-        TimeSpan? redisExpiry = null, Flags flags = Flags.PreferMaster)
+        TimeSpan? redisExpiry = null, Flags flags = Flags.PreferMaster, bool localCacheEnable = true)
     {
         if (TryGetValue(key, out T value)) return value;
 
@@ -339,7 +320,7 @@ public partial class HybridCache
             value = dataRetriever(key);
             if (value is not null)
             {
-                Set(key, value, localExpiry, redisExpiry, flags);
+                Set(key, value, localExpiry, redisExpiry, flags, localCacheEnable: localCacheEnable);
                 activity?.SetRetrievalStrategyActivity(RetrievalStrategy.DataRetrieverExecution);
                 activity?.SetCacheHitActivity(CacheResultType.Miss, cacheKey);
                 return value;
@@ -357,7 +338,7 @@ public partial class HybridCache
         return value;
     }
 
-    public async Task<T> GetAsync<T>(string key)
+    public async Task<T> GetAsync<T>(string key, bool localCacheEnable = true)
     {
         using var activity = PopulateActivity(OperationTypes.GetCache);
         key.NotNullOrWhiteSpace(nameof(key));
@@ -372,7 +353,7 @@ public partial class HybridCache
         try
         {
             var redisValue = await _redisDb.StringGetWithExpiryAsync(cacheKey).ConfigureAwait(false);
-            if (TryUpdateLocalCache(cacheKey, redisValue, null, out value))
+            if (TryUpdateLocalCache(cacheKey, redisValue, localCacheEnable, out value))
             {
                 activity?.SetRetrievalStrategyActivity(RetrievalStrategy.RedisCache);
                 activity?.SetCacheHitActivity(CacheResultType.Hit, cacheKey);
@@ -394,18 +375,12 @@ public partial class HybridCache
     public Task<T> GetAsync<T>(string key, Func<string, Task<T>> dataRetriever, HybridCacheEntry cacheEntry)
     {
         return GetAsync(key, dataRetriever, cacheEntry.LocalExpiry, cacheEntry.RedisExpiry,
-            cacheEntry.FireAndForget);
-    }
-
-    public Task<T> GetAsync<T>(string key, Func<string, Task<T>> dataRetriever,
-        TimeSpan? localExpiry, TimeSpan? redisExpiry, bool fireAndForget)
-    {
-        return GetAsync(key, dataRetriever, localExpiry, redisExpiry,
-            fireAndForget ? Flags.FireAndForget : Flags.PreferMaster);
+            cacheEntry.Flags, cacheEntry.LocalCacheEnable);
     }
 
     public async Task<T> GetAsync<T>(string key, Func<string, Task<T>> dataRetriever,
-        TimeSpan? localExpiry = null, TimeSpan? redisExpiry = null, Flags flags = Flags.PreferMaster)
+        TimeSpan? localExpiry = null, TimeSpan? redisExpiry = null,
+        Flags flags = Flags.PreferMaster, bool localCacheEnable = true)
     {
         var resp = await TryGetValueAsync<T>(key);
         if (resp.success) return resp.value;
@@ -420,7 +395,8 @@ public partial class HybridCache
             var value = await dataRetriever(key).ConfigureAwait(false);
             if (value is not null)
             {
-                await SetAsync(key, value, localExpiry, redisExpiry, flags).ConfigureAwait(false);
+                await SetAsync(key, value, localExpiry, redisExpiry, flags, localCacheEnable: localCacheEnable)
+                    .ConfigureAwait(false);
                 activity?.SetRetrievalStrategyActivity(RetrievalStrategy.DataRetrieverExecution);
                 activity?.SetCacheHitActivity(CacheResultType.Miss, cacheKey);
                 return value;
@@ -440,6 +416,11 @@ public partial class HybridCache
 
     public bool TryGetValue<T>(string key, out T value)
     {
+        return TryGetValue(key, true, out value);
+    }
+
+    public bool TryGetValue<T>(string key, bool localCacheEnable, out T value)
+    {
         using var activity = PopulateActivity(OperationTypes.GetCache);
         key.NotNullOrWhiteSpace(nameof(key));
         var cacheKey = GetCacheKey(key);
@@ -455,7 +436,7 @@ public partial class HybridCache
         try
         {
             var redisValue = _redisDb.StringGetWithExpiry(cacheKey);
-            if (TryUpdateLocalCache(cacheKey, redisValue, null, out value))
+            if (TryUpdateLocalCache(cacheKey, redisValue, localCacheEnable, out value))
             {
                 activity?.SetRetrievalStrategyActivity(RetrievalStrategy.RedisCache);
                 activity?.SetCacheHitActivity(CacheResultType.Hit, cacheKey);
@@ -474,7 +455,7 @@ public partial class HybridCache
         return false;
     }
 
-    public async ValueTask<(bool success, T value)> TryGetValueAsync<T>(string key)
+    public async ValueTask<(bool success, T value)> TryGetValueAsync<T>(string key, bool localCacheEnable = true)
     {
         using var activity = PopulateActivity(OperationTypes.GetCache);
         key.NotNullOrWhiteSpace(nameof(key));
@@ -491,7 +472,7 @@ public partial class HybridCache
         try
         {
             var redisValue = await _redisDb.StringGetWithExpiryAsync(cacheKey).ConfigureAwait(false);
-            if (TryUpdateLocalCache(cacheKey, redisValue, null, out value))
+            if (TryUpdateLocalCache(cacheKey, redisValue, localCacheEnable, out value))
             {
                 activity?.SetRetrievalStrategyActivity(RetrievalStrategy.RedisCache);
                 activity?.SetCacheHitActivity(CacheResultType.Hit, cacheKey);
@@ -510,20 +491,10 @@ public partial class HybridCache
         return (false, default);
     }
 
-    public bool Remove(string key, bool fireAndForget)
-    {
-        return Remove(key, fireAndForget ? Flags.FireAndForget : Flags.PreferMaster);
-    }
-
     public bool Remove(string key, Flags flags = Flags.PreferMaster)
     {
         using var activity = PopulateActivity(OperationTypes.DeleteCache);
         return Remove([key], flags);
-    }
-
-    public bool Remove(string[] keys, bool fireAndForget)
-    {
-        return Remove(keys, fireAndForget ? Flags.FireAndForget : Flags.PreferMaster);
     }
 
     public bool Remove(string[] keys, Flags flags = Flags.PreferMaster)
@@ -551,20 +522,10 @@ public partial class HybridCache
         return result > 0;
     }
 
-    public Task<bool> RemoveAsync(string key, bool fireAndForget)
-    {
-        return RemoveAsync(key, fireAndForget ? Flags.FireAndForget : Flags.PreferMaster);
-    }
-
     public Task<bool> RemoveAsync(string key, Flags flags = Flags.PreferMaster)
     {
         using var activity = PopulateActivity(OperationTypes.DeleteCache);
         return RemoveAsync([key], flags);
-    }
-
-    public Task<bool> RemoveAsync(string[] keys, bool fireAndForget)
-    {
-        return RemoveAsync(keys, fireAndForget ? Flags.FireAndForget : Flags.PreferMaster);
     }
 
     public async Task<bool> RemoveAsync(string[] keys, Flags flags = Flags.PreferMaster)
@@ -591,12 +552,6 @@ public partial class HybridCache
 
         Array.ForEach(cacheKeys, _memoryCache.Remove);
         return result > 0;
-    }
-
-    public ValueTask<long> RemoveWithPatternAsync(string pattern, bool fireAndForget, CancellationToken token)
-    {
-        return RemoveWithPatternAsync(pattern, flags: fireAndForget ? Flags.FireAndForget : Flags.PreferMaster,
-            token: token);
     }
 
     public async ValueTask<long> RemoveWithPatternAsync(
@@ -660,11 +615,6 @@ public partial class HybridCache
         }
 
         FlushLocalCaches();
-    }
-
-    public Task ClearAllAsync(bool fireAndForget)
-    {
-        return ClearAllAsync(fireAndForget ? Flags.FireAndForget : Flags.PreferMaster);
     }
 
     public async Task ClearAllAsync(Flags flags = Flags.PreferMaster)
@@ -732,8 +682,7 @@ public partial class HybridCache
 
         try
         {
-            var time = _redisDb.KeyExpireTime(GetCacheKey(cacheKey));
-            return time.ToTimeSpan();
+            return _redisDb.KeyTimeToLive(GetCacheKey(cacheKey));
         }
         catch
         {
@@ -748,8 +697,7 @@ public partial class HybridCache
 
         try
         {
-            var time = await _redisDb.KeyExpireTimeAsync(GetCacheKey(cacheKey)).ConfigureAwait(false);
-            return time.ToTimeSpan();
+            return await _redisDb.KeyTimeToLiveAsync(GetCacheKey(cacheKey)).ConfigureAwait(false);
         }
         catch
         {

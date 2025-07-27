@@ -8,7 +8,7 @@ public interface IHybridCache
     /// <param name="key">Cache key</param>
     /// <param name="flags">The flags to use for this operation.</param>
     /// <returns>The bool for key is exist or not.</returns>
-    bool Exists(string key, Flags flags = Flags.PreferMaster);
+    bool Exists(string key, Flags flags = Flags.None);
 
     /// <summary>
     /// Exists the specified cacheKey async.
@@ -16,18 +16,7 @@ public interface IHybridCache
     /// <param name="key">Cache key.</param>
     /// <param name="flags">The flags to use for this operation.</param>
     /// <returns>The async bool for key is exist or not.</returns>
-    Task<bool> ExistsAsync(string key, Flags flags = Flags.PreferMaster);
-
-    /// <summary>
-    /// Sets a value in the cache with the specified key.
-    /// </summary>
-    /// <param name="key">The cache key.</param>
-    /// <param name="value">The value to cache.</param>
-    /// <param name="localExpiry">The expiration time for the local cache entry. If not specified, the default local expiration time is used.</param>
-    /// <param name="redisExpiry">The expiration time for the redis cache entry. If not specified, the default distributed expiration time is used.</param>
-    /// <param name="fireAndForget">Whether to cache the value in Redis without waiting for the operation to complete.</param>
-    [Obsolete("Please use 'Flags.FireAndForget' instead of 'fireAndForget'")]
-    bool Set<T>(string key, T value, TimeSpan? localExpiry, TimeSpan? redisExpiry, bool fireAndForget);
+    Task<bool> ExistsAsync(string key, Flags flags = Flags.None);
 
     /// <summary>
     /// Sets a value in the cache with the specified key.
@@ -53,19 +42,6 @@ public interface IHybridCache
     /// <param name="cacheEntry">Parameters of caching an entry like expiration</param>
     /// <typeparam name="T">The 1st type parameter.</typeparam>
     bool Set<T>(string key, T value, HybridCacheEntry cacheEntry);
-
-    /// <summary>
-    /// Asynchronously sets a value in the cache with the specified key.
-    /// </summary>
-    /// <param name="key">The cache key.</param>
-    /// <param name="value">The value to cache.</param>
-    /// <param name="localExpiry">The expiration time for the local cache entry. If not specified, the default local expiration time is used.</param>
-    /// <param name="redisExpiry">The expiration time for the redis cache entry. If not specified, the default distributed expiration time is used.</param>
-    /// <param name="fireAndForget">Whether to cache the value in Redis without waiting for the operation to complete.</param>
-    /// <typeparam name="T">The 1st type parameter.</typeparam>
-    /// <returns>A task that represents the asynchronous operation.</returns>
-    [Obsolete("Please use 'Flags.FireAndForget' instead of 'fireAndForget'")]
-    Task<bool> SetAsync<T>(string key, T value, TimeSpan? localExpiry, TimeSpan? redisExpiry, bool fireAndForget);
 
     /// <summary>
     /// Asynchronously sets a value in the cache with the specified key.
@@ -103,18 +79,6 @@ public interface IHybridCache
     bool SetAll<T>(IDictionary<string, T> value, HybridCacheEntry cacheEntry);
 
     /// <summary>
-    /// Sets all.
-    /// </summary>
-    /// <returns>The all async.</returns>
-    /// <param name="value">Value.</param>
-    /// <param name="localExpiry">The expiration time for the local cache entry. If not specified, the default local expiration time is used.</param>
-    /// <param name="redisExpiry">The expiration time for the redis cache entry. If not specified, the default distributed expiration time is used.</param>
-    /// <param name="fireAndForget">Whether to cache the value in Redis without waiting for the operation to complete.</param>
-    /// <typeparam name="T">The 1st type parameter.</typeparam>
-    [Obsolete("Please use 'Flags.FireAndForget' instead of 'fireAndForget'")]
-    bool SetAll<T>(IDictionary<string, T> value, TimeSpan? localExpiry, TimeSpan? redisExpiry, bool fireAndForget);
-
-    /// <summary>
     /// Sets many key/value in the cache.
     /// </summary>
     /// <param name="value">key/values to cache.</param>
@@ -128,20 +92,7 @@ public interface IHybridCache
     bool SetAll<T>(IDictionary<string, T> value, TimeSpan? localExpiry = null, TimeSpan? redisExpiry = null,
         Flags flags = Flags.PreferMaster, Condition when = Condition.Always,
         bool keepTtl = false, bool localCacheEnable = true, bool redisCacheEnable = true);
-
-    /// <summary>
-    /// Sets all async.
-    /// </summary>
-    /// <returns>The all async.</returns>
-    /// <param name="value">Value.</param>
-    /// <param name="localExpiry">The expiration time for the local cache entry. If not specified, the default local expiration time is used.</param>
-    /// <param name="redisExpiry">The expiration time for the redis cache entry. If not specified, the default distributed expiration time is used.</param>
-    /// <param name="fireAndForget">Whether to cache the value in Redis without waiting for the operation to complete.</param>
-    /// <typeparam name="T">The 1st type parameter.</typeparam>
-    [Obsolete("Please use 'Flags.FireAndForget' instead of 'fireAndForget'")]
-    Task<bool> SetAllAsync<T>(IDictionary<string, T> value, TimeSpan? localExpiry, TimeSpan? redisExpiry,
-        bool fireAndForget);
-
+    
     /// <summary>
     /// Sets many key/value in the cache as Async.
     /// </summary>
@@ -171,11 +122,12 @@ public interface IHybridCache
     /// </summary>
     /// <typeparam name="T">The type of the cached value.</typeparam>
     /// <param name="key">The cache key.</param>
+    /// <param name="localCacheEnable">Set local memory or not?</param>
     /// <returns>The cached value, or null if the key is not found in the cache.</returns>
-    T Get<T>(string key);
+    T Get<T>(string key, bool localCacheEnable = true);
 
     /// <summary>
-    /// Get the specified cacheKey, dataRetriever and expiration.
+    /// Get the specified cacheKey, dataRetriever, and expiration.
     /// </summary>
     /// <returns>The get.</returns>
     /// <param name="cacheKey">Cache key.</param>
@@ -183,12 +135,12 @@ public interface IHybridCache
     /// <param name="localExpiry">The expiration time for the local cache entry. If not specified, the default local expiration time is used.</param>
     /// <param name="redisExpiry">The expiration time for the redis cache entry. If not specified, the default distributed expiration time is used.</param>
     /// <param name="flags">The flags to use for this operation.</param>
-    /// <typeparam name="T">The 1st type parameter.</typeparam>
+    /// <param name="localCacheEnable">Set local memory or not?</param>
     T Get<T>(string cacheKey, Func<string, T> dataRetriever, TimeSpan? localExpiry = null, TimeSpan? redisExpiry = null,
-        Flags flags = Flags.PreferMaster);
+        Flags flags = Flags.PreferMaster, bool localCacheEnable = true);
 
     /// <summary>
-    /// Get the specified cacheKey, dataRetriever and expiration.
+    /// Get the specified cacheKey, dataRetriever, and expiration.
     /// </summary>
     /// <returns>The get.</returns>
     /// <param name="cacheKey">Cache key.</param>
@@ -202,26 +154,12 @@ public interface IHybridCache
     /// </summary>
     /// <typeparam name="T">The type of the cached value.</typeparam>
     /// <param name="key">The cache key.</param>
+    /// <param name="localCacheEnable">set local memory or not?</param>
     /// <returns>A task that represents the asynchronous operation. The task result contains the cached value, or null if the key is not found in the cache.</returns>
-    Task<T> GetAsync<T>(string key);
+    Task<T> GetAsync<T>(string key, bool localCacheEnable = true);
 
     /// <summary>
-    /// Asynchronously get the specified cacheKey, dataRetriever and expiration.
-    /// </summary>
-    /// <returns>The get.</returns>
-    /// <param name="cacheKey">Cache key.</param>
-    /// <param name="dataRetriever">Data retriever.</param>
-    /// <param name="localExpiry">The expiration time for the local cache entry. If not specified, the default local expiration time is used.</param>
-    /// <param name="redisExpiry">The expiration time for the redis cache entry. If not specified, the default distributed expiration time is used.</param>
-    /// <param name="fireAndForget">The fire and forget flags to use for this operation.</param>
-    /// <typeparam name="T">The 1st type parameter.</typeparam>
-    [Obsolete("Please use 'Flags.FireAndForget' instead of 'fireAndForget'")]
-    Task<T> GetAsync<T>(string cacheKey, Func<string, Task<T>> dataRetriever, TimeSpan? localExpiry,
-        TimeSpan? redisExpiry, bool fireAndForget);
-
-
-    /// <summary>
-    /// Asynchronously get the specified cacheKey, dataRetriever and expiration.
+    /// Asynchronously get the specified cacheKey, dataRetriever, and expiration.
     /// </summary>
     /// <returns>The get.</returns>
     /// <param name="cacheKey">Cache key.</param>
@@ -229,12 +167,13 @@ public interface IHybridCache
     /// <param name="localExpiry">The expiration time for the local cache entry. If not specified, the default local expiration time is used.</param>
     /// <param name="redisExpiry">The expiration time for the redis cache entry. If not specified, the default distributed expiration time is used.</param>
     /// <param name="flags">The flags to use for this operation.</param>
+    /// <param name="localCacheEnable">set local memory or not?</param>
     /// <typeparam name="T">The 1st type parameter.</typeparam>
     Task<T> GetAsync<T>(string cacheKey, Func<string, Task<T>> dataRetriever, TimeSpan? localExpiry = null,
-        TimeSpan? redisExpiry = null, Flags flags = Flags.PreferMaster);
+        TimeSpan? redisExpiry = null, Flags flags = Flags.PreferMaster, bool localCacheEnable = true);
 
     /// <summary>
-    /// Asynchronously get the specified cacheKey, dataRetriever and expiration.
+    /// Asynchronously get the specified cacheKey, dataRetriever, and expiration.
     /// </summary>
     /// <returns>The get.</returns>
     /// <param name="cacheKey">Cache key.</param>
@@ -251,25 +190,28 @@ public interface IHybridCache
     /// <param name="value">The value of caching</param>
     /// <returns>The cached value, or null if the key is not found in the cache.</returns>
     bool TryGetValue<T>(string key, out T value);
+    
+    /// <summary>
+    /// Try gets a cached value with the specified key.
+    /// </summary>
+    /// <typeparam name="T">The type of the cached value.</typeparam>
+    /// <param name="key">The cache key.</param>
+    /// <param name="value">The value of caching</param>
+    /// <param name="localCacheEnable">Set local memory or not?</param>
+    /// <returns>The cached value, or null if the key is not found in the cache.</returns>
+    bool TryGetValue<T>(string key, bool localCacheEnable, out T value);
 
     /// <summary>
     /// Try gets a cached value with the specified key.
     /// </summary>
     /// <typeparam name="T">The type of the cached value.</typeparam>
     /// <param name="key">The cache key.</param>
+    /// <param name="localCacheEnable">Set local memory or not?</param>
     /// <returns>
     /// A tuple containing the cached value, or null if the key is not found in the cache,
     /// and a boolean indicating whether the value was found in the cache.
     /// </returns>
-    ValueTask<(bool success, T value)> TryGetValueAsync<T>(string key);
-
-    /// <summary>
-    /// Removes a cached value with the specified key.
-    /// </summary>
-    /// <param name="keys">Cache keys to remove.</param>
-    /// <param name="fireAndForget">Whether to cache the value in Redis without waiting for the operation to complete.</param>
-    [Obsolete("Please use 'Flags.FireAndForget' instead of 'fireAndForget'")]
-    bool Remove(string[] keys, bool fireAndForget);
+    ValueTask<(bool success, T value)> TryGetValueAsync<T>(string key, bool localCacheEnable = true);
 
     /// <summary>
     /// Removes a cached value with the specified key.
@@ -282,25 +224,8 @@ public interface IHybridCache
     /// Removes a cached value with the specified key.
     /// </summary>
     /// <param name="key">Cache key to remove.</param>
-    /// <param name="fireAndForget">Whether to cache the value in Redis without waiting for the operation to complete.</param>
-    [Obsolete("Please use 'Flags.FireAndForget' instead of 'fireAndForget'")]
-    bool Remove(string key, bool fireAndForget);
-
-    /// <summary>
-    /// Removes a cached value with the specified key.
-    /// </summary>
-    /// <param name="key">Cache key to remove.</param>
     /// <param name="flags">The flags to use for this operation.</param>
     bool Remove(string key, Flags flags = Flags.PreferMaster);
-
-    /// <summary>
-    /// Asynchronously removes a cached value with the specified key.
-    /// </summary>
-    /// <param name="keys">cache keys</param>
-    /// <param name="fireAndForget">Whether to cache the value in Redis without waiting for the operation to complete.</param>
-    /// <returns>A task that represents the asynchronous operation.</returns>
-    [Obsolete("Please use 'Flags.FireAndForget' instead of 'fireAndForget")]
-    Task<bool> RemoveAsync(string[] keys, bool fireAndForget);
 
     /// <summary>
     /// Asynchronously removes a cached value with the specified key.
@@ -314,36 +239,9 @@ public interface IHybridCache
     /// Asynchronously removes a cached value with the specified key.
     /// </summary>
     /// <param name="key">The cache key</param>
-    /// <param name="fireAndForget">Whether to cache the value in Redis without waiting for the operation to complete.</param>
-    /// <returns>A task that represents the asynchronous operation.</returns>
-    [Obsolete("Please use 'Flags.FireAndForget' instead of 'fireAndForget")]
-    Task<bool> RemoveAsync(string key, bool fireAndForget);
-
-    /// <summary>
-    /// Asynchronously removes a cached value with the specified key.
-    /// </summary>
-    /// <param name="key">The cache key</param>
     /// <param name="flags">The flags to use for this operation.</param>
     /// <returns>A task that represents the asynchronous operation.</returns>
     Task<bool> RemoveAsync(string key, Flags flags = Flags.PreferMaster);
-
-    /// <summary>
-    /// Asynchronously removes a cached value with a key pattern.
-    /// </summary>
-    /// <param name="pattern">pattern to search keys. must have * in the key. like:  key_*_test_*</param>
-    /// <param name="token">cancellation token</param>
-    /// <param name="fireAndForget">Whether to cache the value in Redis without waiting for the operation to complete.</param>
-    /// <returns>Get all removed keys</returns>
-    /// <example>
-    /// Supported glob-style patterns:
-    ///    h?llo matches hello, hallo and hxllo
-    ///    h*llo matches hllo and heeeello
-    ///    h[ae] llo matches hello and hallo, but not hillo
-    ///    h[^e] llo matches hallo, hbllo, ... but not hello
-    ///    h[a-b]llo matches hallo and hbllo
-    /// </example>
-    [Obsolete("Please use 'Flags.FireAndForget' instead of 'fireAndForget")]
-    ValueTask<long> RemoveWithPatternAsync(string pattern, bool fireAndForget, CancellationToken token);
 
     /// <summary>
     /// Deletes all keys in Redis that match the specified pattern, operating entirely on the Redis server side.
@@ -406,9 +304,6 @@ public interface IHybridCache
 
     void ClearAll(Flags flags = Flags.PreferMaster);
 
-    [Obsolete("Please use 'Flags.FireAndForget' instead of 'fireAndForget")]
-    Task ClearAllAsync(bool fireAndForget);
-
     Task ClearAllAsync(Flags flags = Flags.PreferMaster);
 
     /// <summary>
@@ -419,7 +314,7 @@ public interface IHybridCache
 
     /// <summary>
     /// Returns the IP and port number of the primary with that name.
-    /// If a failover is in progress or terminated successfully for this primary it returns the address and port of the promoted replica.
+    /// If failover is in progress or terminated successfully for this primary it returns the address and port of the promoted replica.
     /// </summary>
     /// <param name="serviceName">The sentinel service name.</param>
     /// <param name="flags">The command flags to use.</param>
@@ -501,7 +396,7 @@ public interface IHybridCache
     Task<bool> TryReleaseLockAsync(string key, string token, Flags flags = Flags.None);
 
     /// <summary>
-    /// Releases a lock, if the token value is correct.
+    /// Releases a lock if the token value is correct.
     /// </summary>
     /// <param name="key">The key of the lock.</param>
     /// <param name="token">The value at the key that must match.</param>
@@ -512,7 +407,7 @@ public interface IHybridCache
     /// <summary>
     /// Takes a lock (specifying a token value) if it is not already taken.
     /// This locking way has no expiration, and you must release that with disposing returned object.
-    /// Note: Lock an exist key and token is not possible. But, Set a locked key with difference or same value is possible.
+    /// Note: Lock an existed key and token is not possible. But Set a locked key with difference, or same value is possible.
     /// </summary>
     /// <param name="key">The key of the lock.</param>
     /// <param name="flags">The flags to use for this operation.</param>
@@ -520,10 +415,10 @@ public interface IHybridCache
     Task<RedisLockObject> LockKeyAsync(string key, Flags flags = Flags.None);
     
     /// <summary>
-    /// Increments the number stored at key by increment.
+    /// Increments the number stored at a key by increment.
     /// If the key does not exist, it is set to 0 before performing the operation.
     /// An error is returned if the key contains a value of the wrong type or contains a string that is not representable as integer.
-    /// This operation is limited to 64 bit signed integers.
+    /// This operation is limited to 64-bit signed integers.
     /// </summary>
     /// <param name="key">The key of the string.</param>
     /// <param name="value">The amount to increment by (defaults to 1).</param>

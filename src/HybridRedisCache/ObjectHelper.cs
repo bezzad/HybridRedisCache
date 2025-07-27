@@ -39,8 +39,7 @@ internal static class ObjectHelper
             return null;
         }
 
-        var text = JsonConvert.SerializeObject(value, typeof(T), JsonSettings);
-        return text;
+        return JsonConvert.SerializeObject(value, typeof(T), JsonSettings);
     }
 
     public static T Deserialize<T>(this string value)
