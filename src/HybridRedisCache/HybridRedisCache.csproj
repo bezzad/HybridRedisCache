@@ -20,17 +20,18 @@
         <PackageTags>redis; cache; in-memory; memcache; RedisMemoryCache; HybridCachePlus; InRedisCache; MemRedisCache; RedisFusionCache; RedisMemCache; RedisInMemoryCache; MemHybridCache; RedisHybridStore; HybridRedisCache</PackageTags>
         <PackageReleaseNotes>
             - Added support for **KeySpace notifications** to invalidate expired, removed, and changed keys efficiently.
+            - Added localCacheEnable argument to all get methods to ignore local caching when need Redis value only.
             - Integrated **KeySpace bus** to synchronize and track local caches across instances.
             - Exposed Redis KeySpace channel events publicly via the `OnRedisBusMessage` event for external subscriptions.
             - Disabled Client Tracking due to lack of support on Redis Enterprise Cloud (fixes issue #16).
             - Introduced **live reconfiguration**, allowing HybridCache to reconnect automatically when Redis IPs or connection configurations change.
             - Refactored internal code for clarity, stability, and maintainability.
             - Fixed local caching when get a value if it's Redis only
-            - Fixed KeySpace invalidate messages for set commands
+            - Fixed KeySpace invalidate messages for set commands            
         </PackageReleaseNotes>
         <IncludeSymbols>True</IncludeSymbols>
         <PackageLicenseFile>LICENSE</PackageLicenseFile>
-        <Version>3.1.0</Version>
+        <Version>3.2.0</Version>
     </PropertyGroup>
 
     <ItemGroup>
