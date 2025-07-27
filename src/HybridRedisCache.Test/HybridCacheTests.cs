@@ -1211,6 +1211,10 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
     [Fact]
     public async Task TestGetRedisServerTimeAsync()
     {
+        // If this test fail and the diffTime is more than 1 second
+        // then set WSL or Linux kernel time with below command:
+        // sudo timedatectl set-time "06:24:00"
+        
         // Arrange
         var now = DateTime.Now.ToUniversalTime();
 
@@ -1220,8 +1224,9 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
 
         // Assert
         Assert.Equal(now.Date, redisTime.Date);
-        Assert.True(diffTime < 1000,
-            $"diffTimeMs: {diffTime}, RedisMs: {redisTime.TimeOfDay.TotalMilliseconds}, NowMs: {now.TimeOfDay.TotalMilliseconds}");
+        Assert.True(diffTime < 1000, $"diffTimeMs: {diffTime}, " +
+                                     $"RedisMs: {redisTime.TimeOfDay.TotalMilliseconds}, " +
+                                     $"NowMs: {now.TimeOfDay.TotalMilliseconds}");
     }
 
     [Theory]
