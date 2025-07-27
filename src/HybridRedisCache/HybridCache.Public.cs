@@ -265,7 +265,7 @@ public partial class HybridCache
         return result;
     }
 
-    public T Get<T>(string key)
+    public T Get<T>(string key, bool localCacheEnable = true)
     {
         using var activity = PopulateActivity(OperationTypes.GetCache);
         key.NotNullOrWhiteSpace(nameof(key));
@@ -280,7 +280,7 @@ public partial class HybridCache
         try
         {
             var redisValue = _redisDb.StringGetWithExpiry(cacheKey);
-            if (TryUpdateLocalCache(cacheKey, redisValue, out value))
+            if (TryUpdateLocalCache(cacheKey, redisValue, localCacheEnable, out value))
             {
                 activity?.SetRetrievalStrategyActivity(RetrievalStrategy.RedisCache);
                 activity?.SetCacheHitActivity(CacheResultType.Hit, cacheKey);
@@ -338,7 +338,7 @@ public partial class HybridCache
         return value;
     }
 
-    public async Task<T> GetAsync<T>(string key)
+    public async Task<T> GetAsync<T>(string key, bool localCacheEnable = true)
     {
         using var activity = PopulateActivity(OperationTypes.GetCache);
         key.NotNullOrWhiteSpace(nameof(key));
@@ -353,7 +353,7 @@ public partial class HybridCache
         try
         {
             var redisValue = await _redisDb.StringGetWithExpiryAsync(cacheKey).ConfigureAwait(false);
-            if (TryUpdateLocalCache(cacheKey, redisValue, out value))
+            if (TryUpdateLocalCache(cacheKey, redisValue, localCacheEnable, out value))
             {
                 activity?.SetRetrievalStrategyActivity(RetrievalStrategy.RedisCache);
                 activity?.SetCacheHitActivity(CacheResultType.Hit, cacheKey);
@@ -374,7 +374,7 @@ public partial class HybridCache
 
     public Task<T> GetAsync<T>(string key, Func<string, Task<T>> dataRetriever, HybridCacheEntry cacheEntry)
     {
-        return GetAsync(key, dataRetriever, cacheEntry.LocalExpiry, cacheEntry.RedisExpiry, 
+        return GetAsync(key, dataRetriever, cacheEntry.LocalExpiry, cacheEntry.RedisExpiry,
             cacheEntry.Flags, cacheEntry.LocalCacheEnable);
     }
 
@@ -416,6 +416,11 @@ public partial class HybridCache
 
     public bool TryGetValue<T>(string key, out T value)
     {
+        return TryGetValue(key, true, out value);
+    }
+
+    public bool TryGetValue<T>(string key, bool localCacheEnable, out T value)
+    {
         using var activity = PopulateActivity(OperationTypes.GetCache);
         key.NotNullOrWhiteSpace(nameof(key));
         var cacheKey = GetCacheKey(key);
@@ -431,7 +436,7 @@ public partial class HybridCache
         try
         {
             var redisValue = _redisDb.StringGetWithExpiry(cacheKey);
-            if (TryUpdateLocalCache(cacheKey, redisValue, out value))
+            if (TryUpdateLocalCache(cacheKey, redisValue, localCacheEnable, out value))
             {
                 activity?.SetRetrievalStrategyActivity(RetrievalStrategy.RedisCache);
                 activity?.SetCacheHitActivity(CacheResultType.Hit, cacheKey);
@@ -450,7 +455,7 @@ public partial class HybridCache
         return false;
     }
 
-    public async ValueTask<(bool success, T value)> TryGetValueAsync<T>(string key)
+    public async ValueTask<(bool success, T value)> TryGetValueAsync<T>(string key, bool localCacheEnable = true)
     {
         using var activity = PopulateActivity(OperationTypes.GetCache);
         key.NotNullOrWhiteSpace(nameof(key));
@@ -467,7 +472,7 @@ public partial class HybridCache
         try
         {
             var redisValue = await _redisDb.StringGetWithExpiryAsync(cacheKey).ConfigureAwait(false);
-            if (TryUpdateLocalCache(cacheKey, redisValue, out value))
+            if (TryUpdateLocalCache(cacheKey, redisValue, localCacheEnable, out value))
             {
                 activity?.SetRetrievalStrategyActivity(RetrievalStrategy.RedisCache);
                 activity?.SetCacheHitActivity(CacheResultType.Hit, cacheKey);

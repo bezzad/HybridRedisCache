@@ -401,7 +401,7 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
         return LocalCacheValuePrefix + expiry.Value.Ticks + LocalCacheValuePostfix + json;
     }
 
-    private bool TryUpdateLocalCache<T>(string cacheKey, RedisValueWithExpiry redisValue, out T value)
+    private bool TryUpdateLocalCache<T>(string cacheKey, RedisValueWithExpiry redisValue, bool localCacheEnable, out T value)
     {
         value = default;
         if (!redisValue.Expiry.HasValue) return false;
@@ -430,7 +430,7 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
 
         value = text.Deserialize<T>();
 
-        if (localExpiry > TimeSpan.Zero)
+        if (localExpiry > TimeSpan.Zero && localCacheEnable)
             SetLocalMemory(cacheKey, value, localExpiry, Condition.Always, false);
 
         return true;
