@@ -3,6 +3,13 @@
 public interface IHybridCache
 {
     /// <summary>
+    /// Subscribe to perform some operation when a message to the preferred/active node is broadcast,
+    /// without any guarantee of ordered handling.
+    /// Channel: Redis KeySpace
+    /// </summary>
+    event RedisBusMessage OnRedisBusMessage;
+    
+    /// <summary>
     /// Exists the specified Key in cache
     /// </summary>
     /// <param name="key">Cache key</param>
