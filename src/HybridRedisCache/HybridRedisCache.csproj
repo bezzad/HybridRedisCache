@@ -31,7 +31,7 @@
         </PackageReleaseNotes>
         <IncludeSymbols>True</IncludeSymbols>
         <PackageLicenseFile>LICENSE</PackageLicenseFile>
-        <Version>3.2.0</Version>
+        <Version>3.2.2</Version>
     </PropertyGroup>
 
     <ItemGroup>
