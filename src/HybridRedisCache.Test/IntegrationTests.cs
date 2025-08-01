@@ -201,4 +201,40 @@ public class IntegrationTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
             Assert.Equal(value, readWithInstance3);
         }
     }
+    
+    [Fact]
+    public async Task SetRedisCacheOnlyAndTestWhenNotExistBySameSetter()
+    {
+        // Arrange
+        var cacheKey = UniqueKey;
+        var value1 = "test value 1";
+        var value2 = "test value 2";
+        
+        var opt = new HybridCacheEntry
+        {
+            FireAndForget = false,
+            LocalCacheEnable = false,
+            RedisCacheEnable = true,
+            RedisExpiry = TimeSpan.FromSeconds(100),
+            When = Condition.NotExists
+        };
+        await using var instance1 = new HybridCache(Options);
+        await using var instance2 = new HybridCache(Options);
+        await using var instance3 = new HybridCache(Options);
+
+        // Act
+        var canInsertI1 = await instance1.SetAsync(cacheKey, value1, opt);
+        var canInsertI2 = await instance2.SetAsync(cacheKey, value1, opt);
+        var canInsertI3 = await instance3.SetAsync(cacheKey, value1, opt);
+        var canInsertI12 = await instance1.SetAsync(cacheKey, value2, opt);
+
+        opt.When = Condition.Always;
+        var canInsertI22 = await instance2.SetAsync(cacheKey, value2, opt);
+        
+        Assert.True(canInsertI1);
+        Assert.False(canInsertI2);
+        Assert.False(canInsertI3);
+        Assert.False(canInsertI12);
+        Assert.True(canInsertI22);
+    }
 }
