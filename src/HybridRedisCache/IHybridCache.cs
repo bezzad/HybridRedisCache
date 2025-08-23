@@ -10,6 +10,17 @@ public interface IHybridCache
     event RedisBusMessage OnRedisBusMessage;
     
     /// <summary>
+    /// Subscribe to a channel in Redis to receive messages published to that channel.
+    /// </summary>
+    /// <param name="channel"></param>
+    /// <param name="handler"></param>
+    void Subscribe(string channel, RedisChannelMessage handler);
+
+    void Unsubscribe(string channel);
+
+    Task<long> PublishAsync(string channel, string key, string value);
+
+    /// <summary>
     /// Exists the specified Key in cache
     /// </summary>
     /// <param name="key">Cache key</param>
@@ -99,7 +110,7 @@ public interface IHybridCache
     bool SetAll<T>(IDictionary<string, T> value, TimeSpan? localExpiry = null, TimeSpan? redisExpiry = null,
         Flags flags = Flags.PreferMaster, Condition when = Condition.Always,
         bool keepTtl = false, bool localCacheEnable = true, bool redisCacheEnable = true);
-    
+
     /// <summary>
     /// Sets many key/value in the cache as Async.
     /// </summary>
@@ -197,7 +208,7 @@ public interface IHybridCache
     /// <param name="value">The value of caching</param>
     /// <returns>The cached value, or null if the key is not found in the cache.</returns>
     bool TryGetValue<T>(string key, out T value);
-    
+
     /// <summary>
     /// Try gets a cached value with the specified key.
     /// </summary>
@@ -269,7 +280,7 @@ public interface IHybridCache
     /// </para>
     /// </remarks>
     ValueTask RemoveWithPatternOnRedisAsync(string pattern, Flags flags = Flags.None);
-    
+
     /// <summary>
     /// Asynchronously removes a cached value with a key pattern.
     /// </summary>
@@ -420,7 +431,7 @@ public interface IHybridCache
     /// <param name="flags">The flags to use for this operation.</param>
     /// <returns>Return the <see cref="RedisLockObject"/> if the lock was successfully acquired; otherwise, wait until the key is released.</returns>
     Task<RedisLockObject> LockKeyAsync(string key, Flags flags = Flags.None);
-    
+
     /// <summary>
     /// Increments the number stored at a key by increment.
     /// If the key does not exist, it is set to 0 before performing the operation.
@@ -449,7 +460,7 @@ public interface IHybridCache
     /// <returns>The value of key after the increment.</returns>
     /// <remarks><seealso href="https://redis.io/commands/incrbyfloat"/></remarks>
     Task<double> ValueIncrementAsync(string key, double value, Flags flags = Flags.None);
-    
+
     /// <summary>
     /// Decrements the number stored at key by decrement.
     /// If the key does not exist, it is set to 0 before performing the operation.

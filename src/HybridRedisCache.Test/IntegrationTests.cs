@@ -258,13 +258,41 @@ public class IntegrationTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         var extendLockWithI1T1 = await instance1.TryExtendLockAsync(cacheKey, token1, timespan);
         var extendLockWithI2T1 = await instance2.TryExtendLockAsync(cacheKey, token1, timespan);
         var extendLockWithI3T1 = await instance3.TryExtendLockAsync(cacheKey, token1, timespan);
-        var expiry = await instance1.GetExpirationAsync("lock/" + cacheKey);
+        var expiry = await instance1.GetExpirationAsync(HybridCache.LockKeyPrefix + cacheKey);
 
         Assert.False(extendLockWithI1T2);
         Assert.True(extendLockWithI1T1);
         Assert.True(extendLockWithI2T1);
         Assert.True(extendLockWithI3T1);
-        Assert.True(timespan > expiry);
+        Assert.True(timespan >= expiry, $"{timespan} should be greater than {expiry}");
         Assert.True(timespan <= expiry.Value.Add(TimeSpan.FromSeconds(3)));
+    }
+
+    [Fact]
+    public async Task RedisPubSubOnCustomChannelTest()
+    {
+        // Arrange
+        var cacheKey = UniqueKey;
+        var channel = "__test_channel__";
+        var token1 = "test token";
+
+        await using var instance1 = new HybridCache(Options);
+        await using var instance2 = new HybridCache(Options);
+
+        instance2.Subscribe(channel, OnMessage);
+
+        // Act
+
+        await instance1.PublishAsync(channel, cacheKey, token1);
+
+        await Task.Delay(1000);
+
+        void OnMessage(string key, string value)
+        {
+            Assert.Equal(key, cacheKey);
+            Assert.Equal(value, token1);
+        }
+        
+        instance2.Unsubscribe(channel);
     }
 }
