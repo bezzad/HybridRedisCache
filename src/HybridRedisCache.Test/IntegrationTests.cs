@@ -169,7 +169,7 @@ public class IntegrationTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
             Assert.Equal(value, readWithInstance3);
         }
     }
-    
+
     [Fact]
     public async Task CacheRedisOnlyAndGetWithLocalCacheEnabledTest()
     {
@@ -200,5 +200,99 @@ public class IntegrationTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
             Assert.Equal(value, readWithInstance2);
             Assert.Equal(value, readWithInstance3);
         }
+    }
+
+    [Fact]
+    public async Task SetRedisCacheOnlyAndTestWhenNotExistBySameSetter()
+    {
+        // Arrange
+        var cacheKey = UniqueKey;
+        var value1 = "test value 1";
+        var value2 = "test value 2";
+
+        var opt = new HybridCacheEntry
+        {
+            FireAndForget = false,
+            LocalCacheEnable = false,
+            RedisCacheEnable = true,
+            RedisExpiry = TimeSpan.FromSeconds(100),
+            When = Condition.NotExists
+        };
+        await using var instance1 = new HybridCache(Options);
+        await using var instance2 = new HybridCache(Options);
+        await using var instance3 = new HybridCache(Options);
+
+        // Act
+        var canInsertI1 = await instance1.SetAsync(cacheKey, value1, opt);
+        var canInsertI2 = await instance2.SetAsync(cacheKey, value1, opt);
+        var canInsertI3 = await instance3.SetAsync(cacheKey, value1, opt);
+        var canInsertI12 = await instance1.SetAsync(cacheKey, value2, opt);
+
+        opt.When = Condition.Always;
+        var canInsertI22 = await instance2.SetAsync(cacheKey, value2, opt);
+
+        Assert.True(canInsertI1);
+        Assert.False(canInsertI2);
+        Assert.False(canInsertI3);
+        Assert.False(canInsertI12);
+        Assert.True(canInsertI22);
+    }
+
+    [Fact]
+    public async Task TestLockKeyAndExtendIt()
+    {
+        // Arrange
+        var cacheKey = UniqueKey;
+        var token1 = "test token";
+        var token2 = "test token 2";
+        var timespan = TimeSpan.FromSeconds(100);
+
+        await using var instance1 = new HybridCache(Options);
+        await using var instance2 = new HybridCache(Options);
+        await using var instance3 = new HybridCache(Options);
+
+        // Act
+
+        await instance1.TryLockKeyAsync(cacheKey, token1, TimeSpan.FromSeconds(10));
+        var extendLockWithI1T2 = await instance1.TryExtendLockAsync(cacheKey, token2, timespan);
+        var extendLockWithI1T1 = await instance1.TryExtendLockAsync(cacheKey, token1, timespan);
+        var extendLockWithI2T1 = await instance2.TryExtendLockAsync(cacheKey, token1, timespan);
+        var extendLockWithI3T1 = await instance3.TryExtendLockAsync(cacheKey, token1, timespan);
+        var expiry = await instance1.GetExpirationAsync(HybridCache.LockKeyPrefix + cacheKey);
+
+        Assert.False(extendLockWithI1T2);
+        Assert.True(extendLockWithI1T1);
+        Assert.True(extendLockWithI2T1);
+        Assert.True(extendLockWithI3T1);
+        Assert.True(timespan >= expiry, $"{timespan} should be greater than {expiry}");
+        Assert.True(timespan <= expiry.Value.Add(TimeSpan.FromSeconds(3)));
+    }
+
+    [Fact]
+    public async Task RedisPubSubOnCustomChannelTest()
+    {
+        // Arrange
+        var cacheKey = UniqueKey;
+        var channel = "__test_channel__";
+        var token1 = "test token";
+
+        await using var instance1 = new HybridCache(Options);
+        await using var instance2 = new HybridCache(Options);
+
+        instance2.Subscribe(channel, OnMessage);
+
+        // Act
+
+        await instance1.PublishAsync(channel, cacheKey, token1);
+
+        await Task.Delay(1000);
+
+        void OnMessage(string key, string value)
+        {
+            Assert.Equal(key, cacheKey);
+            Assert.Equal(value, token1);
+        }
+        
+        instance2.Unsubscribe(channel);
     }
 }

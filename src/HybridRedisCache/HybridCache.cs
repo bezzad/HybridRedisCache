@@ -23,7 +23,7 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
     private readonly TimeSpan _timeWindow = TimeSpan.FromSeconds(5); // Expiration time window
     private const string LocalCacheValuePrefix = "#__LEXP__"; // to keep local expiration time in redis value
     private const char LocalCacheValuePostfix = '$'; // to keep local expiration time in redis value
-    internal const string LockKeyPrefix = "lock/";
+    public const string LockKeyPrefix = "lock:";
 
     /// <summary>
     /// This method initializes the HybridCache instance and subscribes to Redis key-space events 
@@ -312,6 +312,8 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
         }
     }
 
+    private RedisChannel GetRedisPatternChannel(string channel, string key = "*") => new(channel + ":" + key, RedisChannel.PatternMode.Auto);
+
     private string GetCacheKey(string key, bool isLock = false) =>
         $"{_options.InstancesSharedName}:" + (isLock ? LockKeyPrefix : string.Empty) + key;
 
@@ -376,10 +378,10 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
         }
 
         _memoryCache.Set(cacheKey, value, localExpiry ?? _options.DefaultLocalExpirationTime);
-        
+
         if (keepAsRecentSets)
             KeepRecentSetKey(cacheKey);
-        
+
         return true;
     }
 

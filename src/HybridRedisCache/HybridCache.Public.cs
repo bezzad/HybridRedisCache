@@ -2,6 +2,8 @@
 
 public delegate void RedisBusMessage(string key, MessageType type);
 
+public delegate void RedisChannelMessage(string key, string value);
+
 /// <summary>
 /// The HybridCache class provides a hybrid caching solution that stores cached items in both
 /// an in-memory cache and a Redis cache. 
@@ -32,6 +34,33 @@ public partial class HybridCache
         }
 
         return _memoryCache.TryGetValue(cacheKey, out var _);
+    }
+
+    public void Subscribe(string channel, RedisChannelMessage handler)
+    {
+        var redisChannel = GetRedisPatternChannel(channel);
+        _redisSubscriber.Subscribe(redisChannel, (ch, val) =>
+        {
+            var strChannel = (string)ch ?? "";
+            var index = strChannel.IndexOf(':');
+            var key = index > 0 && index < strChannel.Length - 1
+                ? strChannel[(index + 1)..]
+                : strChannel;
+
+            handler(key, val);
+        }, CommandFlags.FireAndForget);
+    }
+
+    public void Unsubscribe(string channel)
+    {
+        var redisChannel = GetRedisPatternChannel(channel);
+        _redisSubscriber.Unsubscribe(redisChannel);
+    }
+
+    public async Task<long> PublishAsync(string channel, string key, string value)
+    {
+        var redisChannel = GetRedisPatternChannel(channel, key);
+        return await _redisSubscriber.PublishAsync(redisChannel, value, CommandFlags.FireAndForget);
     }
 
     public async Task<bool> ExistsAsync(string key, Flags flags = Flags.PreferMaster)
