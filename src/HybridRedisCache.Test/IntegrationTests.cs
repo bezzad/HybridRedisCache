@@ -292,7 +292,29 @@ public class IntegrationTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
             Assert.Equal(key, cacheKey);
             Assert.Equal(value, token1);
         }
-        
+
         instance2.Unsubscribe(channel);
+    }
+
+    [Fact]
+    public async Task CanRemoveLockedKeyTest()
+    {
+        // Arrange
+        var cacheKey = UniqueKey;
+        var lockKey = HybridCache.LockKeyPrefix + cacheKey;
+        var token = "test token";
+
+        await using var instance1 = new HybridCache(Options);
+        await using var instance2 = new HybridCache(Options);
+
+        // Act
+        var canLockWithInstance1 = await instance1.TryLockKeyAsync(cacheKey, token, TimeSpan.FromHours(1));
+        var canLockWithInstance2 = await instance2.TryLockKeyAsync(cacheKey, token, TimeSpan.FromHours(1));
+        var canRemove = await instance2.RemoveAsync(lockKey);
+
+        // Assert
+        Assert.True(canLockWithInstance1);
+        Assert.False(canLockWithInstance2);
+        Assert.True(canRemove);
     }
 }
