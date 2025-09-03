@@ -1296,7 +1296,6 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
     {
         // Arrange
         var key = UniqueKey;
-        var locksKey = HybridCache.LockKeyPrefix + key; // lock key for set|get methods
         var token1 = UniqueKey;
         var token2 = UniqueKey;
         var token3 = UniqueKey;
@@ -1317,15 +1316,15 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         // Lock an existed key and token is not possible
         // Set a locked key with difference or same value is possible
 
-        await Cache.SetAsync(locksKey, token1, options); // set a value with the same lock key
+        await Cache.SetAsync(key, token1, options); // set a value with the same lock key
         var lockExistKey = await Cache.TryLockKeyAsync(key, token1, expiry); // False
-        var valueOnLocking = await Cache.GetAsync<string>(locksKey); // get token1
+        var valueOnLocking = await Cache.GetAsync<string>(key); // get token1
         await Task.Delay(expiryPlus1); // wait until the lock expired
-        var expiredValue = await Cache.GetAsync<string>(locksKey); // get null
+        var expiredValue = await Cache.GetAsync<string>(key); // get null
         var lockAfterExpire = await Cache.TryLockKeyAsync(key, token2, expiry); // try lock key with token2
-        var valueOfToken2 = await Cache.GetAsync<string>(locksKey); // the locked key changed first value
-        var setNewValueWithSameKey = await Cache.SetAsync(locksKey, token3, expiry, expiry);
-        var lastValue = await Cache.GetAsync<string>(locksKey); // the last value is token3 
+        var valueOfToken2 = await Cache.GetAsync<string>(key); // the locked key changed first value
+        var setNewValueWithSameKey = await Cache.SetAsync(key, token3, expiry, expiry);
+        var lastValue = await Cache.GetAsync<string>(key); // the last value is token3 
         var lockAfterChangedToken = await Cache.TryLockKeyAsync(key, token2, expiry); // try lock key with token2
 
         // Assert
@@ -1437,13 +1436,13 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         // Arrange
         var key = UniqueKey;
         var uniqueToken = UniqueKey;
-        var expiry = TimeSpan.FromMilliseconds(500);
-        var expiry1S = TimeSpan.FromMilliseconds(1000);
+        var expiry = TimeSpan.FromSeconds(1);
+        var expiry10S = TimeSpan.FromSeconds(2);
         await Cache.ClearAllAsync();
 
         // Action
         var locked = await Cache.TryLockKeyAsync(key, uniqueToken, expiry); // true
-        var extendLocked = await Cache.TryExtendLockAsync(key, uniqueToken, expiry1S); // true
+        var extendLocked = await Cache.TryExtendLockAsync(key, uniqueToken, expiry10S); // true
         await Task.Delay(expiry); // after first locking expiration, still locked with extend method
         var lockAgain = await Cache.TryLockKeyAsync(key, uniqueToken, expiry); // false
         await Task.Delay(expiry); // now the key release with extended expiration

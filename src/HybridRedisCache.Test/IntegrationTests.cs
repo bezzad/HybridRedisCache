@@ -258,7 +258,7 @@ public class IntegrationTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         var extendLockWithI1T1 = await instance1.TryExtendLockAsync(cacheKey, token1, timespan);
         var extendLockWithI2T1 = await instance2.TryExtendLockAsync(cacheKey, token1, timespan);
         var extendLockWithI3T1 = await instance3.TryExtendLockAsync(cacheKey, token1, timespan);
-        var expiry = await instance1.GetExpirationAsync(HybridCache.LockKeyPrefix + cacheKey);
+        var expiry = await instance1.GetExpirationAsync(cacheKey);
 
         Assert.False(extendLockWithI1T2);
         Assert.True(extendLockWithI1T1);
@@ -301,7 +301,6 @@ public class IntegrationTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
     {
         // Arrange
         var cacheKey = UniqueKey;
-        var lockKey = HybridCache.LockKeyPrefix + cacheKey;
         var token = "test token";
 
         await using var instance1 = new HybridCache(Options);
@@ -310,11 +309,44 @@ public class IntegrationTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         // Act
         var canLockWithInstance1 = await instance1.TryLockKeyAsync(cacheKey, token, TimeSpan.FromHours(1));
         var canLockWithInstance2 = await instance2.TryLockKeyAsync(cacheKey, token, TimeSpan.FromHours(1));
-        var canRemove = await instance2.RemoveAsync(lockKey);
+        var canRemove = await instance2.RemoveAsync(cacheKey);
 
         // Assert
         Assert.True(canLockWithInstance1);
         Assert.False(canLockWithInstance2);
         Assert.True(canRemove);
+    }
+
+    [Fact]
+    public async Task ExtendLockTtlTest()
+    {
+        string lockKey = UniqueKey;
+        string lockValue = "lock-token";
+        TimeSpan initialExpiry = TimeSpan.FromSeconds(8);
+        TimeSpan newExpiry = TimeSpan.FromSeconds(10);
+
+        // Step 1: Acquire the lock with 5-second TTL
+        var acquired = await Cache.TryLockKeyAsync(lockKey, lockValue, initialExpiry);
+        Assert.True(acquired);
+        testOutputHelper.WriteLine($"Lock acquired at {DateTime.UtcNow:HH:mm:ss.fff}, TTL = {initialExpiry.TotalSeconds}sec");
+
+        // Step 2: Wait 2 seconds (8 seconds remain)
+        await Task.Delay(2000);
+
+        // Step 3: Extend the lock to 10 seconds
+        var extended = await Cache.TryExtendLockAsync(lockKey, lockValue, newExpiry);
+        Assert.True(extended);
+        testOutputHelper.WriteLine($"Lock extended at {DateTime.UtcNow:HH:mm:ss.fff}, new TTL = {newExpiry.TotalSeconds}sec");
+
+        // Step 4: Verify remaining TTL
+        var remainingTtl = await Cache.GetExpirationAsync(lockKey);
+        Assert.NotNull(remainingTtl);
+        testOutputHelper.WriteLine($"Remaining TTL after extension: {remainingTtl?.TotalSeconds} seconds");
+
+        // Step 5: Release the lock
+        await Cache.TryReleaseLockAsync(lockKey, lockValue);
+
+        Assert.True(remainingTtl > initialExpiry);
+        Assert.True(remainingTtl <= newExpiry);
     }
 }

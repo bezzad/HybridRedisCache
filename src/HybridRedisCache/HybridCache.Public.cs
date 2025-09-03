@@ -806,7 +806,7 @@ public partial class HybridCache
     {
         using var activity = PopulateActivity(OperationTypes.LockKey);
         expiry ??= TimeSpan.MaxValue;
-        var cacheKey = GetCacheKey(key, true);
+        var cacheKey = GetCacheKey(key);
         return _redisDb.LockTakeAsync(cacheKey, token.Serialize(), expiry.Value, (CommandFlags)flags);
     }
 
@@ -815,7 +815,7 @@ public partial class HybridCache
         using var activity = PopulateActivity(OperationTypes.LockKeyObject);
         var token = Guid.NewGuid().ToString("N");
         var lockObject = new RedisLockObject(this, key, token);
-        var cacheKey = GetCacheKey(key, true);
+        var cacheKey = GetCacheKey(key);
 
         while (true)
         {
@@ -843,7 +843,7 @@ public partial class HybridCache
     public Task<bool> TryExtendLockAsync(string key, string token, TimeSpan? expiry, Flags flags = Flags.None)
     {
         using var activity = PopulateActivity(OperationTypes.ExtendLockKey);
-        var cacheKey = GetCacheKey(key, true);
+        var cacheKey = GetCacheKey(key);
         return _redisDb.LockExtendAsync(cacheKey, token.Serialize(),
             expiry ?? _options.DefaultDistributedExpirationTime, (CommandFlags)flags);
     }
@@ -851,7 +851,7 @@ public partial class HybridCache
     public async Task<bool> TryReleaseLockAsync(string key, string token, Flags flags = Flags.None)
     {
         using var activity = PopulateActivity(OperationTypes.ReleaseLock);
-        var cacheKey = GetCacheKey(key, true);
+        var cacheKey = GetCacheKey(key);
         if (await _redisDb.LockReleaseAsync(cacheKey, token.Serialize(), (CommandFlags)flags))
         {
             return true;
@@ -863,7 +863,7 @@ public partial class HybridCache
     public bool TryReleaseLock(string key, string token, Flags flags = Flags.None)
     {
         using var activity = PopulateActivity(OperationTypes.ReleaseLock);
-        var cacheKey = GetCacheKey(key, true);
+        var cacheKey = GetCacheKey(key);
         if (_redisDb.LockRelease(cacheKey, token.Serialize(), (CommandFlags)flags))
         {
             return true;
