@@ -19,11 +19,11 @@
         <RepositoryType>git</RepositoryType>
         <PackageTags>redis; cache; in-memory; memcache; RedisMemoryCache; HybridCachePlus; InRedisCache; MemRedisCache; RedisFusionCache; RedisMemCache; RedisInMemoryCache; MemHybridCache; RedisHybridStore; HybridRedisCache</PackageTags>
         <PackageReleaseNotes>
-            - Add pub/sub feature on custom Redis bus channels            
+            - Removed redlock key prefix 
         </PackageReleaseNotes>
         <IncludeSymbols>True</IncludeSymbols>
         <PackageLicenseFile>LICENSE</PackageLicenseFile>
-        <Version>3.3.0</Version>
+        <Version>3.4.0</Version>
     </PropertyGroup>
 
     <ItemGroup>
