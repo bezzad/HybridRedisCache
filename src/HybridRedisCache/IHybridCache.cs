@@ -19,6 +19,7 @@ public interface IHybridCache
     void Unsubscribe(string channel);
 
     Task<long> PublishAsync(string channel, string key, string value);
+    long Publish(string channel, string key, string value);
 
     /// <summary>
     /// Exists the specified Key in cache

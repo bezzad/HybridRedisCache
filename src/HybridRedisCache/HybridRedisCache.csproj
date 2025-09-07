@@ -19,11 +19,11 @@
         <RepositoryType>git</RepositoryType>
         <PackageTags>redis; cache; in-memory; memcache; RedisMemoryCache; HybridCachePlus; InRedisCache; MemRedisCache; RedisFusionCache; RedisMemCache; RedisInMemoryCache; MemHybridCache; RedisHybridStore; HybridRedisCache</PackageTags>
         <PackageReleaseNotes>
-            - Removed redlock key prefix 
+            - Add Publish method to push signals on current sync context
         </PackageReleaseNotes>
         <IncludeSymbols>True</IncludeSymbols>
         <PackageLicenseFile>LICENSE</PackageLicenseFile>
-        <Version>3.4.0</Version>
+        <Version>3.5.0</Version>
     </PropertyGroup>
 
     <ItemGroup>
