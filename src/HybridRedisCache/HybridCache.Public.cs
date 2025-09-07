@@ -63,6 +63,12 @@ public partial class HybridCache
         return await _redisSubscriber.PublishAsync(redisChannel, value, CommandFlags.FireAndForget);
     }
 
+    public long Publish(string channel, string key, string value)
+    {
+        var redisChannel = GetRedisPatternChannel(channel, key);
+        return _redisSubscriber.Publish(redisChannel, value, CommandFlags.FireAndForget);
+    }
+
     public async Task<bool> ExistsAsync(string key, Flags flags = Flags.PreferMaster)
     {
         using var activity = PopulateActivity(OperationTypes.KeyLookupAsync);
