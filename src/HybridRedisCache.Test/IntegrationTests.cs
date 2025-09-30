@@ -328,7 +328,7 @@ public class IntegrationTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         // Step 1: Acquire the lock with 5-second TTL
         var acquired = await Cache.TryLockKeyAsync(lockKey, lockValue, initialExpiry);
         Assert.True(acquired);
-        testOutputHelper.WriteLine($"Lock acquired at {DateTime.UtcNow:HH:mm:ss.fff}, TTL = {initialExpiry.TotalSeconds}sec");
+        TestOutputHelper.WriteLine($"Lock acquired at {DateTime.UtcNow:HH:mm:ss.fff}, TTL = {initialExpiry.TotalSeconds}sec");
 
         // Step 2: Wait 2 seconds (8 seconds remain)
         await Task.Delay(2000);
@@ -336,12 +336,12 @@ public class IntegrationTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         // Step 3: Extend the lock to 10 seconds
         var extended = await Cache.TryExtendLockAsync(lockKey, lockValue, newExpiry);
         Assert.True(extended);
-        testOutputHelper.WriteLine($"Lock extended at {DateTime.UtcNow:HH:mm:ss.fff}, new TTL = {newExpiry.TotalSeconds}sec");
+        TestOutputHelper.WriteLine($"Lock extended at {DateTime.UtcNow:HH:mm:ss.fff}, new TTL = {newExpiry.TotalSeconds}sec");
 
         // Step 4: Verify remaining TTL
         var remainingTtl = await Cache.GetExpirationAsync(lockKey);
         Assert.NotNull(remainingTtl);
-        testOutputHelper.WriteLine($"Remaining TTL after extension: {remainingTtl?.TotalSeconds} seconds");
+        TestOutputHelper.WriteLine($"Remaining TTL after extension: {remainingTtl.Value.TotalSeconds} seconds");
 
         // Step 5: Release the lock
         await Cache.TryReleaseLockAsync(lockKey, lockValue);

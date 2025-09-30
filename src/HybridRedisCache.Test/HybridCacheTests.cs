@@ -1214,7 +1214,7 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         // If this test fail and the diffTime is more than 1 second
         // then set WSL or Linux kernel time with below command:
         // sudo timedatectl set-time "06:24:00"
-        
+
         // Arrange
         var now = DateTime.Now.ToUniversalTime();
 
@@ -1556,52 +1556,40 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
     [Fact]
     public async Task ShouldSetKeyExpiration()
     {
-        var key = Guid.NewGuid().ToString();
-        
+        var key = UniqueKey;
+
         await Cache.ValueIncrementAsync(key); //set a custom key with value -1 as expiration
-        
-        await Cache.KeyExpireAsync(key, TimeSpan.FromSeconds(2), Flags.None);
-        
-        var keyExpiration=await Cache.GetExpirationAsync(key);
-        
-        TestOutputHelper.WriteLine($"Total expiration milliseconds: {keyExpiration!.Value.TotalMilliseconds}");
-        
-        Assert.True(keyExpiration!.Value.TotalMilliseconds >1000 );
+        await Cache.KeyExpireAsync(key, TimeSpan.FromSeconds(2));
+        var keyExpiration = await Cache.GetExpirationAsync(key);
+        TestOutputHelper.WriteLine($"Total expiration milliseconds: {keyExpiration?.TotalMilliseconds}");
+
+        Assert.True(keyExpiration?.TotalMilliseconds > 1000);
     }
-    
+
     [Fact]
     public async Task ShouldRemoveAfterExpiration()
     {
-        var key = Guid.NewGuid().ToString();
-        
+        var key = UniqueKey;
+
         await Cache.ValueIncrementAsync(key); //set a custom key with value -1 as expiration
-        
-        await Cache.KeyExpireAsync(key, TimeSpan.FromSeconds(1), Flags.None);
-
+        await Cache.KeyExpireAsync(key, TimeSpan.FromSeconds(1));
         await Task.Delay(1000);
-        
         Assert.False(await Cache.ExistsAsync(key));
-
     }
-    
+
     [Fact]
     public async Task ShouldClearLocalCacheAfterSettingExpiry()
     {
-        var key = Guid.NewGuid().ToString();
-        
-        await Cache.SetAsync(key,key,TimeSpan.FromHours(1),TimeSpan.FromHours(1)); //set a custom key with value 1 hour as expiration
+        var key = UniqueKey;
 
+        //set a custom key with value 1 hour as expiration
+        await Cache.SetAsync(key, key, TimeSpan.FromHours(1), TimeSpan.FromHours(1));
         var cachedValueBeforeExpiration = await Cache.GetAsync<string>(key);
-        
         TestOutputHelper.WriteLine($"Cached Value Before expiration: {cachedValueBeforeExpiration}");
-        
-        await Cache.KeyExpireAsync(key, TimeSpan.FromSeconds(1), Flags.None);
-
+        await Cache.KeyExpireAsync(key, TimeSpan.FromSeconds(1));
         await Task.Delay(1100);
-
         var cachedValueAfterExpiration = await Cache.GetAsync<string>(key);
-        
-        Assert.Null(cachedValueAfterExpiration);
 
+        Assert.Null(cachedValueAfterExpiration);
     }
 }
