@@ -1583,4 +1583,25 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         Assert.False(await Cache.ExistsAsync(key));
 
     }
+    
+    [Fact]
+    public async Task ShouldClearLocalCacheAfterSettingExpiry()
+    {
+        var key = Guid.NewGuid().ToString();
+        
+        await Cache.SetAsync(key,key,TimeSpan.FromHours(1),TimeSpan.FromHours(1)); //set a custom key with value 1 hour as expiration
+
+        var cachedValueBeforeExpiration = await Cache.GetAsync<string>(key);
+        
+        TestOutputHelper.WriteLine($"Cached Value Before expiration: {cachedValueBeforeExpiration}");
+        
+        await Cache.KeyExpireAsync(key, TimeSpan.FromSeconds(1), Flags.None);
+
+        await Task.Delay(1100);
+
+        var cachedValueAfterExpiration = await Cache.GetAsync<string>(key);
+        
+        Assert.Null(cachedValueAfterExpiration);
+
+    }
 }
