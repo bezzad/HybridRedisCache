@@ -1573,7 +1573,7 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
 
         await Cache.ValueIncrementAsync(key); //set a custom key with value -1 as expiration
         await Cache.KeyExpireAsync(key, TimeSpan.FromSeconds(1));
-        await Task.Delay(1000);
+        await Task.Delay(1100);
         Assert.False(await Cache.ExistsAsync(key));
     }
 

@@ -53,10 +53,9 @@ public abstract class BaseCacheTest : ContainerTest<RedisBuilder, RedisContainer
     protected override RedisBuilder Configure(RedisBuilder builder)
     {
         return new RedisBuilder()
-            .WithName("HybridRedisCacheTestContainer")
-            .WithReuse(true)
+            .WithReuse(false)
             .WithPrivileged(true)
-            .WithAutoRemove(false)
+            .WithAutoRemove(true)
             .WithLogger(_loggerFactory.CreateLogger("RedisTestContainer"))
             .WithImage("redis:latest");
     }
