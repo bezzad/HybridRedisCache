@@ -1592,4 +1592,18 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
 
         Assert.Null(cachedValueAfterExpiration);
     }
+
+    [Fact]
+    public async Task ShouldIncrementValue()
+    {
+        const long init = 10L;
+        var key = UniqueKey;
+
+        var value = await Cache.ValueIncrementAsync(key, init);
+        await Cache.ValueIncrementAsync(key);
+        var secondValue = await Cache.ValueIncrementAsync(key);
+
+        Assert.Equal(init, value);
+        Assert.Equal(init + 2, secondValue);
+    }
 }
