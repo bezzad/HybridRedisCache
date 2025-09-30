@@ -1374,7 +1374,7 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         var token = UniqueKey;
         bool cantLockSameKey;
         bool setSameKey;
-        var expiry = TimeSpan.FromMilliseconds(100);
+        var expiry = TimeSpan.FromSeconds(1);
         await Cache.ClearAllAsync();
 
         // Act
@@ -1384,7 +1384,7 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
             setSameKey = await Cache.SetAsync(key, token, expiry, expiry);
         }
 
-        await Task.Delay(expiry);
+        await Task.Delay(expiry.Add(TimeSpan.FromMilliseconds(50)));
         var locked = await Cache.TryLockKeyAsync(key, token, expiry);
 
         // Assert
