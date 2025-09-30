@@ -500,4 +500,8 @@ public interface IHybridCache
     /// Gets the features available to the connected server.
     /// </summary>
     Dictionary<string, string> GetServerFeatures(Flags flags = Flags.None);
+    
+    Task KeyExpireAsync(string key, TimeSpan expiry, Flags flags = Flags.None,ExpireWhen expireWhen=ExpireWhen.Always);
+    
+    void KeyExpire(string key, TimeSpan expiry, Flags flags = Flags.None,ExpireWhen expireWhen=ExpireWhen.Always);
 }
