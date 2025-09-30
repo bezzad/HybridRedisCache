@@ -881,7 +881,7 @@ public partial class HybridCache
     public async Task<long> ValueIncrementAsync(string key, long value = 1, Flags flags = Flags.None)
     {
         using var activity = PopulateActivity(OperationTypes.SetCache);
-        var result = await _redisDb.StringIncrementAsync(key, value, (CommandFlags)flags);
+        var result = await _redisDb.StringIncrementAsync(GetCacheKey(key), value, (CommandFlags)flags);
         _memoryCache.Set(key, result);
         return result;
     }
@@ -889,7 +889,7 @@ public partial class HybridCache
     public async Task<double> ValueIncrementAsync(string key, double value, Flags flags = Flags.None)
     {
         using var activity = PopulateActivity(OperationTypes.SetCache);
-        var result = await _redisDb.StringIncrementAsync(key, value, (CommandFlags)flags);
+        var result = await _redisDb.StringIncrementAsync(GetCacheKey(key), value, (CommandFlags)flags);
         _memoryCache.Set(key, result);
         return result;
     }
@@ -897,7 +897,7 @@ public partial class HybridCache
     public async Task<long> ValueDecrementAsync(string key, long value = 1, Flags flags = Flags.None)
     {
         using var activity = PopulateActivity(OperationTypes.SetCache);
-        var result = await _redisDb.StringDecrementAsync(key, value, (CommandFlags)flags);
+        var result = await _redisDb.StringDecrementAsync(GetCacheKey(key), value, (CommandFlags)flags);
         _memoryCache.Set(key, result);
         return result;
     }
@@ -905,7 +905,7 @@ public partial class HybridCache
     public async Task<double> ValueDecrementAsync(string key, double value, Flags flags = Flags.None)
     {
         using var activity = PopulateActivity(OperationTypes.SetCache);
-        var result = await _redisDb.StringDecrementAsync(key, value, (CommandFlags)flags);
+        var result = await _redisDb.StringDecrementAsync(GetCacheKey(key), value, (CommandFlags)flags);
         _memoryCache.Set(key, result);
         return result;
     }
@@ -925,6 +925,20 @@ public partial class HybridCache
             .GetProperties()
             .ToDictionary(x => x.Name, x => x.GetValue(features)?.ToString());
         return featureList;
+    }
+
+    public async Task KeyExpireAsync(string key, TimeSpan expiry, Flags flags = Flags.None,ExpireWhen expireWhen=ExpireWhen.Always)
+    {
+        using var activity = PopulateActivity(OperationTypes.KeyExpire);
+        
+        await _redisDb.KeyExpireAsync(GetCacheKey(key),expiry,expireWhen,(CommandFlags)flags);
+    }
+
+    public void KeyExpire(string key, TimeSpan expiry, Flags flags = Flags.None,ExpireWhen expireWhen=ExpireWhen.Always)
+    {
+        using var activity = PopulateActivity(OperationTypes.KeyExpire);
+        
+         _redisDb.KeyExpire(GetCacheKey(key),expiry,expireWhen,(CommandFlags)flags);
     }
 
     public async ValueTask RemoveWithPatternOnRedisAsync(string pattern, Flags flags = Flags.None)
