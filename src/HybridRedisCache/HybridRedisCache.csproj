@@ -21,11 +21,13 @@
         <PackageReleaseNotes>
             - Add KeyExpiry method to set expiration to any keys
             - Fix convert key in ValueIncrementAsync and ValueDecrementAsync methods
+            - Add Metric and Log for heavy values
             - Test some functionalities
+            - Fix some bugs
         </PackageReleaseNotes>
         <IncludeSymbols>True</IncludeSymbols>
         <PackageLicenseFile>LICENSE</PackageLicenseFile>
-        <Version>3.6.0</Version>
+        <Version>3.7.0</Version>
     </PropertyGroup>
 
     <ItemGroup>
