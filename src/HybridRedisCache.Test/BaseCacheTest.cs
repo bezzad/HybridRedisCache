@@ -15,7 +15,7 @@ namespace HybridRedisCache.Test;
 public abstract class BaseCacheTest : ContainerTest<RedisBuilder, RedisContainer>, IAsyncLifetime
 {
     private HybridCache _cache;
-    private static ILoggerFactory _loggerFactory;
+    protected readonly ILoggerFactory LoggerFactory;
     protected readonly ITestOutputHelper TestOutputHelper;
     protected static string UniqueKey => Guid.NewGuid().ToString("N");
 
@@ -38,13 +38,13 @@ public abstract class BaseCacheTest : ContainerTest<RedisBuilder, RedisContainer
     };
 
     // Lazy Cache: options change inner methods and after that create Cache with first call
-    protected HybridCache Cache => _cache ??= new HybridCache(Options, _loggerFactory);
+    protected HybridCache Cache => _cache ??= new HybridCache(Options, LoggerFactory);
 
     protected BaseCacheTest(ITestOutputHelper testOutputHelper) : base(testOutputHelper)
     {
         TestOutputHelper = testOutputHelper;
         // Create an ILoggerFactory that logs to the ITestOutputHelper
-        _loggerFactory = LoggerFactory.Create(builder =>
+        LoggerFactory = Microsoft.Extensions.Logging.LoggerFactory.Create(builder =>
         {
             builder.AddProvider(new TestOutputLoggerProvider(testOutputHelper));
         });
@@ -56,7 +56,7 @@ public abstract class BaseCacheTest : ContainerTest<RedisBuilder, RedisContainer
             .WithReuse(false)
             .WithPrivileged(true)
             .WithAutoRemove(true)
-            .WithLogger(_loggerFactory.CreateLogger("RedisTestContainer"))
+            .WithLogger(LoggerFactory.CreateLogger("RedisTestContainer"))
             .WithImage("redis:latest");
     }
 

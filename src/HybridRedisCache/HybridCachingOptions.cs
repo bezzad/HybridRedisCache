@@ -138,6 +138,7 @@ public record HybridCachingOptions
 
     /// <summary>
     /// The threshold size in bytes to consider and meter data as "heavy" and log a warning.
+    /// Default threshold size is 100KB.
     /// </summary>
-    public long HeavyDataThresholdBytes { get; set; } = 10 * 1024; // Default 10KB threshold
+    public long HeavyDataThresholdBytes { get; set; } = 100 * 1024; 
 }
