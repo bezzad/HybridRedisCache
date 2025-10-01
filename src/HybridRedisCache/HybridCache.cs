@@ -403,13 +403,13 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
     private bool TryUpdateLocalCache<T>(string cacheKey, RedisValueWithExpiry redisValue, bool localCacheEnable, out T value)
     {
         value = default;
-        if (!redisValue.Expiry.HasValue) return false;
+        if (!redisValue.Value.HasValue) return false;
 
         var localExpiry = TimeSpan.Zero;
         var text = redisValue.Value.ToString();
         if (string.IsNullOrEmpty(text)) return false;
 
-        if (text.StartsWith(LocalCacheValuePrefix)) // should be cached in local memory
+        if (redisValue.Expiry.HasValue && text.StartsWith(LocalCacheValuePrefix)) // should be cached in local memory
         {
             var indexOfPostfix = text.IndexOf(LocalCacheValuePostfix, LocalCacheValuePrefix.Length);
             if (indexOfPostfix > LocalCacheValuePrefix.Length)

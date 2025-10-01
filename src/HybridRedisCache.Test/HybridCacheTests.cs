@@ -1606,4 +1606,18 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         Assert.Equal(init, value);
         Assert.Equal(init + 2, secondValue);
     }
+
+
+    [Fact]
+    public async Task ShouldGetValueWithoutExpiration()
+    {
+        const long init = 10L;
+        var key = UniqueKey;
+
+        var value = await Cache.ValueIncrementAsync(key, init);
+
+        var get = await Cache.GetAsync<long>(key);
+
+        Assert.Equal(get, value);
+    }
 }
