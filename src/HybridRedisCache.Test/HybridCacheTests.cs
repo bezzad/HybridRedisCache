@@ -1445,7 +1445,7 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         var extendLocked = await Cache.TryExtendLockAsync(key, uniqueToken, expiry10S); // true
         await Task.Delay(expiry); // after first locking expiration, still locked with extend method
         var lockAgain = await Cache.TryLockKeyAsync(key, uniqueToken, expiry); // false
-        await Task.Delay(expiry); // now the key release with extended expiration
+        await Task.Delay(expiry.Add(TimeSpan.FromMilliseconds(50))); // now the key release with extended expiration
         var lastValue = await Cache.GetAsync<string>(key); // null
 
         // Assert
