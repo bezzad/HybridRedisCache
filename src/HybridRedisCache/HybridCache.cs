@@ -23,6 +23,7 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
     private readonly TimeSpan _timeWindow = TimeSpan.FromSeconds(5); // Expiration time window
     private const string LocalCacheValuePrefix = "#__LEXP__"; // to keep local expiration time in redis value
     private const char LocalCacheValuePostfix = '$'; // to keep local expiration time in redis value
+    private KeyMeter _keyMeter;
 
     /// <summary>
     /// This method initializes the HybridCache instance and subscribes to Redis key-space events 
@@ -36,10 +37,11 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
     public HybridCache(HybridCachingOptions option, ILoggerFactory loggerFactory = null)
     {
         option.NotNull(nameof(option));
-        _logger = loggerFactory?.CreateLogger(nameof(HybridCache));
+        _logger = loggerFactory?.CreateLogger<HybridCache>();
         _instanceId = Guid.NewGuid().ToString("N");
         _options = option;
         _activity = new TracingActivity(option.TracingActivitySourceName).Source;
+        _keyMeter = new KeyMeter(loggerFactory?.CreateLogger<KeyMeter>());
 
         CreateLocalCache();
         var redisConfig = GetConfigurationOptions();
@@ -390,9 +392,21 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
             localExpiry = redisExpiry;
     }
 
-    private string SerializeWithExpiryPrefix(object value, TimeSpan? expiry = null)
+    private string SerializeWithExpiryPrefix(string key, object value, TimeSpan? expiry = null)
     {
         var json = value.Serialize();
+
+        if (_options.EnableMeterHeavyData)
+        {
+            // Measure UTF8 byte size (cheap, no allocation)
+            var dataSize = System.Text.Encoding.UTF8.GetByteCount(json);
+
+            // Check if data exceeds threshold, record metric
+            if (dataSize > _options.HeavyDataThresholdBytes)
+            {
+                _keyMeter.RecordHeavyDataUsage(key, dataSize, _options.HeavyDataThresholdBytes);
+            }
+        }
 
         if (expiry is null)
             return json;

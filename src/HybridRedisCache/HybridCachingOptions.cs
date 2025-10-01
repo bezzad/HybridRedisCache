@@ -7,7 +7,7 @@ public record HybridCachingOptions
     /// If true, Redis connect will not create a connection while no servers are available.
     /// </summary>
     public bool AbortOnConnectFail { get; set; } = true;
-    
+
     /// <summary>
     /// Indicates whether the Redis connection multiplexer should automatically reconfigure itself
     /// when the connection fails and the retry policy cannot reconnect.
@@ -25,7 +25,7 @@ public record HybridCachingOptions
     /// Use <c>0</c> for unlimited retries.
     /// </summary>
     public int MaxReconfigureAttempts { get; set; } = 0;
-    
+
     /// <summary>
     /// Gets or sets a value indicating whether logging is enabled or not.
     /// </summary>
@@ -63,7 +63,7 @@ public record HybridCachingOptions
     /// Gets or sets a expiry time of local cache
     /// </summary>        
     public TimeSpan DefaultLocalExpirationTime { get; set; } = TimeSpan.FromMinutes(60);
-    
+
     /// <summary>
     /// The name of providers APIs to create and start <see cref="T:System.Diagnostics.Activity" />
     /// objects and to register <see cref="T:System.Diagnostics.ActivityListener" /> objects to listen to the
@@ -111,7 +111,7 @@ public record HybridCachingOptions
     /// Set the connection keep alive value in seconds. Default is 60s
     /// </summary>
     public int KeepAlive { get; set; } = 60;
-    
+
     /// <summary>
     /// Gets or sets the SocketManager instance to be used with these options.
     /// If this is false a shared cross-multiplexer is used.
@@ -128,4 +128,16 @@ public record HybridCachingOptions
     /// Note: Client Tracking not enabled on Redis Enterprise Cloud, issue #16
     /// </summary>
     public bool EnableRedisClientTracking { get; set; } = false;
+
+    /// <summary>
+    /// Enable metering and logging of "heavy" data writes to Redis.
+    /// When enabled, any data write exceeding the specified threshold will be logged as a warning
+    /// and recorded in Prometheus metrics for monitoring purposes.
+    /// </summary>
+    public bool EnableMeterHeavyData { get; set; } = false;
+
+    /// <summary>
+    /// The threshold size in bytes to consider and meter data as "heavy" and log a warning.
+    /// </summary>
+    public long HeavyDataThresholdBytes { get; set; } = 10 * 1024; // Default 10KB threshold
 }

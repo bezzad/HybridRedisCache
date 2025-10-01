@@ -81,7 +81,9 @@ var options = new HybridCachingOptions()
     ThreadPoolSocketManagerEnable = true,
     FlushLocalCacheOnBusReconnection = true,
     TracingActivitySourceName = nameof(HybridRedisCache),
-    EnableRedisClientTracking = true
+    EnableRedisClientTracking = true,
+    EnableMeterHeavyData = true,
+    HeavyDataThresholdBytes = 20*1024 // 20KB
 };
 var cache = new HybridCache(options);
 

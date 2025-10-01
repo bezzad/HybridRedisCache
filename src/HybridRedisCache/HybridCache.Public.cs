@@ -114,7 +114,7 @@ public partial class HybridCache
         {
             if (redisCacheEnable)
             {
-                var val = SerializeWithExpiryPrefix(value, localCacheEnable ? localExpiry : null);
+                var val = SerializeWithExpiryPrefix(cacheKey, value, localCacheEnable ? localExpiry : null);
                 inserted = _redisDb.StringSet(cacheKey, val,
                     keepTtl ? null : redisExpiry,
                     keepTtl, when: (When)when, flags: (CommandFlags)flags);
@@ -162,7 +162,7 @@ public partial class HybridCache
         {
             if (redisCacheEnable)
             {
-                var val = SerializeWithExpiryPrefix(value, localCacheEnable ? localExpiry : null);
+                var val = SerializeWithExpiryPrefix(cacheKey, value, localCacheEnable ? localExpiry : null);
                 inserted = await _redisDb.StringSetAsync(cacheKey, val,
                     keepTtl ? null : redisExpiry,
                     keepTtl, when: (When)when, flags: (CommandFlags)flags).ConfigureAwait(false);
@@ -214,7 +214,7 @@ public partial class HybridCache
             {
                 if (redisCacheEnable)
                 {
-                    var val = SerializeWithExpiryPrefix(kvp.Value, localCacheEnable ? localExpiry : null);
+                    var val = SerializeWithExpiryPrefix(cacheKey, kvp.Value, localCacheEnable ? localExpiry : null);
                     inserted = _redisDb.StringSet(cacheKey, val,
                         keepTtl ? null : redisExpiry,
                         keepTtl, when: (When)when, flags: (CommandFlags)flags);
@@ -270,7 +270,7 @@ public partial class HybridCache
             {
                 if (redisCacheEnable)
                 {
-                    var val = SerializeWithExpiryPrefix(kvp.Value, localCacheEnable ? localExpiry : null);
+                    var val = SerializeWithExpiryPrefix(cacheKey, kvp.Value, localCacheEnable ? localExpiry : null);
                     inserted = await _redisDb.StringSetAsync(cacheKey, val,
                         keepTtl ? null : redisExpiry,
                         keepTtl, when: (When)when, flags: (CommandFlags)flags).ConfigureAwait(false);
@@ -927,18 +927,18 @@ public partial class HybridCache
         return featureList;
     }
 
-    public async Task KeyExpireAsync(string key, TimeSpan expiry, Flags flags = Flags.None,ExpireWhen expireWhen=ExpireWhen.Always)
+    public async Task KeyExpireAsync(string key, TimeSpan expiry, Flags flags = Flags.None, ExpireWhen expireWhen = ExpireWhen.Always)
     {
         using var activity = PopulateActivity(OperationTypes.KeyExpire);
-        
-        await _redisDb.KeyExpireAsync(GetCacheKey(key),expiry,expireWhen,(CommandFlags)flags);
+
+        await _redisDb.KeyExpireAsync(GetCacheKey(key), expiry, expireWhen, (CommandFlags)flags);
     }
 
-    public void KeyExpire(string key, TimeSpan expiry, Flags flags = Flags.None,ExpireWhen expireWhen=ExpireWhen.Always)
+    public void KeyExpire(string key, TimeSpan expiry, Flags flags = Flags.None, ExpireWhen expireWhen = ExpireWhen.Always)
     {
         using var activity = PopulateActivity(OperationTypes.KeyExpire);
-        
-         _redisDb.KeyExpire(GetCacheKey(key),expiry,expireWhen,(CommandFlags)flags);
+
+        _redisDb.KeyExpire(GetCacheKey(key), expiry, expireWhen, (CommandFlags)flags);
     }
 
     public async ValueTask RemoveWithPatternOnRedisAsync(string pattern, Flags flags = Flags.None)
