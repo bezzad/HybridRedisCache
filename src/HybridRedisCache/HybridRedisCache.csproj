@@ -2,6 +2,7 @@
 
     <PropertyGroup>
         <TargetFrameworks>net8.0;net9.0</TargetFrameworks>
+        <Version>3.8.0</Version>
         <LangVersion>default</LangVersion>
         <ImplicitUsings>enable</ImplicitUsings>
         <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
@@ -19,15 +20,13 @@
         <RepositoryType>git</RepositoryType>
         <PackageTags>redis; cache; in-memory; memcache; RedisMemoryCache; HybridCachePlus; InRedisCache; MemRedisCache; RedisFusionCache; RedisMemCache; RedisInMemoryCache; MemHybridCache; RedisHybridStore; HybridRedisCache</PackageTags>
         <PackageReleaseNotes>
-            - Add KeyExpiry method to set expiration to any keys
-            - Fix convert key in ValueIncrementAsync and ValueDecrementAsync methods
-            - Add Metric and Log for heavy values
+            - Fetch data safety from dataRetriever task in GetAsync method
+            - Add options.DataSizeHistogramMetricName histogram metric for all set key/values
             - Test some functionalities
             - Fix some bugs
         </PackageReleaseNotes>
         <IncludeSymbols>True</IncludeSymbols>
         <PackageLicenseFile>LICENSE</PackageLicenseFile>
-        <Version>3.7.0</Version>
     </PropertyGroup>
 
     <ItemGroup>
