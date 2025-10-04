@@ -41,7 +41,7 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
         _instanceId = Guid.NewGuid().ToString("N");
         _options = option;
         _activity = new TracingActivity(option.TracingActivitySourceName).Source;
-        _keyMeter = new KeyMeter(loggerFactory?.CreateLogger<KeyMeter>());
+        _keyMeter = new KeyMeter(loggerFactory?.CreateLogger<KeyMeter>(), option);
 
         CreateLocalCache();
         var redisConfig = GetConfigurationOptions();
@@ -396,16 +396,11 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
     {
         var json = value.Serialize();
 
-        if (_options.EnableMeterHeavyData)
+        if (_options.EnableMeterData)
         {
             // Measure UTF8 byte size (cheap, no allocation)
             var dataSize = System.Text.Encoding.UTF8.GetByteCount(json);
-
-            // Check if data exceeds threshold, record metric
-            if (dataSize > _options.HeavyDataThresholdBytes)
-            {
-                _keyMeter.RecordHeavyDataUsage(key, dataSize, _options.HeavyDataThresholdBytes);
-            }
+            _keyMeter.RecordHeavyDataUsage(key, dataSize);
         }
 
         if (expiry is null)

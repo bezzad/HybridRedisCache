@@ -23,8 +23,8 @@ public class HeavyDataMeteringTests(ITestOutputHelper testOutputHelper) : BaseCa
         var options = new HybridCachingOptions
         {
             RedisConnectionString = Options.RedisConnectionString,
-            EnableMeterHeavyData = true,
-            HeavyDataThresholdBytes = thresholdBytes,
+            EnableMeterData = true,
+            WarningHeavyDataThresholdBytes = thresholdBytes,
             EnableLogging = true
         };
 
@@ -59,8 +59,8 @@ public class HeavyDataMeteringTests(ITestOutputHelper testOutputHelper) : BaseCa
         var options = new HybridCachingOptions
         {
             RedisConnectionString = Options.RedisConnectionString,
-            EnableMeterHeavyData = true,
-            HeavyDataThresholdBytes = 10, // Low threshold to ensure logging
+            EnableMeterData = true,
+            WarningHeavyDataThresholdBytes = 10, // Low threshold to ensure logging
             EnableLogging = true
         };
 
@@ -88,8 +88,8 @@ public class HeavyDataMeteringTests(ITestOutputHelper testOutputHelper) : BaseCa
         var options = new HybridCachingOptions
         {
             RedisConnectionString = Options.RedisConnectionString,
-            EnableMeterHeavyData = false, // Disabled
-            HeavyDataThresholdBytes = 100,
+            EnableMeterData = false, // Disabled
+            WarningHeavyDataThresholdBytes = 100,
             EnableLogging = true
         };
 
@@ -120,8 +120,8 @@ public class HeavyDataMeteringTests(ITestOutputHelper testOutputHelper) : BaseCa
         var options = new HybridCachingOptions
         {
             RedisConnectionString = Options.RedisConnectionString,
-            EnableMeterHeavyData = true,
-            HeavyDataThresholdBytes = threshold,
+            EnableMeterData = true,
+            WarningHeavyDataThresholdBytes = threshold,
             EnableLogging = true
         };
 
@@ -168,8 +168,8 @@ public class HeavyDataMeteringTests(ITestOutputHelper testOutputHelper) : BaseCa
         var options = new HybridCachingOptions
         {
             RedisConnectionString = Options.RedisConnectionString,
-            EnableMeterHeavyData = true,
-            HeavyDataThresholdBytes = 100, // Low threshold
+            EnableMeterData = true,
+            WarningHeavyDataThresholdBytes = 100, // Low threshold
             EnableLogging = true
         };
 
@@ -202,8 +202,8 @@ public class HeavyDataMeteringTests(ITestOutputHelper testOutputHelper) : BaseCa
         var options = new HybridCachingOptions
         {
             RedisConnectionString = Options.RedisConnectionString,
-            EnableMeterHeavyData = true,
-            HeavyDataThresholdBytes = 500,
+            EnableMeterData = true,
+            WarningHeavyDataThresholdBytes = 500,
             EnableLogging = true
         };
 
@@ -236,8 +236,8 @@ public class HeavyDataMeteringTests(ITestOutputHelper testOutputHelper) : BaseCa
         var options = new HybridCachingOptions
         {
             RedisConnectionString = Options.RedisConnectionString,
-            EnableMeterHeavyData = true,
-            HeavyDataThresholdBytes = 10, // Very low threshold
+            EnableMeterData = true,
+            WarningHeavyDataThresholdBytes = 10, // Very low threshold 
             EnableLogging = true
         };
 

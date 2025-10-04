@@ -130,15 +130,15 @@ public record HybridCachingOptions
     public bool EnableRedisClientTracking { get; set; } = false;
 
     /// <summary>
-    /// Enable metering and logging of "heavy" data writes to Redis.
+    /// Enable metering and logging of data writes to Redis.
     /// When enabled, any data write exceeding the specified threshold will be logged as a warning
     /// and recorded in Prometheus metrics for monitoring purposes.
     /// </summary>
-    public bool EnableMeterHeavyData { get; set; } = false;
+    public bool EnableMeterData { get; set; } = false;
 
     /// <summary>
     /// The threshold size in bytes to consider and meter data as "heavy" and log a warning.
     /// Default threshold size is 100KB.
     /// </summary>
-    public long HeavyDataThresholdBytes { get; set; } = 100 * 1024; 
+    public long WarningHeavyDataThresholdBytes { get; set; } = 100 * 1024; 
 }
