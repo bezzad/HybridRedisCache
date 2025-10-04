@@ -50,7 +50,9 @@ public partial class HybridCache
         using var activity = PopulateActivity(OperationTypes.KeyLookup);
         var cacheKey = GetCacheKey(key);
 
-        // Circuit Breaker may be better
+        if (_memoryCache.TryGetValue(cacheKey, out _))
+            return true;
+
         try
         {
             if (_redisDb.KeyExists(cacheKey, (CommandFlags)flags))
@@ -58,14 +60,12 @@ public partial class HybridCache
         }
         catch (Exception ex)
         {
-            LogMessage($"Check cache key exists error [{key}] ", ex);
+            LogMessage($"Check cache key [{key}] exists error", ex);
             if (_options.ThrowIfDistributedCacheError)
-            {
                 throw;
-            }
         }
 
-        return _memoryCache.TryGetValue(cacheKey, out var _);
+        return false;
     }
 
     public async Task<bool> ExistsAsync(string key, Flags flags = Flags.PreferMaster)
@@ -73,7 +73,9 @@ public partial class HybridCache
         using var activity = PopulateActivity(OperationTypes.KeyLookupAsync);
         var cacheKey = GetCacheKey(key);
 
-        // Circuit Breaker may be better
+        if (_memoryCache.TryGetValue(cacheKey, out _))
+            return true;
+
         try
         {
             if (await _redisDb.KeyExistsAsync(cacheKey, (CommandFlags)flags).ConfigureAwait(false))
@@ -81,14 +83,12 @@ public partial class HybridCache
         }
         catch (Exception ex)
         {
-            LogMessage($"Check cache key [{key}] exists error", ex);
+            LogMessage($"Check async cache key [{key}] exists error", ex);
             if (_options.ThrowIfDistributedCacheError)
-            {
                 throw;
-            }
         }
 
-        return _memoryCache.TryGetValue(cacheKey, out _);
+        return false;
     }
 
     public bool Set<T>(string key, T value, HybridCacheEntry cacheEntry)
@@ -122,9 +122,7 @@ public partial class HybridCache
             LogMessage($"set cache key [{key}] error", ex);
 
             if (_options.ThrowIfDistributedCacheError)
-            {
                 throw;
-            }
 
             return false;
         }
@@ -169,9 +167,7 @@ public partial class HybridCache
             LogMessage($"set cache key [{key}] error", ex);
 
             if (_options.ThrowIfDistributedCacheError)
-            {
                 throw;
-            }
 
             return false;
         }
