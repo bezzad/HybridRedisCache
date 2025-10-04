@@ -498,6 +498,7 @@ public partial class HybridCache
         return result > 0;
     }
 
+    [Obsolete("Use RemoveWithPatternOnRedisAsync method instead. This method is inefficient and may cause performance issues.")]
     public async ValueTask<long> RemoveWithPatternAsync(
         string pattern, Flags flags = Flags.PreferMaster,
         int batchRemovePackSize = 1024, CancellationToken token = default)
@@ -651,15 +652,14 @@ public partial class HybridCache
 
         // it would be *better* to try and find a single replica per
         // primary and run the SCAN on the replica
-        var servers = GetServers(flags);
-
-        foreach (var server in servers)
+        var server = GetServers(flags).FirstOrDefault();
+        if (server == null)
+            yield break;
+        
+        await foreach (var key in server.KeysAsync(pattern: keyPattern, flags: (CommandFlags)flags)
+                           .WithCancellation(token).ConfigureAwait(false))
         {
-            await foreach (var key in server.KeysAsync(pattern: keyPattern, flags: (CommandFlags)flags)
-                               .WithCancellation(token).ConfigureAwait(false))
-            {
-                yield return key;
-            }
+            yield return key;
         }
     }
 
@@ -728,9 +728,7 @@ public partial class HybridCache
         while (true)
         {
             // First add TaskCompletionSource to bag and catch incoming lock release signals
-            var bag = _lockTasks.GetOrAdd(cacheKey, _ => []);
-            var tcs = new TaskCompletionSource();
-            bag.Add(tcs);
+            var tcs = _lockTasks.GetOrAdd(cacheKey, _ => new TaskCompletionSource());
 
             if (await _redisDb.LockTakeAsync(cacheKey, token.Serialize(), TimeSpan.MaxValue, (CommandFlags)flags))
                 return lockObject;
@@ -772,7 +770,6 @@ public partial class HybridCache
     {
         using var activity = PopulateActivity(OperationTypes.SetCache);
         var result = await _redisDb.StringIncrementAsync(GetCacheKey(key), value, (CommandFlags)flags);
-        _memoryCache.Set(key, result);
         return result;
     }
 
@@ -780,7 +777,6 @@ public partial class HybridCache
     {
         using var activity = PopulateActivity(OperationTypes.SetCache);
         var result = await _redisDb.StringIncrementAsync(GetCacheKey(key), value, (CommandFlags)flags);
-        _memoryCache.Set(key, result);
         return result;
     }
 
@@ -788,7 +784,6 @@ public partial class HybridCache
     {
         using var activity = PopulateActivity(OperationTypes.SetCache);
         var result = await _redisDb.StringDecrementAsync(GetCacheKey(key), value, (CommandFlags)flags);
-        _memoryCache.Set(key, result);
         return result;
     }
 
@@ -796,7 +791,6 @@ public partial class HybridCache
     {
         using var activity = PopulateActivity(OperationTypes.SetCache);
         var result = await _redisDb.StringDecrementAsync(GetCacheKey(key), value, (CommandFlags)flags);
-        _memoryCache.Set(key, result);
         return result;
     }
 

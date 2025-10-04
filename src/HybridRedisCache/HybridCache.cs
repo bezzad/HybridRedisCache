@@ -6,7 +6,7 @@
 /// </summary>
 public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
 {
-    private readonly ConcurrentDictionary<string, ConcurrentBag<TaskCompletionSource>> _lockTasks = new();
+    private readonly ConcurrentDictionary<string, TaskCompletionSource> _lockTasks = new();
     private readonly ConcurrentDictionary<string, Func<string, Task>> _dataRetrieverTasks = new();
     private readonly ActivitySource _activity;
     private readonly string _instanceId;
@@ -276,14 +276,10 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
             {
                 _memoryCache.Remove(key);
                 _recentlySetKeys.Remove(key);
-                if (_lockTasks.TryGetValue(key, out var bag))
+                if (_lockTasks.TryRemove(key, out var tcs))
                 {
-                    while (bag.TryTake(out var tcs))
-                    {
-                        LogMessage($"{nameof(OnMessage)}: Continue to lock `{key}` key.");
-                        tcs.SetResult();
-                    }
-
+                    LogMessage($"{nameof(OnMessage)}: Continue to lock `{key}` key.");
+                    tcs.SetResult();
                     return;
                 }
             }
