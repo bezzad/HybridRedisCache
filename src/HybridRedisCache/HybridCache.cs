@@ -23,7 +23,7 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
     private readonly TimeSpan _timeWindow = TimeSpan.FromSeconds(5); // Expiration time window
     private const string LocalCacheValuePrefix = "#__LEXP__"; // to keep local expiration time in redis value
     private const char LocalCacheValuePostfix = '$'; // to keep local expiration time in redis value
-    private KeyMeter _keyMeter;
+    private readonly KeyMeter _keyMeter;
 
     /// <summary>
     /// This method initializes the HybridCache instance and subscribes to Redis key-space events 

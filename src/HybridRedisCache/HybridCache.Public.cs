@@ -456,7 +456,7 @@ public partial class HybridCache
         var result = 0L;
         using var activity = PopulateActivity(OperationTypes.BatchDeleteCache);
         keys.NotNullAndCountGtZero(nameof(keys));
-        var cacheKeys = Array.ConvertAll(keys, key => GetCacheKey(key));
+        var cacheKeys = Array.ConvertAll(keys, GetCacheKey);
         try
         {
             // distributed cache at first
@@ -487,7 +487,7 @@ public partial class HybridCache
         var result = 0L;
         using var activity = PopulateActivity(OperationTypes.BatchDeleteCache);
         keys.NotNullAndCountGtZero(nameof(keys));
-        var cacheKeys = Array.ConvertAll(keys, key => GetCacheKey(key));
+        var cacheKeys = Array.ConvertAll(keys, GetCacheKey);
         try
         {
             result = await _redisDb
