@@ -298,34 +298,7 @@ public partial class HybridCache
 
     public T Get<T>(string key, bool localCacheEnable = true)
     {
-        using var activity = PopulateActivity(OperationTypes.GetCache);
-        var cacheKey = GetCacheKey(key);
-        if (_memoryCache.TryGetValue(cacheKey, out T value))
-        {
-            activity?.SetRetrievalStrategyActivity(RetrievalStrategy.MemoryCache);
-            activity?.SetCacheHitActivity(CacheResultType.Hit, cacheKey);
-            return value;
-        }
-
-        try
-        {
-            var redisValue = _redisDb.StringGetWithExpiry(cacheKey);
-            if (TryUpdateLocalCache(cacheKey, redisValue, localCacheEnable, out value))
-            {
-                activity?.SetRetrievalStrategyActivity(RetrievalStrategy.RedisCache);
-                activity?.SetCacheHitActivity(CacheResultType.Hit, cacheKey);
-                return value;
-            }
-        }
-        catch (Exception ex)
-        {
-            LogMessage($"Redis cache get error, [{key}]", ex);
-            if (_options.ThrowIfDistributedCacheError)
-                throw;
-        }
-
-        LogMessage($"distributed cache can not get the value of key[{key}]");
-        activity?.SetCacheHitActivity(CacheResultType.Miss, cacheKey);
+        TryGetValue(key, localCacheEnable, out T value);
         return value;
     }
 
@@ -338,7 +311,8 @@ public partial class HybridCache
     public T Get<T>(string key, Func<string, T> dataRetriever, TimeSpan? localExpiry = null,
         TimeSpan? redisExpiry = null, Flags flags = Flags.PreferMaster, bool localCacheEnable = true)
     {
-        if (TryGetValue(key, out T value)) return value;
+        if (TryGetValue(key, localCacheEnable, out T value))
+            return value;
 
         using var activity = PopulateActivity(OperationTypes.SetCacheWithDataRetriever);
         var cacheKey = GetCacheKey(key);
@@ -369,35 +343,8 @@ public partial class HybridCache
 
     public async Task<T> GetAsync<T>(string key, bool localCacheEnable = true)
     {
-        using var activity = PopulateActivity(OperationTypes.GetCache);
-        var cacheKey = GetCacheKey(key);
-        if (_memoryCache.TryGetValue(cacheKey, out T value))
-        {
-            activity?.SetRetrievalStrategyActivity(RetrievalStrategy.MemoryCache);
-            activity?.SetCacheHitActivity(CacheResultType.Hit, cacheKey);
-            return value;
-        }
-
-        try
-        {
-            var redisValue = await _redisDb.StringGetWithExpiryAsync(cacheKey).ConfigureAwait(false);
-            if (TryUpdateLocalCache(cacheKey, redisValue, localCacheEnable, out value))
-            {
-                activity?.SetRetrievalStrategyActivity(RetrievalStrategy.RedisCache);
-                activity?.SetCacheHitActivity(CacheResultType.Hit, cacheKey);
-                return value;
-            }
-        }
-        catch (Exception ex)
-        {
-            LogMessage($"Redis cache get error, [{key}]", ex);
-            if (_options.ThrowIfDistributedCacheError)
-                throw;
-        }
-
-        LogMessage($"distributed cache can not get the value of key[{key}].");
-        activity?.SetCacheHitActivity(CacheResultType.Miss, cacheKey);
-        return value;
+        var resp = await TryGetValueAsync<T>(key, localCacheEnable).ConfigureAwait(false);
+        return resp.value;
     }
 
     public Task<T> GetAsync<T>(string key, Func<string, Task<T>> dataRetriever, HybridCacheEntry cacheEntry)
@@ -410,7 +357,7 @@ public partial class HybridCache
         TimeSpan? localExpiry = null, TimeSpan? redisExpiry = null,
         Flags flags = Flags.PreferMaster, bool localCacheEnable = true)
     {
-        var resp = await TryGetValueAsync<T>(key);
+        var resp = await TryGetValueAsync<T>(key, localCacheEnable);
         if (resp.success) return resp.value;
 
         using var activity = PopulateActivity(OperationTypes.SetCacheWithDataRetriever);
@@ -451,23 +398,14 @@ public partial class HybridCache
         using var activity = PopulateActivity(OperationTypes.GetCache);
         var cacheKey = GetCacheKey(key);
 
-        // Try to get the value from the memory cache
-        if (_memoryCache.TryGetValue(cacheKey, out value))
-        {
-            activity?.SetRetrievalStrategyActivity(RetrievalStrategy.MemoryCache);
-            activity?.SetCacheHitActivity(CacheResultType.Hit, cacheKey);
+        if (TryGetMemoryValue(cacheKey, activity, out value))
             return true;
-        }
 
         try
         {
             var redisValue = _redisDb.StringGetWithExpiry(cacheKey);
-            if (TryUpdateLocalCache(cacheKey, redisValue, localCacheEnable, out value))
-            {
-                activity?.SetRetrievalStrategyActivity(RetrievalStrategy.RedisCache);
-                activity?.SetCacheHitActivity(CacheResultType.Hit, cacheKey);
+            if (TryUpdateRedisValueOnLocalCache(cacheKey, redisValue, localCacheEnable, activity, out value))
                 return true;
-            }
         }
         catch (Exception ex)
         {
@@ -486,23 +424,14 @@ public partial class HybridCache
         using var activity = PopulateActivity(OperationTypes.GetCache);
         var cacheKey = GetCacheKey(key);
 
-        // Try to get the value from the memory cache
-        if (_memoryCache.TryGetValue(cacheKey, out T value))
-        {
-            activity?.SetRetrievalStrategyActivity(RetrievalStrategy.MemoryCache);
-            activity?.SetCacheHitActivity(CacheResultType.Hit, cacheKey);
+        if (TryGetMemoryValue(cacheKey, activity, out T value))
             return (true, value);
-        }
 
         try
         {
             var redisValue = await _redisDb.StringGetWithExpiryAsync(cacheKey).ConfigureAwait(false);
-            if (TryUpdateLocalCache(cacheKey, redisValue, localCacheEnable, out value))
-            {
-                activity?.SetRetrievalStrategyActivity(RetrievalStrategy.RedisCache);
-                activity?.SetCacheHitActivity(CacheResultType.Hit, cacheKey);
+            if (TryUpdateRedisValueOnLocalCache(cacheKey, redisValue, localCacheEnable, activity, out value))
                 return (true, value);
-            }
         }
         catch (Exception ex)
         {
@@ -820,9 +749,7 @@ public partial class HybridCache
             bag.Add(tcs);
 
             if (await _redisDb.LockTakeAsync(cacheKey, token.Serialize(), TimeSpan.MaxValue, (CommandFlags)flags))
-            {
                 return lockObject;
-            }
 
             // wait until a signal income and release this lock
             using var cts = new CancellationTokenSource(10_000);

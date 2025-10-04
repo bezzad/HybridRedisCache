@@ -413,7 +413,19 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
         return LocalCacheValuePrefix + expiry.Value.Ticks + LocalCacheValuePostfix + json;
     }
 
-    private bool TryUpdateLocalCache<T>(string cacheKey, RedisValueWithExpiry redisValue, bool localCacheEnable, out T value)
+    private bool TryGetMemoryValue<T>(string cacheKey, Activity activity, out T value)
+    {
+        if (_memoryCache.TryGetValue(cacheKey, out value))
+        {
+            activity?.SetRetrievalStrategyActivity(RetrievalStrategy.MemoryCache);
+            activity?.SetCacheHitActivity(CacheResultType.Hit, cacheKey);
+            return true;
+        }
+
+        return false;
+    }
+
+    private bool TryUpdateRedisValueOnLocalCache<T>(string cacheKey, RedisValueWithExpiry redisValue, bool localCacheEnable, Activity activity, out T value)
     {
         value = default;
         if (!redisValue.Value.HasValue) return false;
@@ -444,6 +456,9 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
 
         if (localExpiry > TimeSpan.Zero && localCacheEnable)
             SetLocalMemory(cacheKey, value, localExpiry, Condition.Always, false);
+        
+        activity?.SetRetrievalStrategyActivity(RetrievalStrategy.RedisCache);
+        activity?.SetCacheHitActivity(CacheResultType.Hit, cacheKey);
 
         return true;
     }
