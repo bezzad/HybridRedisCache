@@ -20,7 +20,9 @@ var options = new HybridCachingOptions()
     ThreadPoolSocketManagerEnable = true,
     FlushLocalCacheOnBusReconnection = true,
     TracingActivitySourceName = nameof(HybridRedisCache),
-    EnableRedisClientTracking = true
+    EnableRedisClientTracking = true,
+    EnableMeterData = false,
+    WarningHeavyDataThresholdBytes = 10 * 1024, // 10 KB
 };
 var cache = new HybridCache(options);
 
@@ -100,7 +102,9 @@ void Get(string[] words)
 {
     if (words.Length == 2)
     {
-        var val = cache.Get<string>(words[1], s => s + "_defaultOfDataRetriever");
+#pragma warning disable CS0618 // Type or member is obsolete
+        var val = cache.Get(words[1], s => s + "_defaultOfDataRetriever");
+#pragma warning restore CS0618 // Type or member is obsolete
         Console.WriteLine(val ?? "NULL");
     }
     else

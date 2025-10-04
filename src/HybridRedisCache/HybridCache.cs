@@ -7,6 +7,7 @@
 public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
 {
     private readonly ConcurrentDictionary<string, ConcurrentBag<TaskCompletionSource>> _lockTasks = new();
+    private readonly ConcurrentDictionary<string, Func<string, Task>> _dataRetrieverTasks = new();
     private readonly ActivitySource _activity;
     private readonly string _instanceId;
     private readonly SemaphoreSlim _reconnectSemaphore = new(1, 1);
@@ -456,7 +457,7 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
 
         if (localExpiry > TimeSpan.Zero && localCacheEnable)
             SetLocalMemory(cacheKey, value, localExpiry, Condition.Always, false);
-        
+
         activity?.SetRetrievalStrategyActivity(RetrievalStrategy.RedisCache);
         activity?.SetCacheHitActivity(CacheResultType.Hit, cacheKey);
 
@@ -494,6 +495,32 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
             // completely wipe ALL keys from database 0
             server.FlushDatabase(flags: (CommandFlags)flags);
         }
+    }
+
+    private async Task<T> FetchDataSafely<T>(string key, Func<string, Task<T>> dataRetriever)
+    {
+        // We don't have multiple calls to data retriever with same key.
+        // This is very useful when you have a heavy data retriever function
+        // And, you have multiple requests with same key at the same time.
+        // This will prevent multiple calls to data retriever function.
+        // So, will improve the performance of your application
+        var lastRetrieverTask = _dataRetrieverTasks.GetOrAdd(key, dataRetriever) as Func<string, Task<T>>;
+
+        try
+        {
+            // This is the first request, execute the data retriever
+            if (lastRetrieverTask != null)
+            {
+                return await lastRetrieverTask(key).ConfigureAwait(false);
+            }
+        }
+        finally
+        {
+            // Remove the task from dictionary after completion to prevent memory leaks
+            _dataRetrieverTasks.TryRemove(key, out _);
+        }
+
+        return default;
     }
 
     private void LogMessage(string message, Exception ex = null)

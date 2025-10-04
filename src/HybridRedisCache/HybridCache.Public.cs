@@ -294,12 +294,14 @@ public partial class HybridCache
         return value;
     }
 
+    [Obsolete("Use GetAsync method instead.")]
     public T Get<T>(string key, Func<string, T> dataRetriever, HybridCacheEntry cacheEntry)
     {
         return Get(key, dataRetriever, cacheEntry.LocalExpiry, cacheEntry.RedisExpiry, cacheEntry.Flags,
             cacheEntry.LocalCacheEnable);
     }
 
+    [Obsolete("Use GetAsync method instead.")]
     public T Get<T>(string key, Func<string, T> dataRetriever, TimeSpan? localExpiry = null,
         TimeSpan? redisExpiry = null, Flags flags = Flags.PreferMaster, bool localCacheEnable = true)
     {
@@ -358,7 +360,7 @@ public partial class HybridCache
 
         try
         {
-            var value = await dataRetriever(key).ConfigureAwait(false);
+            var value = await FetchDataSafely(key, dataRetriever).ConfigureAwait(false);
             if (value is not null)
             {
                 await SetAsync(key, value, localExpiry, redisExpiry, flags, localCacheEnable: localCacheEnable)

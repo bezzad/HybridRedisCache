@@ -1583,10 +1583,10 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         var key = UniqueKey;
 
         //set a custom key with value 1 hour as expiration
-        await Cache.SetAsync(key, key, TimeSpan.FromHours(1), TimeSpan.FromHours(1));
+        await Cache.SetAsync(key, key, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(1));
         var cachedValueBeforeExpiration = await Cache.GetAsync<string>(key);
         TestOutputHelper.WriteLine($"Cached Value Before expiration: {cachedValueBeforeExpiration}");
-        await Cache.KeyExpireAsync(key, TimeSpan.FromSeconds(1));
+        await Cache.KeyExpireAsync(key, TimeSpan.FromSeconds(1), Flags.PreferMaster);
         await Task.Delay(1100);
         var cachedValueAfterExpiration = await Cache.GetAsync<string>(key);
 
@@ -1619,5 +1619,33 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         var get = await Cache.GetAsync<long>(key);
 
         Assert.Equal(get, value);
+    }
+
+    [Fact]
+    public async Task ShouldGetOnceTimeCallDataRetrieverWhenKeyNotExist()
+    {
+        var key = UniqueKey;
+        var callCount = 0;
+
+        var value1 = await Cache.GetAsync(key, Retriever);
+        var value2 = await Cache.GetAsync(key, Retriever);
+        var value3 = await Cache.GetAsync(key, Retriever);
+        var value4 = await Cache.GetAsync(key, Retriever);
+        var value5 = await Cache.GetAsync(key, Retriever);
+
+        Assert.Equal(1, value1);
+        Assert.Equal(1, value2);
+        Assert.Equal(1, value3);
+        Assert.Equal(1, value4);
+        Assert.Equal(1, value5);
+        Assert.Equal(1, callCount);
+        return;
+
+        async Task<int> Retriever(string k)
+        {
+            Interlocked.Increment(ref callCount);
+            await Task.Delay(1000); // simulate some delay;
+            return callCount;
+        }
     }
 }
