@@ -314,7 +314,11 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
 
     private RedisChannel GetRedisPatternChannel(string channel, string key = "*") => new(channel + ":" + key, RedisChannel.PatternMode.Auto);
 
-    private string GetCacheKey(string key) => $"{_options.InstancesSharedName}:" + key;
+    private string GetCacheKey(string key)
+    {
+        key.NotNullOrWhiteSpace(nameof(key));
+        return $"{_options.InstancesSharedName}:" + key;
+    }
 
     private string GetPureCacheKey(string key)
     {

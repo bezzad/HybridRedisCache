@@ -12,30 +12,6 @@ public partial class HybridCache
 {
     public event RedisBusMessage OnRedisBusMessage = delegate { };
 
-    public bool Exists(string key, Flags flags = Flags.PreferMaster)
-    {
-        using var activity = PopulateActivity(OperationTypes.KeyLookup);
-        key.NotNullOrWhiteSpace(nameof(key));
-        var cacheKey = GetCacheKey(key);
-
-        // Circuit Breaker may be better
-        try
-        {
-            if (_redisDb.KeyExists(cacheKey, (CommandFlags)flags))
-                return true;
-        }
-        catch (Exception ex)
-        {
-            LogMessage($"Check cache key exists error [{key}] ", ex);
-            if (_options.ThrowIfDistributedCacheError)
-            {
-                throw;
-            }
-        }
-
-        return _memoryCache.TryGetValue(cacheKey, out var _);
-    }
-
     public void Subscribe(string channel, RedisChannelMessage handler)
     {
         var redisChannel = GetRedisPatternChannel(channel);
@@ -69,10 +45,32 @@ public partial class HybridCache
         return _redisSubscriber.Publish(redisChannel, value, CommandFlags.FireAndForget);
     }
 
+    public bool Exists(string key, Flags flags = Flags.PreferMaster)
+    {
+        using var activity = PopulateActivity(OperationTypes.KeyLookup);
+        var cacheKey = GetCacheKey(key);
+
+        // Circuit Breaker may be better
+        try
+        {
+            if (_redisDb.KeyExists(cacheKey, (CommandFlags)flags))
+                return true;
+        }
+        catch (Exception ex)
+        {
+            LogMessage($"Check cache key exists error [{key}] ", ex);
+            if (_options.ThrowIfDistributedCacheError)
+            {
+                throw;
+            }
+        }
+
+        return _memoryCache.TryGetValue(cacheKey, out var _);
+    }
+
     public async Task<bool> ExistsAsync(string key, Flags flags = Flags.PreferMaster)
     {
         using var activity = PopulateActivity(OperationTypes.KeyLookupAsync);
-        key.NotNullOrWhiteSpace(nameof(key));
         var cacheKey = GetCacheKey(key);
 
         // Circuit Breaker may be better
@@ -90,7 +88,7 @@ public partial class HybridCache
             }
         }
 
-        return _memoryCache.TryGetValue(cacheKey, out var _);
+        return _memoryCache.TryGetValue(cacheKey, out _);
     }
 
     public bool Set<T>(string key, T value, HybridCacheEntry cacheEntry)
@@ -105,9 +103,8 @@ public partial class HybridCache
         bool keepTtl = false, bool localCacheEnable = true, bool redisCacheEnable = true)
     {
         using var activity = PopulateActivity(OperationTypes.SetCache);
-        key.NotNullOrWhiteSpace(nameof(key));
-        SetExpiryTimes(ref localExpiry, ref redisExpiry);
         var cacheKey = GetCacheKey(key);
+        SetExpiryTimes(ref localExpiry, ref redisExpiry);
         var inserted = true;
 
         try
@@ -153,9 +150,8 @@ public partial class HybridCache
         bool keepTtl = false, bool localCacheEnable = true, bool redisCacheEnable = true)
     {
         using var activity = PopulateActivity(OperationTypes.SetCache);
-        key.NotNullOrWhiteSpace(nameof(key));
-        SetExpiryTimes(ref localExpiry, ref redisExpiry);
         var cacheKey = GetCacheKey(key);
+        SetExpiryTimes(ref localExpiry, ref redisExpiry);
         var inserted = true;
 
         try
@@ -303,7 +299,6 @@ public partial class HybridCache
     public T Get<T>(string key, bool localCacheEnable = true)
     {
         using var activity = PopulateActivity(OperationTypes.GetCache);
-        key.NotNullOrWhiteSpace(nameof(key));
         var cacheKey = GetCacheKey(key);
         if (_memoryCache.TryGetValue(cacheKey, out T value))
         {
@@ -346,9 +341,8 @@ public partial class HybridCache
         if (TryGetValue(key, out T value)) return value;
 
         using var activity = PopulateActivity(OperationTypes.SetCacheWithDataRetriever);
-        key.NotNullOrWhiteSpace(nameof(key));
-        SetExpiryTimes(ref localExpiry, ref redisExpiry);
         var cacheKey = GetCacheKey(key);
+        SetExpiryTimes(ref localExpiry, ref redisExpiry);
 
         try
         {
@@ -376,7 +370,6 @@ public partial class HybridCache
     public async Task<T> GetAsync<T>(string key, bool localCacheEnable = true)
     {
         using var activity = PopulateActivity(OperationTypes.GetCache);
-        key.NotNullOrWhiteSpace(nameof(key));
         var cacheKey = GetCacheKey(key);
         if (_memoryCache.TryGetValue(cacheKey, out T value))
         {
@@ -421,9 +414,8 @@ public partial class HybridCache
         if (resp.success) return resp.value;
 
         using var activity = PopulateActivity(OperationTypes.SetCacheWithDataRetriever);
-        key.NotNullOrWhiteSpace(nameof(key));
-        SetExpiryTimes(ref localExpiry, ref redisExpiry);
         var cacheKey = GetCacheKey(key);
+        SetExpiryTimes(ref localExpiry, ref redisExpiry);
 
         try
         {
@@ -457,7 +449,6 @@ public partial class HybridCache
     public bool TryGetValue<T>(string key, bool localCacheEnable, out T value)
     {
         using var activity = PopulateActivity(OperationTypes.GetCache);
-        key.NotNullOrWhiteSpace(nameof(key));
         var cacheKey = GetCacheKey(key);
 
         // Try to get the value from the memory cache
@@ -493,7 +484,6 @@ public partial class HybridCache
     public async ValueTask<(bool success, T value)> TryGetValueAsync<T>(string key, bool localCacheEnable = true)
     {
         using var activity = PopulateActivity(OperationTypes.GetCache);
-        key.NotNullOrWhiteSpace(nameof(key));
         var cacheKey = GetCacheKey(key);
 
         // Try to get the value from the memory cache
@@ -710,14 +700,14 @@ public partial class HybridCache
         await PublishBusAsync(MessageType.ClearLocalCache, _instanceId).ConfigureAwait(false);
     }
 
-    public TimeSpan? GetExpiration(string cacheKey)
+    public TimeSpan? GetExpiration(string key)
     {
         using var activity = PopulateActivity(OperationTypes.GetExpiration);
-        cacheKey.NotNullOrWhiteSpace(nameof(cacheKey));
+        var cacheKey = GetCacheKey(key);
 
         try
         {
-            return _redisDb.KeyTimeToLive(GetCacheKey(cacheKey));
+            return _redisDb.KeyTimeToLive(cacheKey);
         }
         catch
         {
@@ -725,14 +715,14 @@ public partial class HybridCache
         }
     }
 
-    public async Task<TimeSpan?> GetExpirationAsync(string cacheKey)
+    public async Task<TimeSpan?> GetExpirationAsync(string key)
     {
         using var activity = PopulateActivity(OperationTypes.GetExpiration);
-        cacheKey.NotNullOrWhiteSpace(nameof(cacheKey));
+        var cacheKey = GetCacheKey(key);
 
         try
         {
-            return await _redisDb.KeyTimeToLiveAsync(GetCacheKey(cacheKey)).ConfigureAwait(false);
+            return await _redisDb.KeyTimeToLiveAsync(cacheKey).ConfigureAwait(false);
         }
         catch
         {
@@ -744,7 +734,6 @@ public partial class HybridCache
         [EnumeratorCancellation] CancellationToken token = default)
     {
         using var activity = PopulateActivity(OperationTypes.KeyLookupAsync);
-        pattern.NotNullOrWhiteSpace(nameof(pattern));
         var keyPattern = GetCacheKey(pattern);
 
         // it would be *better* to try and find a single replica per
@@ -858,24 +847,14 @@ public partial class HybridCache
     {
         using var activity = PopulateActivity(OperationTypes.ReleaseLock);
         var cacheKey = GetCacheKey(key);
-        if (await _redisDb.LockReleaseAsync(cacheKey, token.Serialize(), (CommandFlags)flags))
-        {
-            return true;
-        }
-
-        return false;
+        return await _redisDb.LockReleaseAsync(cacheKey, token.Serialize(), (CommandFlags)flags);
     }
 
     public bool TryReleaseLock(string key, string token, Flags flags = Flags.None)
     {
         using var activity = PopulateActivity(OperationTypes.ReleaseLock);
         var cacheKey = GetCacheKey(key);
-        if (_redisDb.LockRelease(cacheKey, token.Serialize(), (CommandFlags)flags))
-        {
-            return true;
-        }
-
-        return false;
+        return _redisDb.LockRelease(cacheKey, token.Serialize(), (CommandFlags)flags);
     }
 
     public async Task<long> ValueIncrementAsync(string key, long value = 1, Flags flags = Flags.None)
@@ -930,21 +909,18 @@ public partial class HybridCache
     public async Task KeyExpireAsync(string key, TimeSpan expiry, Flags flags = Flags.None, ExpireWhen expireWhen = ExpireWhen.Always)
     {
         using var activity = PopulateActivity(OperationTypes.KeyExpire);
-
         await _redisDb.KeyExpireAsync(GetCacheKey(key), expiry, expireWhen, (CommandFlags)flags);
     }
 
     public void KeyExpire(string key, TimeSpan expiry, Flags flags = Flags.None, ExpireWhen expireWhen = ExpireWhen.Always)
     {
         using var activity = PopulateActivity(OperationTypes.KeyExpire);
-
         _redisDb.KeyExpire(GetCacheKey(key), expiry, expireWhen, (CommandFlags)flags);
     }
 
     public async ValueTask RemoveWithPatternOnRedisAsync(string pattern, Flags flags = Flags.None)
     {
         using var activity = PopulateActivity(OperationTypes.BatchDeleteCache);
-        pattern.NotNullOrWhiteSpace(nameof(pattern));
         var cacheKeyPattern = GetCacheKey(pattern);
         LogMessage($"Remove keys by pattern `{pattern}` on Redis server.");
 
