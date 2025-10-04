@@ -217,9 +217,7 @@ public partial class HybridCache
                 LogMessage($"set cache key [{kvp.Key}] error", ex);
 
                 if (_options.ThrowIfDistributedCacheError)
-                {
                     throw;
-                }
 
                 inserted = false;
             }
@@ -273,9 +271,7 @@ public partial class HybridCache
                 LogMessage($"set cache key [{kvp.Key}] error", ex);
 
                 if (_options.ThrowIfDistributedCacheError)
-                {
                     throw;
-                }
 
                 inserted = false;
             }
@@ -463,9 +459,7 @@ public partial class HybridCache
             LogMessage($"remove cache key [{string.Join(" | ", keys)}] error", ex);
 
             if (_options.ThrowIfDistributedCacheError)
-            {
                 throw;
-            }
         }
 
         Array.ForEach(cacheKeys, _memoryCache.Remove);
@@ -495,9 +489,7 @@ public partial class HybridCache
             LogMessage($"remove cache key [{string.Join(" | ", keys)}] error", ex);
 
             if (_options.ThrowIfDistributedCacheError)
-            {
                 throw;
-            }
         }
 
         Array.ForEach(cacheKeys, _memoryCache.Remove);
@@ -534,9 +526,7 @@ public partial class HybridCache
             LogMessage($"remove cache keys with pattern `{keyPattern}` error", ex);
 
             if (_options.ThrowIfDistributedCacheError)
-            {
                 throw;
-            }
         }
 
         return removedCount;
@@ -560,9 +550,7 @@ public partial class HybridCache
         using var activity = PopulateActivity(OperationTypes.Flush);
         var servers = GetServers(flags);
         foreach (var server in servers)
-        {
             FlushServer(server, flags);
-        }
 
         FlushLocalCaches();
     }
@@ -572,9 +560,7 @@ public partial class HybridCache
         using var activity = PopulateActivity(OperationTypes.Flush);
         var servers = GetServers(flags);
         foreach (var server in servers)
-        {
             await FlushServerAsync(server, flags).ConfigureAwait(false);
-        }
 
         await FlushLocalCachesAsync().ConfigureAwait(false);
     }
