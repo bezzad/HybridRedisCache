@@ -5,7 +5,7 @@ namespace HybridRedisCache;
 public class KeyMeter(ILogger<KeyMeter> logger, HybridCachingOptions cacheOptions)
 {
     private readonly Histogram _heavyDataUsageMetric = Metrics.CreateHistogram(
-        "hybrid_cache_data_bytes",
+        cacheOptions.DataSizeHistogramMetricName,
         "Histogram of data sizes written to Redis cache",
         new HistogramConfiguration
         {

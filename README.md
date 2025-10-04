@@ -83,7 +83,8 @@ var options = new HybridCachingOptions()
     TracingActivitySourceName = nameof(HybridRedisCache),
     EnableRedisClientTracking = true,
     EnableMeterData = true,
-    WarningHeavyDataThresholdBytes = 20*1024 // 20KB
+    WarningHeavyDataThresholdBytes = 20 * 1024, // 20KB
+    DataSizeHistogramMetricName = "my_app_keys_data_size_histogram_metric"
 };
 var cache = new HybridCache(options);
 

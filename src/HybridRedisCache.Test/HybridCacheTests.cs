@@ -469,7 +469,9 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
 
         // Act
         var firstResult = Cache.Get<string>(cacheKey);
+#pragma warning disable CS0618 // Type or member is obsolete
         var retrievedResult = Cache.Get(cacheKey, DataRetriever);
+#pragma warning restore CS0618 // Type or member is obsolete
         var isExist = Cache.Exists(cacheKey);
 
         // Assert

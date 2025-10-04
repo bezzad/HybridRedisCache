@@ -137,6 +137,12 @@ public record HybridCachingOptions
     public bool EnableMeterData { get; set; } = false;
 
     /// <summary>
+    /// Set name of the Prometheus histogram metric for data size tracking.
+    /// Default metric name is "hybrid_cache_data_bytes".
+    /// </summary>
+    public string DataSizeHistogramMetricName { get; set; } = "hybrid_cache_data_bytes";
+
+    /// <summary>
     /// The threshold size in bytes to consider and meter data as "heavy" and log a warning.
     /// Default threshold size is 100KB.
     /// </summary>
