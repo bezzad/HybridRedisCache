@@ -1382,6 +1382,7 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         // Act
         await using (await Cache.LockKeyAsync(key))
         {
+            await Task.Delay(1000);
             cantLockSameKey = await Cache.TryLockKeyAsync(key, token);
             setSameKey = await Cache.SetAsync(key, token, expiry, expiry);
         }
@@ -1684,6 +1685,47 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         {
             var isExist = await Cache.ExistsAsync(key);
             Assert.False(isExist);
+        }
+    }
+
+    [Fact]
+    public async Task ShouldControlRaceConditionWithLockKeyAsync()
+    {
+        // Arrange
+        var key = UniqueKey;
+        var token = UniqueKey;
+        var delay = 10000;
+        var expiry = TimeSpan.FromSeconds(1);
+        var counter = 0;
+        var tasks = new List<Task>();
+        await Cache.ClearAllAsync();
+        var timeWatcher = Stopwatch.StartNew();
+
+        // Act
+        for (var i = 0; i < 5; i++)
+        {
+            tasks.Add(Lockey(key, delay));
+        }
+
+        await Task.WhenAll(tasks);
+        timeWatcher.Stop();
+
+        await Task.Delay(expiry.Add(TimeSpan.FromMilliseconds(50)));
+        var locked = await Cache.TryLockKeyAsync(key, token, expiry);
+
+        // Assert
+        Assert.True(locked);
+        Assert.Equal(tasks.Count, counter);
+        Assert.True(timeWatcher.ElapsedMilliseconds >= tasks.Count * delay);
+        return;
+
+        async Task<int> Lockey(string locKey, int millisecondsDelay)
+        {
+            await using (await Cache.LockKeyAsync(locKey))
+            {
+                await Task.Delay(millisecondsDelay);
+                return Interlocked.Increment(ref counter);
+            }
         }
     }
 }

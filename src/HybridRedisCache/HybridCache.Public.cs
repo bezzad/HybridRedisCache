@@ -722,7 +722,6 @@ public partial class HybridCache
     {
         using var activity = PopulateActivity(OperationTypes.LockKeyObject);
         var token = Guid.NewGuid().ToString("N");
-        var lockObject = new RedisLockObject(this, key, token);
         var cacheKey = GetCacheKey(key);
 
         while (true)
@@ -731,10 +730,10 @@ public partial class HybridCache
             var tcs = _lockTasks.GetOrAdd(cacheKey, _ => new TaskCompletionSource());
 
             if (await _redisDb.LockTakeAsync(cacheKey, token.Serialize(), TimeSpan.MaxValue, (CommandFlags)flags))
-                return lockObject;
+                return new RedisLockObject(this, key, token);
 
             // wait until a signal income and release this lock
-            using var cts = new CancellationTokenSource(10_000);
+            using var cts = new CancellationTokenSource(1000);
             // Register the cancellation to trigger the TCS completion if timeout occurs
             await using (cts.Token.Register(() => tcs.TrySetResult()))
             {
