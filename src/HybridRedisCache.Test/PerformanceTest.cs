@@ -93,7 +93,7 @@ public class PerformanceTest(ITestOutputHelper testOutputHelper) : BaseCacheTest
     [InlineData(10_000, 500)]
     [InlineData(10_000, 5000)]
     [InlineData(10_000, 15_000)]
-    [SuppressMessage("ReSharper", "StringLiteralTypo")]
+    [SuppressMessage("ReSharper", "StringLiteralTypo"), Obsolete("Obsolete")]
     public async Task TestRemoveWithPatternKeysPerformance(int insertCount, int batchRemovePackSize)
     {
         // Arrange

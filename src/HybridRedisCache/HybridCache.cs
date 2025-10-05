@@ -99,7 +99,7 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
         // Subscribe to Redis key-space events to invalidate cache entries on all instances
         _keySpaceChannelName = $"__keyspace@{_redisDb.Database}__:{_options.InstancesSharedName}:";
         var keySpaceChannel = GetRedisKeySpaceChannel("*", RedisChannel.PatternMode.Pattern);
-        _redisSubscriber.Subscribe(keySpaceChannel, OnMessage, CommandFlags.FireAndForget);
+        _redisSubscriber.Subscribe(keySpaceChannel, OnBusMessage, CommandFlags.FireAndForget);
         SetRedisServersConfigs();
 
         LogMessage("HybridRedisCache connected and configured at endpoints: " +
@@ -237,7 +237,7 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
         return activity;
     }
 
-    private void OnMessage(RedisChannel channel, RedisValue val)
+    private void OnBusMessage(RedisChannel channel, RedisValue val)
     {
         // With this implementation, when a key is updated or removed in Redis,
         // all instances of HybridCache that are subscribed to the pub/sub channel will receive a message
@@ -262,7 +262,7 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
                 if (_recentlySetKeys.TryGetValue(key, out _))
                 {
                     // The key was set by this instance; ignore the notification
-                    LogMessage($"{nameof(OnMessage)}: Notification ignored for key: {key}");
+                    LogMessage($"{nameof(OnBusMessage)}: Notification ignored for key: {key}");
                     _recentlySetKeys.Remove(key);
                     return;
                 }
@@ -278,7 +278,7 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
                 _recentlySetKeys.Remove(key);
                 if (_lockTasks.TryRemove(key, out var tcs))
                 {
-                    LogMessage($"{nameof(OnMessage)}: Continue to lock `{key}` key.");
+                    LogMessage($"{nameof(OnBusMessage)}: Continue to lock `{key}` key.");
                     tcs.SetResult();
                     return;
                 }
@@ -287,7 +287,7 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
             if (val.Is(MessageType.ClearLocalCache) &&
                 key != GetCacheKey(_instanceId)) // ignore self-instance from duplicate clearing
             {
-                LogMessage($"{nameof(OnMessage)}: Clearing local cache");
+                LogMessage($"{nameof(OnBusMessage)}: Clearing local cache");
                 ClearLocalMemory();
             }
         }

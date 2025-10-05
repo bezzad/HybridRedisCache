@@ -822,7 +822,7 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
             Assert.True(foundKeys.IndexOf(Options.InstancesSharedName + ":" + string.Format(keyPattern, i)) >= 0);
     }
 
-    [Fact]
+    [Fact, Obsolete("Obsolete")]
     public async Task TestRemoveWithPatternAsync()
     {
         // Arrange 
@@ -851,7 +851,7 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         }
     }
 
-    [Fact]
+    [Fact, Obsolete("Obsolete")]
     public async Task TestRemoveWithNotExistPatternAsync()
     {
         // Arrange 
@@ -1588,7 +1588,7 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         await Cache.SetAsync(key, key, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(1));
         var cachedValueBeforeExpiration = await Cache.GetAsync<string>(key);
         TestOutputHelper.WriteLine($"Cached Value Before expiration: {cachedValueBeforeExpiration}");
-        await Cache.KeyExpireAsync(key, TimeSpan.FromSeconds(1), Flags.PreferMaster);
+        await Cache.KeyExpireAsync(key, TimeSpan.FromSeconds(1), Flags.DemandMaster);
         await Task.Delay(1100);
         var cachedValueAfterExpiration = await Cache.GetAsync<string>(key);
 
@@ -1643,11 +1643,47 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         Assert.Equal(1, callCount);
         return;
 
-        async Task<int> Retriever(string k)
+        async Task<int> Retriever(string _)
         {
             Interlocked.Increment(ref callCount);
-            await Task.Delay(1000); // simulate some delay;
+            await Task.Delay(1000);
             return callCount;
+        }
+    }
+
+
+    [Fact, Obsolete("Obsolete")]
+    public async Task ShouldRemoveAllPatternMatchKeysWithLua()
+    {
+        // Arrange 
+        var keyPrefix = "key_";
+        var keyPattern = keyPrefix + "*";
+        var value = "test_value_";
+        var keys = new List<string>();
+
+        // Act
+        for (var i = 0; i < 1000; i++)
+        {
+            var key = keyPrefix + UniqueKey;
+            keys.Add(key);
+            await Cache.SetAsync(key, value, new HybridCacheEntry
+            {
+                FireAndForget = false,
+                LocalCacheEnable = false,
+                RedisCacheEnable = true,
+                RedisExpiry = TimeSpan.FromHours(1)
+            });
+        }
+
+        await Task.Delay(100);
+        await Cache.RemoveWithPatternOnRedisAsync(keyPattern, Flags.DemandMaster);
+        await Task.Delay(1000);
+
+        // Assert
+        foreach (var key in keys)
+        {
+            var isExist = await Cache.ExistsAsync(key);
+            Assert.False(isExist);
         }
     }
 }
