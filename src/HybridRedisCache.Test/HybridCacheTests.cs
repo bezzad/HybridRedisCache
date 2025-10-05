@@ -1694,7 +1694,7 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         // Arrange
         var key = UniqueKey;
         var token = UniqueKey;
-        var delay = 10000;
+        var delay = 100;
         var expiry = TimeSpan.FromSeconds(1);
         var counter = 0;
         var tasks = new List<Task>();

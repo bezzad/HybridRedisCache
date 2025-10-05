@@ -386,6 +386,17 @@ public interface IHybridCache
 
     /// <summary>
     /// Takes a lock (specifying a token value) if it is not already taken.
+    /// This locking way has no expiration, and you must release that with disposing returned object.
+    /// Note: Lock an existed key and token is not possible. But Set a locked key with difference, or same value is possible.
+    /// </summary>
+    /// <param name="key">The key of the lock.</param>
+    /// <param name="expiry">The expiration of the lock key.</param>
+    /// <param name="flags">The flags to use for this operation.</param>
+    /// <returns>Return the <see cref="RedisLockObject"/> if the lock was successfully acquired; otherwise, wait until the key is released.</returns>
+    Task<RedisLockObject> LockKeyAsync(string key, TimeSpan? expiry = null, Flags flags = Flags.None);
+    
+    /// <summary>
+    /// Takes a lock (specifying a token value) if it is not already taken.
     /// Note: Lock an exist key and token is not possible. But, Set a locked key with difference or same value is possible.
     /// </summary>
     /// <param name="key">The key of the lock.</param>
@@ -422,16 +433,6 @@ public interface IHybridCache
     /// <param name="flags">The flags to use for this operation.</param>
     /// <returns><see langword="true"/> if the lock was successfully released, <see langword="false"/> otherwise.</returns>
     bool TryReleaseLock(string key, string token, Flags flags = Flags.None);
-
-    /// <summary>
-    /// Takes a lock (specifying a token value) if it is not already taken.
-    /// This locking way has no expiration, and you must release that with disposing returned object.
-    /// Note: Lock an existed key and token is not possible. But Set a locked key with difference, or same value is possible.
-    /// </summary>
-    /// <param name="key">The key of the lock.</param>
-    /// <param name="flags">The flags to use for this operation.</param>
-    /// <returns>Return the <see cref="RedisLockObject"/> if the lock was successfully acquired; otherwise, wait until the key is released.</returns>
-    Task<RedisLockObject> LockKeyAsync(string key, Flags flags = Flags.None);
 
     /// <summary>
     /// Increments the number stored at a key by increment.

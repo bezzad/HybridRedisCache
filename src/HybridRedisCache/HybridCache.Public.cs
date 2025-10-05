@@ -655,7 +655,7 @@ public partial class HybridCache
         var server = GetServers(flags).FirstOrDefault();
         if (server == null)
             yield break;
-        
+
         await foreach (var key in server.KeysAsync(pattern: keyPattern, flags: (CommandFlags)flags)
                            .WithCancellation(token).ConfigureAwait(false))
         {
@@ -713,14 +713,15 @@ public partial class HybridCache
     public Task<bool> TryLockKeyAsync(string key, string token, TimeSpan? expiry = null, Flags flags = Flags.None)
     {
         using var activity = PopulateActivity(OperationTypes.LockKey);
-        expiry ??= TimeSpan.MaxValue;
+        expiry ??= TimeSpan.FromDays(1);
         var cacheKey = GetCacheKey(key);
         return _redisDb.LockTakeAsync(cacheKey, token.Serialize(), expiry.Value, (CommandFlags)flags);
     }
 
-    public async Task<RedisLockObject> LockKeyAsync(string key, Flags flags = Flags.None)
+    public async Task<RedisLockObject> LockKeyAsync(string key, TimeSpan? expiry = null, Flags flags = Flags.None)
     {
         using var activity = PopulateActivity(OperationTypes.LockKeyObject);
+        expiry ??= TimeSpan.FromDays(1);
         var token = Guid.NewGuid().ToString("N");
         var cacheKey = GetCacheKey(key);
 
@@ -729,17 +730,11 @@ public partial class HybridCache
             // First add TaskCompletionSource to bag and catch incoming lock release signals
             var tcs = _lockTasks.GetOrAdd(cacheKey, _ => new TaskCompletionSource());
 
-            if (await _redisDb.LockTakeAsync(cacheKey, token.Serialize(), TimeSpan.MaxValue, (CommandFlags)flags))
+            if (await _redisDb.LockTakeAsync(cacheKey, token.Serialize(), expiry.Value, (CommandFlags)flags))
                 return new RedisLockObject(this, key, token);
 
-            // wait until a signal income and release this lock
-            using var cts = new CancellationTokenSource(1000);
-            // Register the cancellation to trigger the TCS completion if timeout occurs
-            await using (cts.Token.Register(() => tcs.TrySetResult()))
-            {
-                // Wait for either the signal or timeout
-                await tcs.Task;
-            }
+            // Wait for either the signal or timeout
+            await tcs.Task;
         }
     }
 
@@ -755,14 +750,32 @@ public partial class HybridCache
     {
         using var activity = PopulateActivity(OperationTypes.ReleaseLock);
         var cacheKey = GetCacheKey(key);
-        return await _redisDb.LockReleaseAsync(cacheKey, token.Serialize(), (CommandFlags)flags);
+        
+        if (!await _redisDb.LockReleaseAsync(cacheKey, token.Serialize(), (CommandFlags)flags))
+            return false;
+        
+        if (_lockTasks.TryRemove(cacheKey, out var tcs))
+        {
+            tcs.SetResult();
+        }
+        
+        return true;
     }
 
     public bool TryReleaseLock(string key, string token, Flags flags = Flags.None)
     {
         using var activity = PopulateActivity(OperationTypes.ReleaseLock);
         var cacheKey = GetCacheKey(key);
-        return _redisDb.LockRelease(cacheKey, token.Serialize(), (CommandFlags)flags);
+        
+        if (!_redisDb.LockRelease(cacheKey, token.Serialize(), (CommandFlags)flags))
+            return false;
+        
+        if (_lockTasks.TryRemove(cacheKey, out var tcs))
+        {
+            tcs.SetResult();
+        }
+        
+        return true;
     }
 
     public async Task<long> ValueIncrementAsync(string key, long value = 1, Flags flags = Flags.None)
