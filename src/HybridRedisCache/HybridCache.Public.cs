@@ -540,7 +540,7 @@ public partial class HybridCache
                 return;
 
             var keys = batch.ToArray();
-            var redisKeys = batch.Select(key => (RedisKey)key).ToArray();
+            var redisKeys = batch.Select(key => (RedisKey)GetCacheKey(key)).ToArray();
             removedCount += batch.Count;
             batch.Clear();
             await _redisDb.KeyDeleteAsync(redisKeys, (CommandFlags)flags);
@@ -659,7 +659,7 @@ public partial class HybridCache
         await foreach (var key in server.KeysAsync(pattern: keyPattern, flags: (CommandFlags)flags)
                            .WithCancellation(token).ConfigureAwait(false))
         {
-            yield return key;
+            yield return GetPureCacheKey(key);
         }
     }
 
@@ -750,15 +750,15 @@ public partial class HybridCache
     {
         using var activity = PopulateActivity(OperationTypes.ReleaseLock);
         var cacheKey = GetCacheKey(key);
-        
+
         if (!await _redisDb.LockReleaseAsync(cacheKey, token.Serialize(), (CommandFlags)flags))
             return false;
-        
+
         if (_lockTasks.TryRemove(cacheKey, out var tcs))
         {
             tcs.SetResult();
         }
-        
+
         return true;
     }
 
@@ -766,15 +766,15 @@ public partial class HybridCache
     {
         using var activity = PopulateActivity(OperationTypes.ReleaseLock);
         var cacheKey = GetCacheKey(key);
-        
+
         if (!_redisDb.LockRelease(cacheKey, token.Serialize(), (CommandFlags)flags))
             return false;
-        
+
         if (_lockTasks.TryRemove(cacheKey, out var tcs))
         {
             tcs.SetResult();
         }
-        
+
         return true;
     }
 
@@ -823,16 +823,16 @@ public partial class HybridCache
         return featureList;
     }
 
-    public async Task KeyExpireAsync(string key, TimeSpan expiry, Flags flags = Flags.None, ExpireWhen expireWhen = ExpireWhen.Always)
+    public async Task KeyExpireAsync(string key, TimeSpan expiry, Flags flags = Flags.None, ExpireCondition expireWhen = ExpireCondition.Always)
     {
         using var activity = PopulateActivity(OperationTypes.KeyExpire);
-        await _redisDb.KeyExpireAsync(GetCacheKey(key), expiry, expireWhen, (CommandFlags)flags);
+        await _redisDb.KeyExpireAsync(GetCacheKey(key), expiry, (ExpireWhen)expireWhen, (CommandFlags)flags);
     }
 
-    public void KeyExpire(string key, TimeSpan expiry, Flags flags = Flags.None, ExpireWhen expireWhen = ExpireWhen.Always)
+    public void KeyExpire(string key, TimeSpan expiry, Flags flags = Flags.None, ExpireCondition expireWhen = ExpireCondition.Always)
     {
         using var activity = PopulateActivity(OperationTypes.KeyExpire);
-        _redisDb.KeyExpire(GetCacheKey(key), expiry, expireWhen, (CommandFlags)flags);
+        _redisDb.KeyExpire(GetCacheKey(key), expiry, (ExpireWhen)expireWhen, (CommandFlags)flags);
     }
 
     public async ValueTask RemoveWithPatternOnRedisAsync(string pattern, Flags flags = Flags.None)

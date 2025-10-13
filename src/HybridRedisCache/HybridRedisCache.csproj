@@ -20,11 +20,10 @@
         <RepositoryType>git</RepositoryType>
         <PackageTags>redis; cache; in-memory; memcache; RedisMemoryCache; HybridCachePlus; InRedisCache; MemRedisCache; RedisFusionCache; RedisMemCache; RedisInMemoryCache; MemHybridCache; RedisHybridStore; HybridRedisCache</PackageTags>
         <PackageReleaseNotes>
-            - Fetch data safety from dataRetriever task in GetAsync method
-            - Add options.DataSizeHistogramMetricName histogram metric for all set key/values
-            - Fix LockKeyAsync method to wait on lock and release all tasks after releasing
-            - Test some functionalities
-            - Fix some bugs
+            - Updated the `KeysAsync` method to return pure key names instead of full keys with the instance prefix.
+            - Replaced the `Redis ExpireWhen` enum with a new `ExpireCondition` enum for better encapsulation.
+            - Corrected the `KeyExpire` and `KeyExpireAsync` methods to use the appropriate `ExpireCondition` enum.
+            - Resolved various bugs and issues.
         </PackageReleaseNotes>
         <IncludeSymbols>True</IncludeSymbols>
         <PackageLicenseFile>LICENSE</PackageLicenseFile>

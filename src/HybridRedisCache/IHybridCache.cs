@@ -8,7 +8,7 @@ public interface IHybridCache
     /// Channel: Redis KeySpace
     /// </summary>
     event RedisBusMessage OnRedisBusMessage;
-    
+
     /// <summary>
     /// Subscribe to a channel in Redis to receive messages published to that channel.
     /// </summary>
@@ -19,6 +19,7 @@ public interface IHybridCache
     void Unsubscribe(string channel);
 
     Task<long> PublishAsync(string channel, string key, string value);
+
     long Publish(string channel, string key, string value);
 
     /// <summary>
@@ -394,7 +395,7 @@ public interface IHybridCache
     /// <param name="flags">The flags to use for this operation.</param>
     /// <returns>Return the <see cref="RedisLockObject"/> if the lock was successfully acquired; otherwise, wait until the key is released.</returns>
     Task<RedisLockObject> LockKeyAsync(string key, TimeSpan? expiry = null, Flags flags = Flags.None);
-    
+
     /// <summary>
     /// Takes a lock (specifying a token value) if it is not already taken.
     /// Note: Lock an exist key and token is not possible. But, Set a locked key with difference or same value is possible.
@@ -501,8 +502,8 @@ public interface IHybridCache
     /// Gets the features available to the connected server.
     /// </summary>
     Dictionary<string, string> GetServerFeatures(Flags flags = Flags.None);
-    
-    Task KeyExpireAsync(string key, TimeSpan expiry, Flags flags = Flags.None,ExpireWhen expireWhen=ExpireWhen.Always);
-    
-    void KeyExpire(string key, TimeSpan expiry, Flags flags = Flags.None,ExpireWhen expireWhen=ExpireWhen.Always);
+
+    Task KeyExpireAsync(string key, TimeSpan expiry, Flags flags = Flags.None, ExpireCondition expireWhen = ExpireCondition.Always);
+
+    void KeyExpire(string key, TimeSpan expiry, Flags flags = Flags.None, ExpireCondition expireWhen = ExpireCondition.Always);
 }

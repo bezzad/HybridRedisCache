@@ -788,7 +788,7 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         // Assert
         Assert.Equal(10, foundKeys.Count);
         for (var i = 0; i < 10; i++)
-            Assert.True(foundKeys.IndexOf(Options.InstancesSharedName + ":" + keyPattern + i) >= 0);
+            Assert.True(foundKeys.IndexOf(keyPattern + i) >= 0);
     }
 
     [Fact]
@@ -819,7 +819,7 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         // Assert
         Assert.Equal(10, foundKeys.Count);
         for (var i = 0; i < 10; i++)
-            Assert.True(foundKeys.IndexOf(Options.InstancesSharedName + ":" + string.Format(keyPattern, i)) >= 0);
+            Assert.True(foundKeys.IndexOf(string.Format(keyPattern, i)) >= 0);
     }
 
     [Fact, Obsolete("Obsolete")]
