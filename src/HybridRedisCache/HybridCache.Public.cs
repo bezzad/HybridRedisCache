@@ -33,16 +33,16 @@ public partial class HybridCache
         _redisSubscriber.Unsubscribe(redisChannel);
     }
 
-    public async Task<long> PublishAsync(string channel, string key, string value)
+    public async Task<long> PublishAsync(string channel, string key, string value, Flags flags = Flags.FireAndForget)
     {
         var redisChannel = GetRedisPatternChannel(channel, key);
-        return await _redisSubscriber.PublishAsync(redisChannel, value, CommandFlags.FireAndForget);
+        return await _redisSubscriber.PublishAsync(redisChannel, value, (CommandFlags)flags);
     }
 
-    public long Publish(string channel, string key, string value)
+    public long Publish(string channel, string key, string value, Flags flags = Flags.FireAndForget)
     {
         var redisChannel = GetRedisPatternChannel(channel, key);
-        return _redisSubscriber.Publish(redisChannel, value, CommandFlags.FireAndForget);
+        return _redisSubscriber.Publish(redisChannel, value, (CommandFlags)flags);
     }
 
     public bool Exists(string key, Flags flags = Flags.PreferMaster)

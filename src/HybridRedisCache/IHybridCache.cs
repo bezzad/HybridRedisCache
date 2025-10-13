@@ -16,11 +16,32 @@ public interface IHybridCache
     /// <param name="handler"></param>
     void Subscribe(string channel, RedisChannelMessage handler);
 
+    /// <summary>
+    /// Unsubscribe from a specified message channel.
+    /// The subscription is canceled regardless of the subscribers.
+    /// </summary>
+    /// <param name="channel">The channel that was subscribed to.</param>
+    /// <remarks>
+    /// See
+    /// <seealso href="https://redis.io/commands/unsubscribe" />,
+    /// <seealso href="https://redis.io/commands/punsubscribe" />.
+    /// </remarks>
     void Unsubscribe(string channel);
 
-    Task<long> PublishAsync(string channel, string key, string value);
+    /// <inheritdoc cref="IHybridCache.Publish(string, string, string, Flags)"/>
+    Task<long> PublishAsync(string channel, string key, string value, Flags flags = Flags.FireAndForget);
 
-    long Publish(string channel, string key, string value);
+    /// <summary>Posts a message to the given channel.</summary>
+    /// <param name="channel">The channel to publish to.</param>
+    /// <param name="key">The channel postfix name with `:` to publish as specific key</param>
+    /// <param name="value">The message to publish.</param>
+    /// <param name="flags">The command flags to use.</param>
+    /// <returns>
+    /// The number of clients that received the message *on the destination server*,
+    /// note that this doesn't mean much in a cluster as clients can get the message through other nodes.
+    /// </returns>
+    /// <remarks><seealso href="https://redis.io/commands/publish" /></remarks>
+    long Publish(string channel, string key, string value, Flags flags = Flags.FireAndForget);
 
     /// <summary>
     /// Exists the specified Key in cache
@@ -503,7 +524,29 @@ public interface IHybridCache
     /// </summary>
     Dictionary<string, string> GetServerFeatures(Flags flags = Flags.None);
 
+    /// <inheritdoc cref="IHybridCache.KeyExpire(string, TimeSpan, Flags, ExpireCondition)"/>
     Task KeyExpireAsync(string key, TimeSpan expiry, Flags flags = Flags.None, ExpireCondition expireWhen = ExpireCondition.Always);
 
+    /// <summary>
+    /// Set a timeout on <paramref name="key"/>.
+    /// After the timeout has expired, the key will automatically be deleted.
+    /// A key with an associated timeout is said to be volatile in Redis terminology.
+    /// </summary>
+    /// <param name="key">The key to set the expiration for.</param>
+    /// <param name="expiry">The timeout to set.</param>
+    /// <param name="expireWhen">In Redis 7+, we can choose under which condition the expiration will be set using <see cref="ExpireWhen"/>.</param>
+    /// <param name="flags">The flags to use for this operation.</param>
+    /// <returns><see langword="true"/> if the timeout was set. <see langword="false"/> if key does not exist or the timeout could not be set.</returns>
+    /// <remarks>
+    /// See
+    /// <seealso href="https://redis.io/commands/expire"/>,
+    /// <seealso href="https://redis.io/commands/pexpire"/>.
+    /// </remarks>
     void KeyExpire(string key, TimeSpan expiry, Flags flags = Flags.None, ExpireCondition expireWhen = ExpireCondition.Always);
+
+    Task SetHashAsync(string key, IDictionary<string, string> keyValuePairs, TimeSpan? redisExpiry = null, Flags flags = Flags.PreferMaster);
+
+    Task SetHashAsync(string key, string hashField, string value, Condition when = Condition.Always, Flags flags = Flags.PreferMaster);
+
+    Task<Dictionary<string, string>> GetHashAsync(string key);
 }

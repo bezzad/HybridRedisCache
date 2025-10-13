@@ -2,7 +2,7 @@
 
     <PropertyGroup>
         <TargetFrameworks>net8.0;net9.0</TargetFrameworks>
-        <Version>3.9.0</Version>
+        <Version>3.10.0</Version>
         <LangVersion>default</LangVersion>
         <ImplicitUsings>enable</ImplicitUsings>
         <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
@@ -23,6 +23,7 @@
             - Updated the `KeysAsync` method to return pure key names instead of full keys with the instance prefix.
             - Replaced the `Redis ExpireWhen` enum with a new `ExpireCondition` enum for better encapsulation.
             - Corrected the `KeyExpire` and `KeyExpireAsync` methods to use the appropriate `ExpireCondition` enum.
+            - Add flags to `Publish` and `PublishAsync` methods with FireAndForget default value.
             - Resolved various bugs and issues.
         </PackageReleaseNotes>
         <IncludeSymbols>True</IncludeSymbols>
