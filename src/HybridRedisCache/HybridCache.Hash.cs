@@ -1,5 +1,3 @@
-using System.Collections.Immutable;
-
 namespace HybridRedisCache;
 
 public partial class HybridCache
@@ -7,6 +5,9 @@ public partial class HybridCache
     public async Task HashSetAsync(string key, IDictionary<string, string> fields, TimeSpan? redisExpiry = null,
         Condition when = Condition.Always, Flags flags = Flags.PreferMaster)
     {
+        if (fields == null || fields.Count == 0)
+            return;
+
         var cacheKey = GetCacheKey(key);
         var hashSet = Array.ConvertAll(fields.ToArray(), kvp => new HashEntry(kvp.Key, kvp.Value));
         await RedisDb.HashFieldSetAndSetExpiryAsync(cacheKey, hashSet, redisExpiry, false, (When)when, (CommandFlags)flags).ConfigureAwait(false);

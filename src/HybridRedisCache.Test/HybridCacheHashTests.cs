@@ -515,4 +515,466 @@ public class HybridCacheHashTests(ITestOutputHelper testOutputHelper) : BaseCach
         Assert.True(exists);
         Assert.True(deleted);
     }
+
+    [Fact]
+    public async Task HashValuesAsync_WithMultipleFields_ShouldReturnAllValues()
+    {
+        // Arrange
+        var key = UniqueKey;
+        var fields = new Dictionary<string, string>
+        {
+            { "field1", "value1" },
+            { "field2", "value2" },
+            { "field3", "value3" }
+        };
+        await Cache.HashSetAsync(key, fields);
+
+        // Act
+        var values = await Cache.HashValuesAsync(key);
+
+        // Assert
+        Assert.NotNull(values);
+        Assert.Equal(3, values.Length);
+        Assert.Contains("value1", values);
+        Assert.Contains("value2", values);
+        Assert.Contains("value3", values);
+    }
+
+    [Fact]
+    public async Task HashValuesAsync_WithEmptyHash_ShouldReturnEmptyArray()
+    {
+        // Arrange
+        var key = UniqueKey;
+
+        // Act
+        var values = await Cache.HashValuesAsync(key);
+
+        // Assert
+        Assert.NotNull(values);
+        Assert.Empty(values);
+    }
+
+    [Fact]
+    public async Task HashKeysAsync_WithMultipleFields_ShouldReturnAllKeys()
+    {
+        // Arrange
+        var key = UniqueKey;
+        var fields = new Dictionary<string, string>
+        {
+            { "field1", "value1" },
+            { "field2", "value2" },
+            { "field3", "value3" }
+        };
+        await Cache.HashSetAsync(key, fields);
+
+        // Act
+        var keys = await Cache.HashKeysAsync(key);
+
+        // Assert
+        Assert.NotNull(keys);
+        Assert.Equal(3, keys.Length);
+        Assert.Contains("field1", keys);
+        Assert.Contains("field2", keys);
+        Assert.Contains("field3", keys);
+    }
+
+    [Fact]
+    public async Task HashKeysAsync_WithEmptyHash_ShouldReturnEmptyArray()
+    {
+        // Arrange
+        var key = UniqueKey;
+
+        // Act
+        var keys = await Cache.HashKeysAsync(key);
+
+        // Assert
+        Assert.NotNull(keys);
+        Assert.Empty(keys);
+    }
+
+    [Fact]
+    public async Task HashLengthAsync_WithMultipleFields_ShouldReturnCorrectCount()
+    {
+        // Arrange
+        var key = UniqueKey;
+        var fields = new Dictionary<string, string>
+        {
+            { "field1", "value1" },
+            { "field2", "value2" },
+            { "field3", "value3" },
+            { "field4", "value4" }
+        };
+        await Cache.HashSetAsync(key, fields);
+
+        // Act
+        var length = await Cache.HashLengthAsync(key);
+
+        // Assert
+        Assert.Equal(4, length);
+    }
+
+    [Fact]
+    public async Task HashLengthAsync_WithEmptyHash_ShouldReturnZero()
+    {
+        // Arrange
+        var key = UniqueKey;
+
+        // Act
+        var length = await Cache.HashLengthAsync(key);
+
+        // Assert
+        Assert.Equal(0, length);
+    }
+
+    [Fact]
+    public async Task HashLengthAsync_AfterAddingAndDeletingFields_ShouldReturnCorrectCount()
+    {
+        // Arrange
+        var key = UniqueKey;
+        var fields = new Dictionary<string, string>
+        {
+            { "field1", "value1" },
+            { "field2", "value2" },
+            { "field3", "value3" }
+        };
+        await Cache.HashSetAsync(key, fields);
+        await Cache.HashDeleteAsync(key, "field2");
+
+        // Act
+        var length = await Cache.HashLengthAsync(key);
+
+        // Assert
+        Assert.Equal(2, length);
+    }
+
+    [Fact]
+    public async Task HashFieldGetAndDeleteAsync_WithExistingField_ShouldReturnValueAndDelete()
+    {
+        // Arrange
+        var key = UniqueKey;
+        var fields = new Dictionary<string, string>
+        {
+            { "field1", "value1" },
+            { "field2", "value2" },
+            { "field3", "value3" }
+        };
+        await Cache.HashSetAsync(key, fields);
+
+        // Act
+        var value = await Cache.HashFieldGetAndDeleteAsync(key, "field2");
+        var remainingFields = await Cache.HashGetAsync(key);
+
+        // Assert
+        Assert.Equal("value2", value);
+        Assert.Equal(2, remainingFields.Count);
+        Assert.False(remainingFields.ContainsKey("field2"));
+        Assert.True(remainingFields.ContainsKey("field1"));
+        Assert.True(remainingFields.ContainsKey("field3"));
+    }
+
+    [Fact]
+    public async Task HashFieldGetAndDeleteAsync_WithNonExistentField_ShouldReturnEmpty()
+    {
+        // Arrange
+        var key = UniqueKey;
+        var fields = new Dictionary<string, string>
+        {
+            { "field1", "value1" }
+        };
+        await Cache.HashSetAsync(key, fields);
+
+        // Act
+        var value = await Cache.HashFieldGetAndDeleteAsync(key, "nonExistentField");
+
+        // Assert
+        Assert.True(string.IsNullOrEmpty(value));
+    }
+
+    [Fact]
+    public async Task HashFieldGetAndDeleteAsync_WithNonExistentKey_ShouldReturnEmpty()
+    {
+        // Arrange
+        var key = UniqueKey;
+
+        // Act
+        var value = await Cache.HashFieldGetAndDeleteAsync(key, "anyField");
+
+        // Assert
+        Assert.True(string.IsNullOrEmpty(value));
+    }
+
+    [Fact]
+    public async Task HashScanAsync_WithMatchingPattern_ShouldReturnMatchingFields()
+    {
+        // Arrange
+        var key = UniqueKey;
+        var fields = new Dictionary<string, string>
+        {
+            { "user:1:name", "John" },
+            { "user:1:email", "john@example.com" },
+            { "user:2:name", "Jane" },
+            { "user:2:email", "jane@example.com" },
+            { "admin:1:name", "Admin" }
+        };
+        await Cache.HashSetAsync(key, fields);
+
+        // Act
+        var result = new List<KeyValuePair<string, string>>();
+        await foreach (var entry in Cache.HashScanAsync(key, "user:1:*"))
+        {
+            result.Add(entry);
+        }
+
+        // Assert
+        Assert.Equal(2, result.Count);
+        Assert.Contains(result, e => e.Key == "user:1:name" && e.Value == "John");
+        Assert.Contains(result, e => e.Key == "user:1:email" && e.Value == "john@example.com");
+    }
+
+    [Fact]
+    public async Task HashScanAsync_WithWildcardPattern_ShouldReturnAllFields()
+    {
+        // Arrange
+        var key = UniqueKey;
+        var fields = new Dictionary<string, string>
+        {
+            { "field1", "value1" },
+            { "field2", "value2" },
+            { "field3", "value3" }
+        };
+        await Cache.HashSetAsync(key, fields);
+
+        // Act
+        var result = new List<KeyValuePair<string, string>>();
+        await foreach (var entry in Cache.HashScanAsync(key, "*"))
+        {
+            result.Add(entry);
+        }
+
+        // Assert
+        Assert.Equal(3, result.Count);
+    }
+
+    [Fact]
+    public async Task HashScanAsync_WithNoMatchingPattern_ShouldReturnEmpty()
+    {
+        // Arrange
+        var key = UniqueKey;
+        var fields = new Dictionary<string, string>
+        {
+            { "field1", "value1" },
+            { "field2", "value2" }
+        };
+        await Cache.HashSetAsync(key, fields);
+
+        // Act
+        var result = new List<KeyValuePair<string, string>>();
+        await foreach (var entry in Cache.HashScanAsync(key, "nonexistent:*"))
+        {
+            result.Add(entry);
+        }
+
+        // Assert
+        Assert.Empty(result);
+    }
+
+    [Fact]
+    public async Task HashScanAsync_WithNonExistentKey_ShouldReturnEmpty()
+    {
+        // Arrange
+        var key = UniqueKey;
+
+        // Act
+        var result = new List<KeyValuePair<string, string>>();
+        await foreach (var entry in Cache.HashScanAsync(key, "*"))
+        {
+            result.Add(entry);
+        }
+
+        // Assert
+        Assert.Empty(result);
+    }
+
+    [Fact]
+    public async Task HashScanNoValuesAsync_WithMatchingPattern_ShouldReturnMatchingKeys()
+    {
+        // Arrange
+        var key = UniqueKey;
+        var fields = new Dictionary<string, string>
+        {
+            { "user:1:name", "John" },
+            { "user:1:email", "john@example.com" },
+            { "user:2:name", "Jane" },
+            { "admin:1:name", "Admin" }
+        };
+        await Cache.HashSetAsync(key, fields);
+
+        // Act
+        var result = new List<string>();
+        await foreach (var fieldName in Cache.HashScanNoValuesAsync(key, "user:1:*"))
+        {
+            result.Add(fieldName);
+        }
+
+        // Assert
+        Assert.Equal(2, result.Count);
+        Assert.Contains("user:1:name", result);
+        Assert.Contains("user:1:email", result);
+    }
+
+    [Fact]
+    public async Task HashScanNoValuesAsync_WithWildcardPattern_ShouldReturnAllKeys()
+    {
+        // Arrange
+        var key = UniqueKey;
+        var fields = new Dictionary<string, string>
+        {
+            { "field1", "value1" },
+            { "field2", "value2" },
+            { "field3", "value3" }
+        };
+        await Cache.HashSetAsync(key, fields);
+
+        // Act
+        var result = new List<string>();
+        await foreach (var fieldName in Cache.HashScanNoValuesAsync(key, "*"))
+        {
+            result.Add(fieldName);
+        }
+
+        // Assert
+        Assert.Equal(3, result.Count);
+        Assert.Contains("field1", result);
+        Assert.Contains("field2", result);
+        Assert.Contains("field3", result);
+    }
+
+    [Fact]
+    public async Task HashScanNoValuesAsync_WithNoMatchingPattern_ShouldReturnEmpty()
+    {
+        // Arrange
+        var key = UniqueKey;
+        var fields = new Dictionary<string, string>
+        {
+            { "field1", "value1" },
+            { "field2", "value2" }
+        };
+        await Cache.HashSetAsync(key, fields);
+
+        // Act
+        var result = new List<string>();
+        await foreach (var fieldName in Cache.HashScanNoValuesAsync(key, "nonexistent:*"))
+        {
+            result.Add(fieldName);
+        }
+
+        // Assert
+        Assert.Empty(result);
+    }
+
+    [Fact]
+    public async Task HashScanNoValuesAsync_WithNonExistentKey_ShouldReturnEmpty()
+    {
+        // Arrange
+        var key = UniqueKey;
+
+        // Act
+        var result = new List<string>();
+        await foreach (var fieldName in Cache.HashScanNoValuesAsync(key, "*"))
+        {
+            result.Add(fieldName);
+        }
+
+        // Assert
+        Assert.Empty(result);
+    }
+
+    [Fact]
+    public async Task HashScanAsync_WithComplexPattern_ShouldReturnMatchingFields()
+    {
+        // Arrange
+        var key = UniqueKey;
+        var fields = new Dictionary<string, string>
+        {
+            { "product:123:name", "Product A" },
+            { "product:123:price", "99.99" },
+            { "product:456:name", "Product B" },
+            { "order:789:total", "199.99" }
+        };
+        await Cache.HashSetAsync(key, fields);
+
+        // Act
+        var result = new List<KeyValuePair<string, string>>();
+        await foreach (var entry in Cache.HashScanAsync(key, "product:*:name"))
+        {
+            result.Add(entry);
+        }
+
+        // Assert
+        Assert.Equal(2, result.Count);
+        Assert.Contains(result, e => e.Key == "product:123:name");
+        Assert.Contains(result, e => e.Key == "product:456:name");
+    }
+
+    [Fact]
+    public async Task HashOperations_Integration_CompleteWorkflow()
+    {
+        // Arrange
+        var key = UniqueKey;
+
+        // Act & Assert - Set initial data
+        var initialFields = new Dictionary<string, string>
+        {
+            { "user:id", "12345" },
+            { "user:name", "John Doe" },
+            { "user:email", "john@example.com" },
+            { "user:age", "30" }
+        };
+        await Cache.HashSetAsync(key, initialFields);
+
+        // Verify length
+        var length = await Cache.HashLengthAsync(key);
+        Assert.Equal(4, length);
+
+        // Get all keys
+        var keys = await Cache.HashKeysAsync(key);
+        Assert.Equal(4, keys.Length);
+
+        // Get all values
+        var values = await Cache.HashValuesAsync(key);
+        Assert.Equal(4, values.Length);
+
+        // Check if field exists
+        var exists = await Cache.HashExistsAsync(key, "user:name");
+        Assert.True(exists);
+
+        // Update a field
+        await Cache.HashSetAsync(key, "user:age", "31");
+        var updatedAge = await Cache.HashGetAsync(key, "user:age");
+        Assert.Equal("31", updatedAge);
+
+        // Scan with pattern
+        var userFields = new List<KeyValuePair<string, string>>();
+        await foreach (var entry in Cache.HashScanAsync(key, "user:*"))
+        {
+            userFields.Add(entry);
+        }
+        Assert.Equal(4, userFields.Count);
+
+        // Get and delete a field
+        var deletedValue = await Cache.HashFieldGetAndDeleteAsync(key, "user:email");
+        Assert.Equal("john@example.com", deletedValue);
+
+        // Verify deletion
+        var lengthAfterDelete = await Cache.HashLengthAsync(key);
+        Assert.Equal(3, lengthAfterDelete);
+
+        // Delete remaining fields
+        var deletedCount = await Cache.HashDeleteAsync(key, new[] { "user:id", "user:name", "user:age" });
+        Assert.Equal(3, deletedCount);
+
+        // Verify hash is empty
+        var finalLength = await Cache.HashLengthAsync(key);
+        Assert.Equal(0, finalLength);
+    }
 }

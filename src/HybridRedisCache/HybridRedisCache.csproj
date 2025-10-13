@@ -20,10 +20,11 @@
         <RepositoryType>git</RepositoryType>
         <PackageTags>redis; cache; in-memory; memcache; RedisMemoryCache; HybridCachePlus; InRedisCache; MemRedisCache; RedisFusionCache; RedisMemCache; RedisInMemoryCache; MemHybridCache; RedisHybridStore; HybridRedisCache</PackageTags>
         <PackageReleaseNotes>
+            - Add support for flags in the `Publish` and `PublishAsync` methods, with `FireAndForget` as the default value.
+            - Add important Hash functions: `HashSet`, `HashGet`, `HashGetAll`, `HashDelete`, `HashExists`, `HashIncrement`, and `HashDecrement`.
             - Updated the `KeysAsync` method to return pure key names instead of full keys with the instance prefix.
             - Replaced the `Redis ExpireWhen` enum with a new `ExpireCondition` enum for better encapsulation.
             - Corrected the `KeyExpire` and `KeyExpireAsync` methods to use the appropriate `ExpireCondition` enum.
-            - Added support for flags in the `Publish` and `PublishAsync` methods, with `FireAndForget` as the default value.
             - Exposed the `IDatabase RedisDb` property for direct access by end users.
             - Resolved various bugs and issues.
         </PackageReleaseNotes>
