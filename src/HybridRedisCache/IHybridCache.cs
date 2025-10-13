@@ -9,6 +9,8 @@ public interface IHybridCache
     /// </summary>
     event RedisBusMessage OnRedisBusMessage;
 
+    IDatabase RedisDb { get; }
+
     /// <summary>
     /// Subscribe to a channel in Redis to receive messages published to that channel.
     /// </summary>

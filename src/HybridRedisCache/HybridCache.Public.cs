@@ -55,7 +55,7 @@ public partial class HybridCache
 
         try
         {
-            if (_redisDb.KeyExists(cacheKey, (CommandFlags)flags))
+            if (RedisDb.KeyExists(cacheKey, (CommandFlags)flags))
                 return true;
         }
         catch (Exception ex)
@@ -78,7 +78,7 @@ public partial class HybridCache
 
         try
         {
-            if (await _redisDb.KeyExistsAsync(cacheKey, (CommandFlags)flags).ConfigureAwait(false))
+            if (await RedisDb.KeyExistsAsync(cacheKey, (CommandFlags)flags).ConfigureAwait(false))
                 return true;
         }
         catch (Exception ex)
@@ -112,7 +112,7 @@ public partial class HybridCache
             if (redisCacheEnable)
             {
                 var val = SerializeWithExpiryPrefix(cacheKey, value, localCacheEnable ? localExpiry : null);
-                inserted = _redisDb.StringSet(cacheKey, val,
+                inserted = RedisDb.StringSet(cacheKey, val,
                     keepTtl ? null : redisExpiry,
                     keepTtl, when: (When)when, flags: (CommandFlags)flags);
             }
@@ -157,7 +157,7 @@ public partial class HybridCache
             if (redisCacheEnable)
             {
                 var val = SerializeWithExpiryPrefix(cacheKey, value, localCacheEnable ? localExpiry : null);
-                inserted = await _redisDb.StringSetAsync(cacheKey, val,
+                inserted = await RedisDb.StringSetAsync(cacheKey, val,
                     keepTtl ? null : redisExpiry,
                     keepTtl, when: (When)when, flags: (CommandFlags)flags).ConfigureAwait(false);
             }
@@ -207,7 +207,7 @@ public partial class HybridCache
                 if (redisCacheEnable)
                 {
                     var val = SerializeWithExpiryPrefix(cacheKey, kvp.Value, localCacheEnable ? localExpiry : null);
-                    inserted = _redisDb.StringSet(cacheKey, val,
+                    inserted = RedisDb.StringSet(cacheKey, val,
                         keepTtl ? null : redisExpiry,
                         keepTtl, when: (When)when, flags: (CommandFlags)flags);
                 }
@@ -261,7 +261,7 @@ public partial class HybridCache
                 if (redisCacheEnable)
                 {
                     var val = SerializeWithExpiryPrefix(cacheKey, kvp.Value, localCacheEnable ? localExpiry : null);
-                    inserted = await _redisDb.StringSetAsync(cacheKey, val,
+                    inserted = await RedisDb.StringSetAsync(cacheKey, val,
                         keepTtl ? null : redisExpiry,
                         keepTtl, when: (When)when, flags: (CommandFlags)flags).ConfigureAwait(false);
                 }
@@ -397,7 +397,7 @@ public partial class HybridCache
 
         try
         {
-            var redisValue = _redisDb.StringGetWithExpiry(cacheKey);
+            var redisValue = RedisDb.StringGetWithExpiry(cacheKey);
             if (TryUpdateRedisValueOnLocalCache(cacheKey, redisValue, localCacheEnable, activity, out value))
                 return true;
         }
@@ -423,7 +423,7 @@ public partial class HybridCache
 
         try
         {
-            var redisValue = await _redisDb.StringGetWithExpiryAsync(cacheKey).ConfigureAwait(false);
+            var redisValue = await RedisDb.StringGetWithExpiryAsync(cacheKey).ConfigureAwait(false);
             if (TryUpdateRedisValueOnLocalCache(cacheKey, redisValue, localCacheEnable, activity, out value))
                 return (true, value);
         }
@@ -454,7 +454,7 @@ public partial class HybridCache
         try
         {
             // distributed cache at first
-            result = _redisDb.KeyDelete(cacheKeys.Select(k => (RedisKey)k).ToArray(), flags: (CommandFlags)flags);
+            result = RedisDb.KeyDelete(cacheKeys.Select(k => (RedisKey)k).ToArray(), flags: (CommandFlags)flags);
         }
         catch (Exception ex)
         {
@@ -482,7 +482,7 @@ public partial class HybridCache
         var cacheKeys = Array.ConvertAll(keys, GetCacheKey);
         try
         {
-            result = await _redisDb
+            result = await RedisDb
                 .KeyDeleteAsync(cacheKeys.Select(k => (RedisKey)k).ToArray(), flags: (CommandFlags)flags)
                 .ConfigureAwait(false);
         }
@@ -543,7 +543,7 @@ public partial class HybridCache
             var redisKeys = batch.Select(key => (RedisKey)GetCacheKey(key)).ToArray();
             removedCount += batch.Count;
             batch.Clear();
-            await _redisDb.KeyDeleteAsync(redisKeys, (CommandFlags)flags);
+            await RedisDb.KeyDeleteAsync(redisKeys, (CommandFlags)flags);
             Parallel.ForEach(keys, _memoryCache.Remove);
         }
     }
@@ -572,7 +572,7 @@ public partial class HybridCache
     {
         using var activity = PopulateActivity(OperationTypes.Ping);
         var stopWatch = Stopwatch.StartNew();
-        var servers = _redisDb.Multiplexer.GetServers(); // get all servers (connected|disconnected)
+        var servers = RedisDb.Multiplexer.GetServers(); // get all servers (connected|disconnected)
         foreach (var server in servers)
         {
             if (server.ServerType == ServerType.Cluster)
@@ -621,7 +621,7 @@ public partial class HybridCache
 
         try
         {
-            return _redisDb.KeyTimeToLive(cacheKey);
+            return RedisDb.KeyTimeToLive(cacheKey);
         }
         catch
         {
@@ -636,7 +636,7 @@ public partial class HybridCache
 
         try
         {
-            return await _redisDb.KeyTimeToLiveAsync(cacheKey).ConfigureAwait(false);
+            return await RedisDb.KeyTimeToLiveAsync(cacheKey).ConfigureAwait(false);
         }
         catch
         {
@@ -715,7 +715,7 @@ public partial class HybridCache
         using var activity = PopulateActivity(OperationTypes.LockKey);
         expiry ??= TimeSpan.FromDays(1);
         var cacheKey = GetCacheKey(key);
-        return _redisDb.LockTakeAsync(cacheKey, token.Serialize(), expiry.Value, (CommandFlags)flags);
+        return RedisDb.LockTakeAsync(cacheKey, token.Serialize(), expiry.Value, (CommandFlags)flags);
     }
 
     public async Task<RedisLockObject> LockKeyAsync(string key, TimeSpan? expiry = null, Flags flags = Flags.None)
@@ -730,7 +730,7 @@ public partial class HybridCache
             // First add TaskCompletionSource to bag and catch incoming lock release signals
             var tcs = _lockTasks.GetOrAdd(cacheKey, _ => new TaskCompletionSource());
 
-            if (await _redisDb.LockTakeAsync(cacheKey, token.Serialize(), expiry.Value, (CommandFlags)flags))
+            if (await RedisDb.LockTakeAsync(cacheKey, token.Serialize(), expiry.Value, (CommandFlags)flags))
                 return new RedisLockObject(this, key, token);
 
             // Wait for either the signal or timeout
@@ -742,7 +742,7 @@ public partial class HybridCache
     {
         using var activity = PopulateActivity(OperationTypes.ExtendLockKey);
         var cacheKey = GetCacheKey(key);
-        return _redisDb.LockExtendAsync(cacheKey, token.Serialize(),
+        return RedisDb.LockExtendAsync(cacheKey, token.Serialize(),
             expiry ?? _options.DefaultDistributedExpirationTime, (CommandFlags)flags);
     }
 
@@ -751,7 +751,7 @@ public partial class HybridCache
         using var activity = PopulateActivity(OperationTypes.ReleaseLock);
         var cacheKey = GetCacheKey(key);
 
-        if (!await _redisDb.LockReleaseAsync(cacheKey, token.Serialize(), (CommandFlags)flags))
+        if (!await RedisDb.LockReleaseAsync(cacheKey, token.Serialize(), (CommandFlags)flags))
             return false;
 
         if (_lockTasks.TryRemove(cacheKey, out var tcs))
@@ -767,7 +767,7 @@ public partial class HybridCache
         using var activity = PopulateActivity(OperationTypes.ReleaseLock);
         var cacheKey = GetCacheKey(key);
 
-        if (!_redisDb.LockRelease(cacheKey, token.Serialize(), (CommandFlags)flags))
+        if (!RedisDb.LockRelease(cacheKey, token.Serialize(), (CommandFlags)flags))
             return false;
 
         if (_lockTasks.TryRemove(cacheKey, out var tcs))
@@ -781,28 +781,28 @@ public partial class HybridCache
     public async Task<long> ValueIncrementAsync(string key, long value = 1, Flags flags = Flags.None)
     {
         using var activity = PopulateActivity(OperationTypes.SetCache);
-        var result = await _redisDb.StringIncrementAsync(GetCacheKey(key), value, (CommandFlags)flags);
+        var result = await RedisDb.StringIncrementAsync(GetCacheKey(key), value, (CommandFlags)flags);
         return result;
     }
 
     public async Task<double> ValueIncrementAsync(string key, double value, Flags flags = Flags.None)
     {
         using var activity = PopulateActivity(OperationTypes.SetCache);
-        var result = await _redisDb.StringIncrementAsync(GetCacheKey(key), value, (CommandFlags)flags);
+        var result = await RedisDb.StringIncrementAsync(GetCacheKey(key), value, (CommandFlags)flags);
         return result;
     }
 
     public async Task<long> ValueDecrementAsync(string key, long value = 1, Flags flags = Flags.None)
     {
         using var activity = PopulateActivity(OperationTypes.SetCache);
-        var result = await _redisDb.StringDecrementAsync(GetCacheKey(key), value, (CommandFlags)flags);
+        var result = await RedisDb.StringDecrementAsync(GetCacheKey(key), value, (CommandFlags)flags);
         return result;
     }
 
     public async Task<double> ValueDecrementAsync(string key, double value, Flags flags = Flags.None)
     {
         using var activity = PopulateActivity(OperationTypes.SetCache);
-        var result = await _redisDb.StringDecrementAsync(GetCacheKey(key), value, (CommandFlags)flags);
+        var result = await RedisDb.StringDecrementAsync(GetCacheKey(key), value, (CommandFlags)flags);
         return result;
     }
 
@@ -826,13 +826,13 @@ public partial class HybridCache
     public async Task KeyExpireAsync(string key, TimeSpan expiry, Flags flags = Flags.None, ExpireCondition expireWhen = ExpireCondition.Always)
     {
         using var activity = PopulateActivity(OperationTypes.KeyExpire);
-        await _redisDb.KeyExpireAsync(GetCacheKey(key), expiry, (ExpireWhen)expireWhen, (CommandFlags)flags);
+        await RedisDb.KeyExpireAsync(GetCacheKey(key), expiry, (ExpireWhen)expireWhen, (CommandFlags)flags);
     }
 
     public void KeyExpire(string key, TimeSpan expiry, Flags flags = Flags.None, ExpireCondition expireWhen = ExpireCondition.Always)
     {
         using var activity = PopulateActivity(OperationTypes.KeyExpire);
-        _redisDb.KeyExpire(GetCacheKey(key), expiry, (ExpireWhen)expireWhen, (CommandFlags)flags);
+        RedisDb.KeyExpire(GetCacheKey(key), expiry, (ExpireWhen)expireWhen, (CommandFlags)flags);
     }
 
     public async ValueTask RemoveWithPatternOnRedisAsync(string pattern, Flags flags = Flags.None)
@@ -855,7 +855,7 @@ public partial class HybridCache
         until cursor == '0'";
 
         // Execute the Lua script and get the deleted keys as a RedisResult array
-        await _redisDb.ScriptEvaluateAsync(luaScript, values: [cacheKeyPattern],
+        await RedisDb.ScriptEvaluateAsync(luaScript, values: [cacheKeyPattern],
             flags: (CommandFlags)flags).ConfigureAwait(false);
     }
 }

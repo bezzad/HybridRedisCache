@@ -16,7 +16,6 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
     private string _keySpaceChannelName;
     private bool _disposed;
     private ConnectionMultiplexer _connection;
-    private IDatabase _redisDb;
     private ISubscriber _redisSubscriber;
     private IMemoryCache _memoryCache;
     private IMemoryCache _recentlySetKeys;
@@ -25,6 +24,8 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
     private const string LocalCacheValuePrefix = "#__LEXP__"; // to keep local expiration time in redis value
     private const char LocalCacheValuePostfix = '$'; // to keep local expiration time in redis value
     private readonly KeyMeter _keyMeter;
+    
+    public IDatabase RedisDb { get; private set; }
 
     /// <summary>
     /// This method initializes the HybridCache instance and subscribes to Redis key-space events 
@@ -43,7 +44,7 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
         _options = option;
         _activity = new TracingActivity(option.TracingActivitySourceName).Source;
         _keyMeter = new KeyMeter(loggerFactory?.CreateLogger<KeyMeter>(), option);
-
+        
         CreateLocalCache();
         var redisConfig = GetConfigurationOptions();
         Connect(redisConfig);
@@ -93,11 +94,11 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
         _connection.ConnectionRestored += OnReconnect;
         _connection.ConnectionFailed += OnConnectionFailed;
         _connection.ErrorMessage += OnErrorMessage;
-        _redisDb = _connection.GetDatabase();
+        RedisDb = _connection.GetDatabase();
         _redisSubscriber = _connection.GetSubscriber();
 
         // Subscribe to Redis key-space events to invalidate cache entries on all instances
-        _keySpaceChannelName = $"__keyspace@{_redisDb.Database}__:{_options.InstancesSharedName}:";
+        _keySpaceChannelName = $"__keyspace@{RedisDb.Database}__:{_options.InstancesSharedName}:";
         var keySpaceChannel = GetRedisKeySpaceChannel("*", RedisChannel.PatternMode.Pattern);
         _redisSubscriber.Subscribe(keySpaceChannel, OnBusMessage, CommandFlags.FireAndForget);
         SetRedisServersConfigs();
@@ -122,7 +123,7 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
 
                 var redisConfig = GetConfigurationOptions();
                 // Ping retry strategy before reconfiguration
-                var pingSucceeded = await _redisDb.PingAsync(_options.ConnectRetry).ConfigureAwait(false);
+                var pingSucceeded = await RedisDb.PingAsync(_options.ConnectRetry).ConfigureAwait(false);
                 if (!pingSucceeded)
                 {
                     LogMessage($"Redis ping failed after {_options.ConnectRetry} attempts. Proceeding to reconfigure.");
@@ -157,7 +158,7 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
 
     private void SetRedisServersConfigs()
     {
-        var clientId = _redisDb.Execute("CLIENT", "ID");
+        var clientId = RedisDb.Execute("CLIENT", "ID");
 
         // Set the notify-keyspace-events configuration
         // Explanation of notify-keyspace-events Flags
@@ -179,12 +180,12 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
         //    A     Alias for "g$lshztxed", so that the "AKE" string means all the events except "m" and "n".
         // 
         // https://redis.io/docs/latest/develop/use/keyspace-notifications/
-        _redisDb.Execute("CONFIG", "SET", "notify-keyspace-events", "KA");
+        RedisDb.Execute("CONFIG", "SET", "notify-keyspace-events", "KA");
 
         if (_options.EnableRedisClientTracking)
         {
             // Enable tracking with specific key prefixes to reduce overhead
-            _redisDb.Execute($"CLIENT", "TRACKING", "ON", "REDIRECT", (long)clientId, "BCAST", "PREFIX",
+            RedisDb.Execute($"CLIENT", "TRACKING", "ON", "REDIRECT", (long)clientId, "BCAST", "PREFIX",
                 $"{_options.InstancesSharedName}:*", "NOLOOP");
         }
     }
@@ -339,7 +340,7 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
     {
         try
         {
-            await _redisDb.PublishAsync(GetRedisKeySpaceChannel(cacheKey), type.GetValue(), CommandFlags.FireAndForget)
+            await RedisDb.PublishAsync(GetRedisKeySpaceChannel(cacheKey), type.GetValue(), CommandFlags.FireAndForget)
                 .ConfigureAwait(false);
         }
         catch (Exception ex)
@@ -352,7 +353,7 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
     {
         try
         {
-            _redisDb.Publish(GetRedisKeySpaceChannel(cacheKey), type.GetValue(), CommandFlags.FireAndForget);
+            RedisDb.Publish(GetRedisKeySpaceChannel(cacheKey), type.GetValue(), CommandFlags.FireAndForget);
         }
         catch (Exception ex)
         {
@@ -463,7 +464,7 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
     private IServer[] GetServers(Flags flags)
     {
         // there may be multiple endpoints behind a multiplexer
-        var servers = _redisDb.Multiplexer.GetServers(); //.GetEndPoints(configuredOnly: true);
+        var servers = RedisDb.Multiplexer.GetServers(); //.GetEndPoints(configuredOnly: true);
 
         if (flags.HasFlag(Flags.PreferReplica) && servers.Any(s => s.IsConnected && s.IsReplica))
             return servers.Where(s => s.IsReplica).ToArray();
@@ -540,7 +541,7 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
         _disposed = true;
 
         _redisSubscriber?.UnsubscribeAll();
-        _redisDb?.Multiplexer.Dispose();
+        RedisDb?.Multiplexer.Dispose();
         _memoryCache?.Dispose();
         _connection?.Dispose();
         _reconnectSemaphore?.Dispose();
@@ -557,7 +558,7 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
         _reconnectSemaphore?.Dispose();
 
         await (_redisSubscriber?.UnsubscribeAllAsync() ?? Task.CompletedTask);
-        await (_redisDb?.Multiplexer.DisposeAsync() ?? ValueTask.CompletedTask);
+        await (RedisDb?.Multiplexer.DisposeAsync() ?? ValueTask.CompletedTask);
         await (_connection?.DisposeAsync() ?? ValueTask.CompletedTask);
 
         LogMessage("HybridRedisCache disposed.");
