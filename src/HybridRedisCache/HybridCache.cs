@@ -535,6 +535,17 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
         }
     }
 
+    private void ChannelHandler(RedisChannel channel, RedisValue value, RedisChannelMessage handler)
+    {
+        var strChannel = (string)channel ?? "";
+        var index = strChannel.IndexOf(':');
+        var key = index > 0 && index < strChannel.Length - 1
+            ? strChannel[(index + 1)..]
+            : strChannel;
+
+        handler(key, value);
+    }
+
     public void Dispose()
     {
         if (_disposed) return;

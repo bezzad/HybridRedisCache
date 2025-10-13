@@ -15,22 +15,27 @@ public partial class HybridCache
     public void Subscribe(string channel, RedisChannelMessage handler)
     {
         var redisChannel = GetRedisPatternChannel(channel);
-        _redisSubscriber.Subscribe(redisChannel, (ch, val) =>
-        {
-            var strChannel = (string)ch ?? "";
-            var index = strChannel.IndexOf(':');
-            var key = index > 0 && index < strChannel.Length - 1
-                ? strChannel[(index + 1)..]
-                : strChannel;
+        _redisSubscriber.Subscribe(redisChannel, (ch, value) => ChannelHandler(ch, value, handler),
+            CommandFlags.FireAndForget);
+    }
 
-            handler(key, val);
-        }, CommandFlags.FireAndForget);
+    public Task SubscribeAsync(string channel, RedisChannelMessage handler)
+    {
+        var redisChannel = GetRedisPatternChannel(channel);
+        return _redisSubscriber.SubscribeAsync(redisChannel, (ch, value) => ChannelHandler(ch, value, handler),
+            CommandFlags.FireAndForget);
     }
 
     public void Unsubscribe(string channel)
     {
         var redisChannel = GetRedisPatternChannel(channel);
         _redisSubscriber.Unsubscribe(redisChannel);
+    }
+    
+    public Task UnsubscribeAsync(string channel)
+    {
+        var redisChannel = GetRedisPatternChannel(channel);
+        return _redisSubscriber.UnsubscribeAsync(redisChannel);
     }
 
     public async Task<long> PublishAsync(string channel, string key, string value, Flags flags = Flags.FireAndForget)
