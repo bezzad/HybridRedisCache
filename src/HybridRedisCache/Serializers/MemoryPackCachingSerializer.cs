@@ -1,6 +1,6 @@
 using MemoryPack;
 
-namespace HybridRedisCache;
+namespace HybridRedisCache.Serializers;
 
 public class MemoryPackCachingSerializer : ICachingSerializer
 {

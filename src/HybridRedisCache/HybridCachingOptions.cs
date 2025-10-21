@@ -1,4 +1,6 @@
-﻿namespace HybridRedisCache;
+﻿using HybridRedisCache.Serializers;
+
+namespace HybridRedisCache;
 
 public record HybridCachingOptions
 {

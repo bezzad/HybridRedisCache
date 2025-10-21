@@ -1,6 +1,6 @@
-namespace HybridRedisCache;
+namespace HybridRedisCache.Serializers;
 
-public class JsonCachingSerializer(JsonSerializerOptions serializerSettings) : ICachingSerializer
+public class BsonCachingSerializer(JsonSerializerOptions serializerSettings) : ICachingSerializer
 {
     public byte[] Serialize<T>(T value)
     {

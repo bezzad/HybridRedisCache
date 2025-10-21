@@ -1,4 +1,6 @@
-﻿[assembly: InternalsVisibleTo("HybridRedisCache.Test")]
+﻿using HybridRedisCache.Serializers;
+
+[assembly: InternalsVisibleTo("HybridRedisCache.Test")]
 
 namespace HybridRedisCache;
 
@@ -69,5 +71,17 @@ internal static class ObjectHelper
         }
 
         return false;
+    }
+    
+    public static ICachingSerializer GetDefaultSerializer(this HybridCachingOptions options)
+    {
+        return options.SerializerType switch
+        {
+            SerializerType.MemoryPack => new MemoryPackCachingSerializer(),
+            SerializerType.MessagePack => new MessagePackCachingSerializer(),
+            SerializerType.Bson => new BsonCachingSerializer(new CachingJsonSerializerOptions().Default),
+            SerializerType.Json => new JsonCachingSerializer(new CachingJsonSerializerOptions().Default),
+            _ => throw new InvalidOperationException("No valid serializer configured in HybridCachingOptions.")
+        };
     }
 }

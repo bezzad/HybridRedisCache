@@ -1,7 +1,7 @@
 using MessagePack;
 using MessagePack.Resolvers;
 
-namespace HybridRedisCache;
+namespace HybridRedisCache.Serializers;
 
 public class MessagePackCachingSerializer : ICachingSerializer
 {

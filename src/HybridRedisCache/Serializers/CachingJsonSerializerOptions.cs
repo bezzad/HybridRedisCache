@@ -1,7 +1,7 @@
 using System.Text.Encodings.Web;
 using System.Text.Json.Serialization;
 
-namespace HybridRedisCache;
+namespace HybridRedisCache.Serializers;
 
 public class CachingJsonSerializerOptions
 {
