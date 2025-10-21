@@ -1,11 +1,25 @@
 using System.Text.Encodings.Web;
 using System.Text.Json.Serialization;
+using Newtonsoft.Json;
+using JsonConverter = System.Text.Json.Serialization.JsonConverter;
 
 namespace HybridRedisCache.Serializers;
 
 public class CachingJsonSerializerOptions
 {
-    public JsonSerializerOptions Default => new JsonSerializerOptions()
+    public JsonSerializerSettings DefaultJson => new()
+    {
+        // There is no polymorphic deserialization (equivalent to Newtonsoft.Json's TypeNameHandling)
+        // support built-in to System.Text.Json.
+        // TypeNameHandling.All will write and use type names for objects and collections.
+        TypeNameHandling = TypeNameHandling.All,
+        ReferenceLoopHandling = ReferenceLoopHandling.Ignore,
+        NullValueHandling = NullValueHandling.Ignore,
+        Formatting = Formatting.None,
+        MaxDepth = MaxDepth
+    };
+    
+    public JsonSerializerOptions DefaultBson => new()
     {
         MaxDepth = MaxDepth,
         AllowTrailingCommas = AllowTrailingCommas,
@@ -55,9 +69,9 @@ public class CachingJsonSerializerOptions
 
     /// <summary>
     /// Gets or sets the maximum depth allowed when serializing or deserializing JSON,
-    /// with the default value of 0 indicating a maximum depth of 64.
+    /// with the default value of 64.
     /// </summary>
-    public int MaxDepth => 0;
+    public int MaxDepth => 64;
 
     /// <summary>
     /// Determines whether fields are handled serialization and deserialization. The
@@ -115,7 +129,7 @@ public class CachingJsonSerializerOptions
     /// <summary>
     /// Configures how object references are handled when reading and writing JSON.
     /// </summary>
-    public ReferenceHandler ReferenceHandler => null;
+    public ReferenceHandler ReferenceHandler => ReferenceHandler.IgnoreCycles;
 
     /// <summary>
     /// Gets or sets a value that defines whether JSON should use pretty printing. By

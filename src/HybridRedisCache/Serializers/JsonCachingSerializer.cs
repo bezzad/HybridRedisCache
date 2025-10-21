@@ -1,15 +1,16 @@
 using System.Text;
+using Newtonsoft.Json;
 
 namespace HybridRedisCache.Serializers;
 
-public class JsonCachingSerializer(JsonSerializerOptions serializerSettings) : ICachingSerializer
+public class JsonCachingSerializer(JsonSerializerSettings options) : ICachingSerializer
 {
     public byte[] Serialize<T>(T value)
     {
         if (value == null)
             return null;
 
-        var json = JsonSerializer.Serialize(value, serializerSettings);
+        var json = JsonConvert.SerializeObject(value, options);
         return Encoding.UTF8.GetBytes(json);
     }
 
@@ -18,7 +19,7 @@ public class JsonCachingSerializer(JsonSerializerOptions serializerSettings) : I
         if (bytes?.Length > 0)
         {
             var json = Encoding.UTF8.GetString(bytes);
-            return JsonSerializer.Deserialize<T>(json, serializerSettings);
+            return JsonConvert.DeserializeObject<T>(json, options);
         }
 
         return default;

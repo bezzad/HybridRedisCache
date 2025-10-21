@@ -79,8 +79,8 @@ internal static class ObjectHelper
         {
             SerializerType.MemoryPack => new MemoryPackCachingSerializer(),
             SerializerType.MessagePack => new MessagePackCachingSerializer(),
-            SerializerType.Bson => new BsonCachingSerializer(new CachingJsonSerializerOptions().Default),
-            SerializerType.Json => new JsonCachingSerializer(new CachingJsonSerializerOptions().Default),
+            SerializerType.Bson => new BsonCachingSerializer(new CachingJsonSerializerOptions().DefaultBson),
+            SerializerType.Json => new JsonCachingSerializer(new CachingJsonSerializerOptions().DefaultJson),
             _ => throw new InvalidOperationException("No valid serializer configured in HybridCachingOptions.")
         };
     }
