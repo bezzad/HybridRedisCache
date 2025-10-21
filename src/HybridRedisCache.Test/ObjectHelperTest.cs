@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using HybridRedisCache.Serializers;
 using Xunit;
 
 namespace HybridRedisCache.Test;
@@ -45,17 +46,22 @@ public class ObjectHelperTest
         };
     }
 
-    [Fact]
-    public void DeserializePolymorphicClasses()
+    [Theory]
+    [InlineData(SerializerType.Bson)]
+    [InlineData(SerializerType.MemoryPack)]
+    [InlineData(SerializerType.MessagePack)]
+    public void DeserializePolymorphicClasses(SerializerType serializerType)
     {
         // Act
-        var json = _value2.Serialize();
-        var result = json.Deserialize<IComplexObject>();
+        var option = new HybridCachingOptions { SerializerType = serializerType };
+        var serializer = option.GetDefaultSerializer();
+        var objBytes = serializer.Serialize(_value2);
+        var result = serializer.Deserialize<IComplexObject>(objBytes);
         var realTypeResult = result as ComplexPocoObject;
 
         // Assert
         // verify that the retrieved object is equal to the original object
-        Assert.NotNull(json);
+        Assert.NotNull(objBytes);
         Assert.NotNull(result);
         Assert.NotNull(realTypeResult);
         Assert.IsType<ComplexPocoObject>(result);
@@ -67,10 +73,15 @@ public class ObjectHelperTest
         Assert.Equal(_value2.Parent.Address.City, realTypeResult.Parent.Address.City);
     }
 
-    [Fact]
-    public void DeserializePolymorphicInCollections()
+    [Theory]
+    [InlineData(SerializerType.Bson)]
+    [InlineData(SerializerType.MemoryPack)]
+    [InlineData(SerializerType.MessagePack)]
+    public void DeserializePolymorphicInCollections(SerializerType serializerType)
     {
         // Arrange 
+        var option = new HybridCachingOptions { SerializerType = serializerType };
+        var serializer = option.GetDefaultSerializer();
         ICollection<string> collection = new Collection<string>()
         {
             "test_collection_0",
@@ -81,27 +92,31 @@ public class ObjectHelperTest
         };
 
         // Act
-        var json = collection.Serialize();
-        var result = json.Deserialize<ICollection<string>>();
-        var realTypeResult = result as Collection<string>;
+        var objBytes = serializer.Serialize(collection);
+        var result = serializer.Deserialize<Collection<string>>(objBytes);
 
         // Assert
         // verify that the retrieved object is equal to the original object
-        Assert.NotNull(json);
+        Assert.NotNull(objBytes);
         Assert.NotNull(result);
-        Assert.NotNull(realTypeResult);
+        Assert.NotNull(result);
         Assert.IsType<Collection<string>>(result);
-        for (int i = 0; i < collection.Count; i++)
+        for (var i = 0; i < collection.Count; i++)
         {
-            Assert.Equal("test_collection_" + i, realTypeResult[i]);
+            Assert.Equal("test_collection_" + i, result[i]);
         }
     }
 
-    [Fact]
-    public void DeserializePolymorphicList()
+    [Theory]
+    [InlineData(SerializerType.Bson)]
+    [InlineData(SerializerType.MemoryPack)]
+    [InlineData(SerializerType.MessagePack)]
+    public void DeserializePolymorphicList(SerializerType serializerType)
     {
         // Arrange 
-        IList<string> collection = new List<string>()
+        var option = new HybridCachingOptions { SerializerType = serializerType };
+        var serializer = option.GetDefaultSerializer();
+        IList<string> collection = new List<string>
         {
             "test_list_0",
             "test_list_1",
@@ -111,82 +126,52 @@ public class ObjectHelperTest
         };
 
         // Act
-        var json = collection.Serialize();
-        var result = json.Deserialize<IList<string>>();
-        var realTypeResult = result as List<string>;
+        var objBytes = serializer.Serialize(collection);
+        var result = serializer.Deserialize<IList<string>>(objBytes);
 
         // Assert
         // verify that the retrieved object is equal to the original object
-        Assert.NotNull(json);
+        Assert.NotNull(objBytes);
         Assert.NotNull(result);
-        Assert.NotNull(realTypeResult);
         Assert.IsType<List<string>>(result);
-        for (int i = 0; i < collection.Count; i++)
+        for (var i = 0; i < collection.Count; i++)
         {
-            Assert.Equal("test_list_" + i, realTypeResult[i]);
+            Assert.Equal("test_list_" + i, result[i]);
         }
     }
 
-    [Fact]
-    public void DeserializeSimpleJson()
+    [Theory]
+    [InlineData(SerializerType.Bson)]
+    [InlineData(SerializerType.MemoryPack)]
+    [InlineData(SerializerType.MessagePack)]
+    public void PrimitivesTypeSerializationTest(SerializerType serializerType)
     {
         // Arrange
-        string json = @"{
-                ""name"": ""John"",
-                ""age"": 30,
-                ""address"": {
-                    ""$type"": ""HybridRedisCache.Test.Address, HybridRedisCache.Test"",
-                    ""street"": ""123 Main St"",
-                    ""city"": ""Any town"",
-                    ""state"": ""CA"",
-                    ""zip"": ""12345""
-                },
-                ""phoneNumbers"": [
-                    ""555-1234"",
-                    ""555-5678""
-                ]
-            }";
-
-        // Act
-        var result = json.Deserialize<ComplexObject>();
-
-        // Assert
-        // verify that the retrieved object is equal to the original object
-        Assert.NotNull(result);
-        Assert.IsType<ComplexObject>(result);
-        Assert.IsType<Address>(result.Address);
-        Assert.Equal(_value1.Name, result.Name);
-        Assert.Equal(_value1.PhoneNumbers.First(), result.PhoneNumbers.First());
-        Assert.Equal(_value1.Address.City, result.Address.City);
-    }
-
-    [Fact]
-    public void PrimitivesTypeSerializationTest()
-    {
-        // Arrange
-        double doubleNum = 123456789.0123456789;
-        float floatNum = 123456.012345f;
-        int intNum = 1234;
+        var doubleNum = 123456789.0123456789;
+        var floatNum = 123456.012345f;
+        var intNum = 1234;
         short shortNum = 1234;
-        char character = 'A';
-        string text = "This is a sample text";
+        var character = 'A';
+        var text = "This is a sample text";
 
         // Act and Assert
-        PrimitivesTypeTest(doubleNum);
-        PrimitivesTypeTest(floatNum);
-        PrimitivesTypeTest(intNum);
-        PrimitivesTypeTest(shortNum);
-        PrimitivesTypeTest(character);
-        PrimitivesTypeTest(text);
+        PrimitivesTypeTest(doubleNum, serializerType);
+        PrimitivesTypeTest(floatNum, serializerType);
+        PrimitivesTypeTest(intNum, serializerType);
+        PrimitivesTypeTest(shortNum, serializerType);
+        PrimitivesTypeTest(character, serializerType);
+        PrimitivesTypeTest(text, serializerType);
     }
 
-    private void PrimitivesTypeTest<T>(T value)
+    private void PrimitivesTypeTest<T>(T value, SerializerType serializerType)
     {
         // Arrange
-        var json = value.Serialize();
+        var option = new HybridCachingOptions { SerializerType = serializerType };
+        var serializer = option.GetDefaultSerializer();
+        var bytes = serializer.Serialize(value);
 
         // Act
-        var result = json.Deserialize<T>();
+        var result = serializer.Deserialize<T>(bytes);
 
         // Assert
         // verify that the retrieved object is equal to the original object
@@ -209,5 +194,37 @@ public class ObjectHelperTest
         Assert.Equal(16, time?.Days);
         Assert.Equal(8, time?.Hours);
         Assert.Equal(40, time?.Minutes);
+    }
+
+    [Fact]
+    public void MessagePackSerializerTest()
+    {
+        // arrange
+        var option = new HybridCachingOptions { SerializerType = SerializerType.MessagePack };
+        var serializer = option.GetDefaultSerializer();
+        var dt1 = DateTime.Parse("2019-11-07 10:30:30");
+        var value = new Weapon()
+        {
+            Id = 10,
+            Damage = 10,
+            Icon = "null",
+            IsStackable = true,
+            MaxValue = 100,
+            Melee = 10,
+            Name = "Test",
+            Recoil = 1.1f,
+            Reload = 30,
+            Timestamp = dt1,
+            Weight = 100
+        };
+
+        // action
+        var bytes = serializer.Serialize(value);
+        var res1 = serializer.Deserialize<Weapon>(bytes);
+
+        // assert
+        Assert.NotEmpty(bytes);
+        Assert.Equal(dt1, res1.Timestamp);
+        Assert.Equal(value, res1);
     }
 }

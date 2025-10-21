@@ -1,21 +1,25 @@
-using JsonSerializer = System.Text.Json.JsonSerializer;
+using System.Text;
 
 namespace HybridRedisCache.Serializers;
 
-public class BsonCachingSerializer(JsonSerializerOptions options) : ICachingSerializer
+public class BsonCachingSerializer(JsonSerializerSettings options) : ICachingSerializer
 {
     public byte[] Serialize<T>(T value)
     {
         if (value == null)
             return null;
 
-        return JsonSerializer.SerializeToUtf8Bytes(value, options);
+        var json = JsonConvert.SerializeObject(value, typeof(T), options);
+        return Encoding.UTF8.GetBytes(json);
     }
 
     public T Deserialize<T>(byte[] bytes)
     {
         if (bytes?.Length > 0)
-            return JsonSerializer.Deserialize<T>(bytes, options);
+        {
+            var json = Encoding.UTF8.GetString(bytes);
+            return JsonConvert.DeserializeObject<T>(json, options);
+        }
 
         return default;
     }

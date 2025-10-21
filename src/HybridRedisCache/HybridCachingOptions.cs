@@ -158,5 +158,5 @@ public record HybridCachingOptions
     /// <summary>
     /// Set default serializer type for distributed cache
     /// </summary>
-    public SerializerType SerializerType { get; set; } = SerializerType.Json;
+    public SerializerType SerializerType { get; set; } = SerializerType.Bson;
 }

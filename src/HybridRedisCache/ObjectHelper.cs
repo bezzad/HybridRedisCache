@@ -6,17 +6,6 @@ namespace HybridRedisCache;
 
 internal static class ObjectHelper
 {
-    private static readonly JsonSerializerSettings JsonSettings = new()
-    {
-        // There is no polymorphic deserialization (equivalent to Newtonsoft.Json's TypeNameHandling)
-        // support built-in to System.Text.Json.
-        // TypeNameHandling.All will write and use type names for objects and collections.
-        TypeNameHandling = TypeNameHandling.All,
-        ReferenceLoopHandling = ReferenceLoopHandling.Ignore,
-        NullValueHandling = NullValueHandling.Ignore,
-        Formatting = Formatting.None,
-    };
-
     public static TimeSpan? ToTimeSpan(this DateTime? time)
     {
         TimeSpan? duration = null;
@@ -32,23 +21,6 @@ internal static class ObjectHelper
         }
 
         return duration;
-    }
-
-    public static string Serialize<T>(this T value)
-    {
-        if (value == null)
-        {
-            return null;
-        }
-
-        return JsonConvert.SerializeObject(value, typeof(T), JsonSettings);
-    }
-
-    public static T Deserialize<T>(this string value)
-    {
-        return string.IsNullOrWhiteSpace(value)
-            ? default
-            : JsonConvert.DeserializeObject<T>(value, JsonSettings);
     }
 
     public static async Task<bool> PingAsync(this IDatabase redisDb, int retryCount)
@@ -79,8 +51,7 @@ internal static class ObjectHelper
         {
             SerializerType.MemoryPack => new MemoryPackCachingSerializer(),
             SerializerType.MessagePack => new MessagePackCachingSerializer(),
-            SerializerType.Bson => new BsonCachingSerializer(new CachingJsonSerializerOptions().DefaultBson),
-            SerializerType.Json => new JsonCachingSerializer(new CachingJsonSerializerOptions().DefaultJson),
+            SerializerType.Bson => new BsonCachingSerializer(CachingJsonSerializerOptions.Default),
             _ => throw new InvalidOperationException("No valid serializer configured in HybridCachingOptions.")
         };
     }

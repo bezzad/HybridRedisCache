@@ -4,6 +4,5 @@ public enum SerializerType
 {
     MemoryPack,
     MessagePack,
-    Bson,
-    Json
+    Bson
 }

@@ -20,11 +20,9 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
     private IMemoryCache _memoryCache;
     private IMemoryCache _recentlySetKeys;
     private int _reconfigureAttemptCount;
+
     private readonly TimeSpan _timeWindow = TimeSpan.FromSeconds(5); // Expiration time window
-    private const string LocalCacheValuePrefix = "#__LEXP__"; // to keep local expiration time in redis value
-    private const char LocalCacheValuePostfix = '$'; // to keep local expiration time in redis value
     private readonly KeyMeter _keyMeter;
-    
     public IDatabase RedisDb { get; private set; }
 
     /// <summary>
@@ -44,22 +42,11 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
         _options = option;
         _activity = new TracingActivity(option.TracingActivitySourceName).Source;
         _keyMeter = new KeyMeter(loggerFactory?.CreateLogger<KeyMeter>(), option);
-        _options.Serializer ??= GetDefaultSerializer();
+        _options.Serializer ??= option.GetDefaultSerializer();
 
         CreateLocalCache();
         var redisConfig = GetConfigurationOptions();
         Connect(redisConfig);
-    }
-
-    private ICachingSerializer GetDefaultSerializer()
-    {
-        return _options.SerializerType switch
-        {
-            SerializerType.MemoryPack => new MemoryPackCachingSerializer(),
-            SerializerType.MessagePack => new MessagePackCachingSerializer(),
-            SerializerType.BSON => new JsonCachingSerializer(new CachingJsonSerializerOptions().Default),
-            _ => throw new InvalidOperationException("No valid serializer configured in HybridCachingOptions.")
-        };
     }
 
     private ConfigurationOptions GetConfigurationOptions()
@@ -406,21 +393,13 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
             localExpiry = redisExpiry;
     }
 
-    private string SerializeWithExpiryPrefix(string key, object value, TimeSpan? expiry = null)
+    private byte[] Serialize(string key, object value)
     {
-        var json = value.Serialize();
-
+        var bytes = _options.Serializer.Serialize(value);
         if (_options.EnableMeterData)
-        {
-            // Measure UTF8 byte size (cheap, no allocation)
-            var dataSize = System.Text.Encoding.UTF8.GetByteCount(json);
-            _keyMeter.RecordHeavyDataUsage(key, dataSize);
-        }
+            _keyMeter.RecordHeavyDataUsage(key, bytes.LongLength);
 
-        if (expiry is null)
-            return json;
-
-        return LocalCacheValuePrefix + expiry.Value.Ticks + LocalCacheValuePostfix + json;
+        return bytes;
     }
 
     private bool TryGetMemoryValue<T>(string cacheKey, Activity activity, out T value)
@@ -441,28 +420,13 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
         if (!redisValue.Value.HasValue) return false;
 
         var localExpiry = TimeSpan.Zero;
-        var text = redisValue.Value.ToString();
-        if (string.IsNullOrEmpty(text)) return false;
+        var val = redisValue.Value;
+        if (!val.HasValue) return false;
 
-        if (redisValue.Expiry.HasValue && text.StartsWith(LocalCacheValuePrefix)) // should be cached in local memory
-        {
-            var indexOfPostfix = text.IndexOf(LocalCacheValuePostfix, LocalCacheValuePrefix.Length);
-            if (indexOfPostfix > LocalCacheValuePrefix.Length)
-            {
-                var expiry = text.Substring(LocalCacheValuePrefix.Length,
-                    indexOfPostfix - LocalCacheValuePrefix.Length);
-                text = text.Substring(indexOfPostfix + 1); // delete prefix value of local cache
+        if (redisValue.Expiry.HasValue) // should be cached in local memory
+            localExpiry = redisValue.Expiry.Value;
 
-                localExpiry = long.TryParse(expiry, out var longTime)
-                    ? new TimeSpan(longTime)
-                    : _options.DefaultLocalExpirationTime;
-
-                if (localExpiry > redisValue.Expiry.Value)
-                    localExpiry = redisValue.Expiry.Value;
-            }
-        }
-
-        value = text.Deserialize<T>();
+        value = _options.Serializer.Deserialize<T>(val);
 
         if (localExpiry > TimeSpan.Zero && localCacheEnable)
             SetLocalMemory(cacheKey, value, localExpiry, Condition.Always, false);

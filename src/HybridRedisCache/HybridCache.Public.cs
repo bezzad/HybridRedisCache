@@ -116,7 +116,7 @@ public partial class HybridCache
         {
             if (redisCacheEnable)
             {
-                var val = SerializeWithExpiryPrefix(cacheKey, value, localCacheEnable ? localExpiry : null);
+                var val = Serialize(cacheKey, value);
                 inserted = RedisDb.StringSet(cacheKey, val,
                     keepTtl ? null : redisExpiry,
                     keepTtl, when: (When)when, flags: (CommandFlags)flags);
@@ -161,7 +161,7 @@ public partial class HybridCache
         {
             if (redisCacheEnable)
             {
-                var val = SerializeWithExpiryPrefix(cacheKey, value, localCacheEnable ? localExpiry : null);
+                var val = Serialize(cacheKey, value);
                 inserted = await RedisDb.StringSetAsync(cacheKey, val,
                     keepTtl ? null : redisExpiry,
                     keepTtl, when: (When)when, flags: (CommandFlags)flags).ConfigureAwait(false);
@@ -211,7 +211,7 @@ public partial class HybridCache
             {
                 if (redisCacheEnable)
                 {
-                    var val = SerializeWithExpiryPrefix(cacheKey, kvp.Value, localCacheEnable ? localExpiry : null);
+                    var val = Serialize(cacheKey, kvp.Value);
                     inserted = RedisDb.StringSet(cacheKey, val,
                         keepTtl ? null : redisExpiry,
                         keepTtl, when: (When)when, flags: (CommandFlags)flags);
@@ -265,7 +265,7 @@ public partial class HybridCache
             {
                 if (redisCacheEnable)
                 {
-                    var val = SerializeWithExpiryPrefix(cacheKey, kvp.Value, localCacheEnable ? localExpiry : null);
+                    var val = Serialize(cacheKey, kvp.Value);
                     inserted = await RedisDb.StringSetAsync(cacheKey, val,
                         keepTtl ? null : redisExpiry,
                         keepTtl, when: (When)when, flags: (CommandFlags)flags).ConfigureAwait(false);
@@ -720,7 +720,7 @@ public partial class HybridCache
         using var activity = PopulateActivity(OperationTypes.LockKey);
         expiry ??= TimeSpan.FromDays(1);
         var cacheKey = GetCacheKey(key);
-        return RedisDb.LockTakeAsync(cacheKey, token.Serialize(), expiry.Value, (CommandFlags)flags);
+        return RedisDb.LockTakeAsync(cacheKey, token, expiry.Value, (CommandFlags)flags);
     }
 
     public async Task<RedisLockObject> LockKeyAsync(string key, TimeSpan? expiry = null, Flags flags = Flags.None)
@@ -735,7 +735,7 @@ public partial class HybridCache
             // First add TaskCompletionSource to bag and catch incoming lock release signals
             var tcs = _lockTasks.GetOrAdd(cacheKey, _ => new TaskCompletionSource());
 
-            if (await RedisDb.LockTakeAsync(cacheKey, token.Serialize(), expiry.Value, (CommandFlags)flags))
+            if (await RedisDb.LockTakeAsync(cacheKey, token, expiry.Value, (CommandFlags)flags))
                 return new RedisLockObject(this, key, token);
 
             // Wait for either the signal or timeout
@@ -747,7 +747,7 @@ public partial class HybridCache
     {
         using var activity = PopulateActivity(OperationTypes.ExtendLockKey);
         var cacheKey = GetCacheKey(key);
-        return RedisDb.LockExtendAsync(cacheKey, token.Serialize(),
+        return RedisDb.LockExtendAsync(cacheKey, token,
             expiry ?? _options.DefaultDistributedExpirationTime, (CommandFlags)flags);
     }
 
@@ -756,7 +756,7 @@ public partial class HybridCache
         using var activity = PopulateActivity(OperationTypes.ReleaseLock);
         var cacheKey = GetCacheKey(key);
 
-        if (!await RedisDb.LockReleaseAsync(cacheKey, token.Serialize(), (CommandFlags)flags))
+        if (!await RedisDb.LockReleaseAsync(cacheKey, token, (CommandFlags)flags))
             return false;
 
         if (_lockTasks.TryRemove(cacheKey, out var tcs))
@@ -772,7 +772,7 @@ public partial class HybridCache
         using var activity = PopulateActivity(OperationTypes.ReleaseLock);
         var cacheKey = GetCacheKey(key);
 
-        if (!RedisDb.LockRelease(cacheKey, token.Serialize(), (CommandFlags)flags))
+        if (!RedisDb.LockRelease(cacheKey, token, (CommandFlags)flags))
             return false;
 
         if (_lockTasks.TryRemove(cacheKey, out var tcs))
