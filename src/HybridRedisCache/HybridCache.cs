@@ -44,10 +44,22 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
         _options = option;
         _activity = new TracingActivity(option.TracingActivitySourceName).Source;
         _keyMeter = new KeyMeter(loggerFactory?.CreateLogger<KeyMeter>(), option);
-        
+        _options.Serializer ??= GetDefaultSerializer();
+
         CreateLocalCache();
         var redisConfig = GetConfigurationOptions();
         Connect(redisConfig);
+    }
+
+    private ICachingSerializer GetDefaultSerializer()
+    {
+        return _options.SerializerType switch
+        {
+            SerializerType.MemoryPack => new MemoryPackCachingSerializer(),
+            SerializerType.MessagePack => new MessagePackCachingSerializer(),
+            SerializerType.BSON => new JsonCachingSerializer(new CachingJsonSerializerOptions().Default),
+            _ => throw new InvalidOperationException("No valid serializer configured in HybridCachingOptions.")
+        };
     }
 
     private ConfigurationOptions GetConfigurationOptions()

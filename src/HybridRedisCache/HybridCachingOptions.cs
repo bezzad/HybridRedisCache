@@ -146,5 +146,15 @@ public record HybridCachingOptions
     /// The threshold size in bytes to consider and meter data as "heavy" and log a warning.
     /// Default threshold size is 100KB.
     /// </summary>
-    public long WarningHeavyDataThresholdBytes { get; set; } = 100 * 1024; 
+    public long WarningHeavyDataThresholdBytes { get; set; } = 100 * 1024;
+    
+    /// <summary>
+    /// Custom serializer for distributed cache
+    /// </summary>
+    public ICachingSerializer Serializer { get; set; }
+
+    /// <summary>
+    /// Set default serializer type for distributed cache
+    /// </summary>
+    public SerializerType SerializerType { get; set; } = SerializerType.MemoryPack;
 }
