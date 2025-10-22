@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 
-namespace HybridRedisCache.Test;
+namespace HybridRedisCache.Test.Models;
 
 // example complex object for testing serialization
 internal interface IComplexObject

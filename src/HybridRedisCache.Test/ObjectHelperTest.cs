@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using HybridRedisCache.Serializers;
+using HybridRedisCache.Test.Models;
 using Xunit;
 
 namespace HybridRedisCache.Test;
@@ -46,14 +47,11 @@ public class ObjectHelperTest
         };
     }
 
-    [Theory]
-    [InlineData(SerializerType.Bson)]
-    [InlineData(SerializerType.MemoryPack)]
-    [InlineData(SerializerType.MessagePack)]
-    public void DeserializePolymorphicClasses(SerializerType serializerType)
+    [Fact]
+    public void DeserializePolymorphicClasses()
     {
         // Act
-        var option = new HybridCachingOptions { SerializerType = serializerType };
+        var option = new HybridCachingOptions { SerializerType = SerializerType.Bson };
         var serializer = option.GetDefaultSerializer();
         var objBytes = serializer.Serialize(_value2);
         var result = serializer.Deserialize<IComplexObject>(objBytes);
@@ -203,7 +201,7 @@ public class ObjectHelperTest
         var option = new HybridCachingOptions { SerializerType = SerializerType.MessagePack };
         var serializer = option.GetDefaultSerializer();
         var dt1 = DateTime.Parse("2019-11-07 10:30:30");
-        var value = new Weapon()
+        var value = new Models.Weapon()
         {
             Id = 10,
             Damage = 10,
@@ -220,11 +218,46 @@ public class ObjectHelperTest
 
         // action
         var bytes = serializer.Serialize(value);
-        var res1 = serializer.Deserialize<Weapon>(bytes);
+        var res1 = serializer.Deserialize<Models.Weapon>(bytes);
 
         // assert
         Assert.NotEmpty(bytes);
         Assert.Equal(dt1, res1.Timestamp);
         Assert.Equal(value, res1);
+    }
+    
+    [Theory]
+    [InlineData(SerializerType.Bson)]
+    [InlineData(SerializerType.MemoryPack)]
+    [InlineData(SerializerType.MessagePack)]
+    public void Should_Serialize_Complex_Poco_Classes(SerializerType serializerType)
+    {
+        // Act
+        var option = new HybridCachingOptions { SerializerType = serializerType };
+        var serializer = option.GetDefaultSerializer();
+        var objBytes = serializer.Serialize(_value2);
+        var result = serializer.Deserialize<IComplexObject>(objBytes);
+        var realTypeResult = result as ComplexPocoObject;
+
+//
+// Item[] items = new Item[4]
+// {
+//     new Weapon(),
+//     new Armor(),
+//     new Weapon(),
+//     new Weapon()
+// };
+        // Assert
+        // verify that the retrieved object is equal to the original object
+        Assert.NotNull(objBytes);
+        Assert.NotNull(result);
+        Assert.NotNull(realTypeResult);
+        Assert.IsType<ComplexPocoObject>(result);
+        Assert.IsType<ComplexObject>(realTypeResult.Parent);
+        Assert.IsType<Address>(realTypeResult.Parent.Address);
+        Assert.IsType<Location>(realTypeResult.Address);
+        Assert.Equal(_value2.Name, result.Name);
+        Assert.Equal(_value2.PhoneNumbers.First(), result.PhoneNumbers.First());
+        Assert.Equal(_value2.Parent.Address.City, realTypeResult.Parent.Address.City);
     }
 }
