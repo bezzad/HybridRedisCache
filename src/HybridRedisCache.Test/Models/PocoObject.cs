@@ -1,21 +1,25 @@
 using System;
+using System.Collections.Generic;
 using System.Runtime.Serialization;
 using MemoryPack;
 using MessagePack;
 
 namespace HybridRedisCache.Test.Models;
 
-[DataContract]
 [MemoryPackable]
 [MessagePackObject]
+[KnownType(typeof(Armor))]
+[KnownType(typeof(Weapon))]
+[Union(0, typeof(Armor))]
+[Union(1, typeof(Weapon))]
 public partial class Item : IEquatable<Item>
 {
-    [Key(1)] public int Id { get; set; } = 0;
-    [Key(2)] public string Name { get; set; } = "";
-    [Key(3)] public string Icon { get; set; } = "";
-    [Key(4)] public int MaxValue { get; set; } = 1;
-    [Key(5)] public bool IsStackable { get; set; } = true;
-    [Key(6)] public DateTime Timestamp { get; set; }
+    [Key(0)] public int Id { get; set; } = 0;
+    [Key(1)] public string Name { get; set; } = "";
+    [Key(2)] public string Icon { get; set; } = "";
+    [Key(3)] public int MaxValue { get; set; } = 1;
+    [Key(4)] public bool IsStackable { get; set; } = true;
+    [Key(5)] public DateTime Timestamp { get; set; }
 
     public bool Equals(Item other)
     {
@@ -43,16 +47,15 @@ public partial class Item : IEquatable<Item>
     }
 }
 
-[DataContract]
 [MemoryPackable]
 [MessagePackObject]
 public partial class Weapon : Item, IEquatable<Weapon>
 {
-    [Key(7)] public float Reload { get; set; } = 1;
-    [Key(8)] public float Recoil { get; set; } = 2;
-    [Key(9)] public float Weight { get; set; } = 4;
-    [Key(10)] public float Melee { get; set; } = 3;
-    [Key(11)] public float Damage { get; set; } = 4;
+    [Key(6)] public float Reload { get; set; } = 1;
+    [Key(7)] public float Recoil { get; set; } = 2;
+    [Key(8)] public float Weight { get; set; } = 4;
+    [Key(9)] public float Melee { get; set; } = 3;
+    [Key(10)] public float Damage { get; set; } = 4;
 
     public bool Equals(Weapon other)
     {
@@ -80,10 +83,19 @@ public partial class Weapon : Item, IEquatable<Weapon>
     }
 }
 
-[DataContract]
 [MemoryPackable]
 [MessagePackObject]
+
 public partial class Armor : Item
 {
-    [Key(7)] public float Strength { get; set; } = 14;
+    [Key(6)] public float Strength { get; set; } = 14;
+}
+
+// Container class for a polymorphic collection
+[MessagePackObject]
+[MemoryPackable]
+public partial class ItemCache
+{
+    [Key(0)]
+    public List<Item> Items { get; set; } = new();
 }

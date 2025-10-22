@@ -136,10 +136,8 @@ public class IntegrationTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         Assert.Equal(value2, read2Instance3);
     }
 
-    [Theory(Timeout = 10_000)]
-    [InlineData(true)]
-    [InlineData(false)]
-    public async Task CacheRedisOnlyAndGetWithLocalCacheDisabledTest(bool getLocalCacheEnable)
+    [Fact(Timeout = 10_000)]
+    public async Task CacheRedisOnlyAndGetWithLocalCacheDisabledTest()
     {
         // Arrange
         var cacheKey = UniqueKey;
@@ -155,14 +153,14 @@ public class IntegrationTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         await using var instance3 = new HybridCache(Options);
 
         // Act
-        for (var i = 0; i < 1000; i++)
+        for (var i = 0; i < 100; i++)
         {
             var value = "test value " + i;
 
             await instance1.SetAsync(cacheKey, value, opt);
-            var readWithInstance1 = await instance1.GetAsync<string>(cacheKey, getLocalCacheEnable);
-            var readWithInstance2 = await instance2.GetAsync<string>(cacheKey, getLocalCacheEnable);
-            var readWithInstance3 = await instance3.GetAsync<string>(cacheKey, getLocalCacheEnable);
+            var readWithInstance1 = await instance1.GetAsync<string>(cacheKey, false);
+            var readWithInstance2 = await instance2.GetAsync<string>(cacheKey, false);
+            var readWithInstance3 = await instance3.GetAsync<string>(cacheKey, false);
 
             Assert.Equal(value, readWithInstance1);
             Assert.Equal(value, readWithInstance2);

@@ -1,9 +1,13 @@
 ﻿using System.Collections.Generic;
+using MemoryPack;
 
 namespace HybridRedisCache.Test.Models;
 
 // example complex object for testing serialization
-internal interface IComplexObject
+[MemoryPackable]
+[MemoryPackUnion(0, typeof(ComplexObject))]
+[MemoryPackUnion(1, typeof(ComplexPocoObject))]
+internal partial interface IComplexObject
 {
     string Name { get; set; }
     int Age { get; set; }
@@ -11,7 +15,8 @@ internal interface IComplexObject
     List<string> PhoneNumbers { get; set; }
 }
 
-internal class ComplexObject : IComplexObject
+[MemoryPackable]
+internal partial class ComplexObject : IComplexObject
 {
     public string Name { get; set; }
     public int Age { get; set; }
@@ -19,7 +24,8 @@ internal class ComplexObject : IComplexObject
     public List<string> PhoneNumbers { get; set; }
 }
 
-internal class ComplexPocoObject : IComplexObject
+[MemoryPackable]
+internal partial class ComplexPocoObject : IComplexObject
 {
     public string Name { get; set; }
     public int Age { get; set; }
@@ -28,7 +34,10 @@ internal class ComplexPocoObject : IComplexObject
     public IComplexObject Parent { get; set; }
 }
 
-internal interface IAddress
+[MemoryPackable]
+[MemoryPackUnion(0, typeof(Address))]
+[MemoryPackUnion(1, typeof(Location))]
+internal partial interface IAddress
 {
     public string Street { get; set; }
     public string City { get; set; }
@@ -36,7 +45,8 @@ internal interface IAddress
     public string Zip { get; set; }
 }
 
-internal class Address : IAddress
+[MemoryPackable]
+internal partial class Address : IAddress
 {
     public string Street { get; set; }
     public string City { get; set; }
@@ -44,7 +54,8 @@ internal class Address : IAddress
     public string Zip { get; set; }
 }
 
-internal class Location : IAddress
+[MemoryPackable]
+internal partial class Location : IAddress
 {
     public double Lat { get; set; }
     public double Lan { get; set; }

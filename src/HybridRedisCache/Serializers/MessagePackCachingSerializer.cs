@@ -7,7 +7,7 @@ public class MessagePackCachingSerializer : ICachingSerializer
 {
     public MessagePackCachingSerializer()
     {
-        MessagePackSerializer.DefaultOptions = MessagePackSerializerOptions.Standard.WithResolver(ContractlessStandardResolver.Instance);
+        MessagePackSerializer.DefaultOptions = MessagePackSerializerOptions.Standard; //.WithResolver(ContractlessStandardResolver.);
     }
 
     public byte[] Serialize<T>(T value)
