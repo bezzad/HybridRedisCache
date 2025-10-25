@@ -16,7 +16,7 @@ internal static class ActivityExtensions
     internal static void SetCacheHitActivity(this Activity activity, CacheResultType cacheResult, string cacheKey)
     {
         activity?.SetTag(nameof(HybridRedisCache) + ".CacheResult", cacheResult.ToString("G"))
-            ?.SetTag(nameof(HybridRedisCache) + ".CacheKey", cacheKey);
+            .SetTag(nameof(HybridRedisCache) + ".CacheKey", cacheKey);
     }
 }
 
