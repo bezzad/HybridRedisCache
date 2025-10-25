@@ -2,7 +2,7 @@
 
     <PropertyGroup>
         <TargetFrameworks>net8.0;net9.0</TargetFrameworks>
-        <Version>4.0.0</Version>
+        <Version>5.0.0</Version>
         <LangVersion>default</LangVersion>
         <ImplicitUsings>enable</ImplicitUsings>
         <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
@@ -20,13 +20,12 @@
         <RepositoryType>git</RepositoryType>
         <PackageTags>redis; cache; in-memory; memcache; RedisMemoryCache; HybridCachePlus; InRedisCache; MemRedisCache; RedisFusionCache; RedisMemCache; RedisInMemoryCache; MemHybridCache; RedisHybridStore; HybridRedisCache</PackageTags>
         <PackageReleaseNotes>
-            - Add support for flags in the `Publish` and `PublishAsync` methods, with `FireAndForget` as the default value.
-            - Add important Hash functions: `HashSet`, `HashGet`, `HashGetAll`, `HashDelete`, `HashExists`, `HashIncrement`, and `HashDecrement`.
-            - Updated the `KeysAsync` method to return pure key names instead of full keys with the instance prefix.
-            - Replaced the `Redis ExpireWhen` enum with a new `ExpireCondition` enum for better encapsulation.
-            - Corrected the `KeyExpire` and `KeyExpireAsync` methods to use the appropriate `ExpireCondition` enum.
-            - Exposed the `IDatabase RedisDb` property for direct access by end users.
-            - Resolved various bugs and issues.
+            - Introduced a serializer interface to allow custom binary serializers.
+            - Added MessagePack serializer option.
+            - Added MemoryPack serializer option.
+            - Added BSON option as the default serializer.
+            - Fixed various bugs and issues.
+            - Note: This version does not use string serialization; all values are converted to bytes and read as binary.
         </PackageReleaseNotes>
         <IncludeSymbols>True</IncludeSymbols>
         <PackageLicenseFile>LICENSE</PackageLicenseFile>

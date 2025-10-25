@@ -24,6 +24,7 @@ var options = new HybridCachingOptions()
     EnableRedisClientTracking = true,
     EnableMeterData = false,
     SerializerType = SerializerType.Bson,
+    // Serializer = new CustomBinarySerializer(),
     WarningHeavyDataThresholdBytes = 10 * 1024, // 10 KB
 };
 var cache = new HybridCache(options);

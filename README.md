@@ -84,7 +84,9 @@ var options = new HybridCachingOptions()
     EnableRedisClientTracking = true,
     EnableMeterData = true,
     WarningHeavyDataThresholdBytes = 20 * 1024, // 20KB
-    DataSizeHistogramMetricName = "my_app_keys_data_size_histogram_metric"
+    DataSizeHistogramMetricName = "my_app_keys_data_size_histogram_metric",
+    SerializerType = SerializerType.Bason, // Bson, MessagePack, MemoryPack, Or Custom
+    // Serializer = new CustomBinarySerializer(),
 };
 var cache = new HybridCache(options);
 
