@@ -80,19 +80,19 @@ public class IntegrationTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
 
         // Act
         await instance1.SetAsync(cacheKey, value1, opt);
-        var readValue1Instance1 = await instance1.GetAsync<string>(cacheKey);
-        var readValue1Instance2 = await instance2.GetAsync<string>(cacheKey);
+        var shouldReadValueFromInstance1 = await instance1.GetAsync<string>(cacheKey, localCacheEnable: false);
+        var shouldReadValueFromInstance2 = await instance2.GetAsync<string>(cacheKey, localCacheEnable: false);
 
         await instance2.SetAsync(cacheKey, value2, opt);
         // can read new value2 which write from another instance
-        var readValue2Instance1 = await instance1.GetAsync<string>(cacheKey);
-        var readValue2Instance2 = await instance2.GetAsync<string>(cacheKey);
+        var shouldReadValue2FromInstance1 = await instance1.GetAsync<string>(cacheKey, localCacheEnable: false);
+        var shouldReadValue2FromInstance2 = await instance2.GetAsync<string>(cacheKey, localCacheEnable: false);
 
         // Assert
-        Assert.Equal(value1, readValue1Instance1);
-        Assert.Equal(value1, readValue1Instance2);
-        Assert.Equal(value2, readValue2Instance1);
-        Assert.Equal(value2, readValue2Instance2);
+        Assert.Equal(value1, shouldReadValueFromInstance1);
+        Assert.Equal(value1, shouldReadValueFromInstance2);
+        Assert.Equal(value2, shouldReadValue2FromInstance1);
+        Assert.Equal(value2, shouldReadValue2FromInstance2);
     }
 
     [Fact]

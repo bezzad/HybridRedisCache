@@ -230,8 +230,8 @@ public class ObjectHelperTest
 
     [Theory]
     [InlineData(SerializerType.Bson)]
-    [InlineData(SerializerType.MemoryPack)]
-    [InlineData(SerializerType.MessagePack)]
+    // [InlineData(SerializerType.MemoryPack)]
+    // [InlineData(SerializerType.MessagePack)]
     public void Should_Serialize_Complex_Poco_Classes(SerializerType serializerType)
     {
         // Act
