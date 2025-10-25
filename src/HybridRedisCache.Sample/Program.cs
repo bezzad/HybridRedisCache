@@ -1,4 +1,5 @@
 ﻿using HybridRedisCache;
+using HybridRedisCache.Serializers;
 
 // Create a new instance of HybridCache with cache options
 var options = new HybridCachingOptions()
@@ -22,6 +23,7 @@ var options = new HybridCachingOptions()
     TracingActivitySourceName = nameof(HybridRedisCache),
     EnableRedisClientTracking = true,
     EnableMeterData = false,
+    SerializerType = SerializerType.Bson,
     WarningHeavyDataThresholdBytes = 10 * 1024, // 10 KB
 };
 var cache = new HybridCache(options);
