@@ -31,7 +31,7 @@ public partial class HybridCache
         var redisChannel = GetRedisPatternChannel(channel);
         _redisSubscriber.Unsubscribe(redisChannel);
     }
-    
+
     public Task UnsubscribeAsync(string channel)
     {
         var redisChannel = GetRedisPatternChannel(channel);
@@ -406,6 +406,12 @@ public partial class HybridCache
             if (TryUpdateRedisValueOnLocalCache(cacheKey, redisValue, localCacheEnable, activity, out value))
                 return true;
         }
+        catch (JsonSerializationException ex)
+        {
+            LogMessage($"Redis cache deserialization error, [{key}]", ex);
+            activity?.SetCacheHitActivity(CacheResultType.Miss, cacheKey);
+            return false;
+        }
         catch (Exception ex)
         {
             LogMessage($"Redis cache get error, [{key}]", ex);
@@ -431,6 +437,12 @@ public partial class HybridCache
             var redisValue = await RedisDb.StringGetWithExpiryAsync(cacheKey).ConfigureAwait(false);
             if (TryUpdateRedisValueOnLocalCache(cacheKey, redisValue, localCacheEnable, activity, out value))
                 return (true, value);
+        }
+        catch (JsonSerializationException ex)
+        {
+            LogMessage($"Redis cache deserialization error, [{key}]", ex);
+            activity?.SetCacheHitActivity(CacheResultType.Miss, cacheKey);
+            return (false, default);
         }
         catch (Exception ex)
         {

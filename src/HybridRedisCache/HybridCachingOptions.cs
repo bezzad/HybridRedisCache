@@ -159,4 +159,18 @@ public record HybridCachingOptions
     /// Set default serializer type for distributed cache
     /// </summary>
     public SerializerType SerializerType { get; set; } = SerializerType.Bson;
+    
+    /// <summary>
+    /// Set Newtonsoft.Json's Serializer setting to handle type names or null values or etc.
+    /// There is no polymorphic deserialization (equivalent to Newtonsoft.Json's TypeNameHandling)
+    /// TypeNameHandling.All will write and use type names for objects and collections.
+    /// </summary>
+    public JsonSerializerSettings BsonSerializerSettings { get; set; } = new()
+    {
+        TypeNameHandling = TypeNameHandling.All,
+        ReferenceLoopHandling = ReferenceLoopHandling.Ignore,
+        NullValueHandling = NullValueHandling.Ignore,
+        Formatting = Formatting.None,
+        MaxDepth = 64
+    };
 }
