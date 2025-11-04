@@ -2,7 +2,7 @@
 
     <PropertyGroup>
         <TargetFrameworks>net8.0;net9.0</TargetFrameworks>
-        <Version>5.0.1</Version>
+        <Version>5.0.2</Version>
         <LangVersion>default</LangVersion>
         <ImplicitUsings>enable</ImplicitUsings>
         <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
@@ -24,6 +24,7 @@
             - Added MessagePack serializer option.
             - Added MemoryPack serializer option.
             - Added BSON option as the default serializer.
+            - Added JsonSerializerSettings to configure Newtonsoft.Json serialization.
             - Fixed various bugs and issues.
             - Note: This version does not use string serialization; all values are converted to bytes and read as binary.
         </PackageReleaseNotes>
