@@ -1,6 +1,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using HybridRedisCache.Test.Models;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -346,5 +347,34 @@ public class IntegrationTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
 
         Assert.True(remainingTtl > initialExpiry);
         Assert.True(remainingTtl <= newExpiry);
+    }
+
+    [Fact]
+    public async Task ShouldCallRetrieverWhenCouldDeserializeFromOldTypeHandling()
+    {
+        // arrange
+        var cacheKey = UniqueKey;
+        var retrieverCalled = false;
+        var newId = "TestId2";
+        var newValue = new TestOrder { Id = newId, Price = 100, Quantity = 2000 };
+        var oldValue = @"{
+        ""$type"": ""HybridRedisCache.Test.Models.OldTestOrder, HybridRedisCache.Test"",
+        ""Id"": ""TestId"",
+        ""Price"": 100,
+        ""Quantity"": 2000
+        }";
+
+        // act
+        await Cache.SetAsync(cacheKey, oldValue, localCacheEnable: false);
+        var retrievedValue = await Cache.GetAsync(cacheKey, _ =>
+        {
+            retrieverCalled = true;
+            return Task.FromResult(newValue);
+        });
+
+        // assert
+        Assert.True(retrieverCalled);
+        Assert.NotNull(retrievedValue);
+        Assert.Equal(newId, retrievedValue.Id);
     }
 }
