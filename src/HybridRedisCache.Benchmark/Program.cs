@@ -50,7 +50,7 @@ public class Program
     {
         Console.SetCursorPosition(0, 0);
         Console.CursorVisible = false;
-        for (int y = 0; y < Console.BufferHeight; y++)
+        for (var y = 0; y < Console.BufferHeight; y++)
             Console.Write(new String(' ', Console.WindowWidth));
         Console.SetCursorPosition(0, 0);
         Console.CursorVisible = true;

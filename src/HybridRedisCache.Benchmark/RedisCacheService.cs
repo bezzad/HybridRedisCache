@@ -3,18 +3,13 @@ using System.Text.Json;
 
 namespace HybridRedisCache.Benchmark;
 
-public class RedisCacheService : IRedisCacheService
+public class RedisCacheService(IConnectionMultiplexer connection) : IRedisCacheService
 {
-    private IDatabase _db;
-
-    public RedisCacheService(IConnectionMultiplexer connection)
-    {
-        _db = connection.GetDatabase();
-    }
+    private readonly IDatabase _db = connection.GetDatabase();
 
     public async Task<T> GetAsync<T>(string key, Func<Task<T>> acquire, int expireAfterSeconds)
     {
-        if (TryGetValue(key, out T value) == false)
+        if (!TryGetValue(key, out T value))
         {
             var expiryTime = TimeSpan.FromSeconds(expireAfterSeconds);
             value = await acquire();
@@ -26,7 +21,7 @@ public class RedisCacheService : IRedisCacheService
 
     public T Get<T>(string key, Func<T> acquire, int expireAfterSeconds)
     {
-        if (TryGetValue(key, out T value) == false)
+        if (!TryGetValue(key, out T value))
         {
             var expiryTime = TimeSpan.FromSeconds(expireAfterSeconds);
             value = acquire();
@@ -45,7 +40,7 @@ public class RedisCacheService : IRedisCacheService
     public bool TryGetValue<T>(string key, out T value)
     {
         var cacheValue = _db.StringGet(key);
-        if (string.IsNullOrWhiteSpace(cacheValue) == false)
+        if (!string.IsNullOrWhiteSpace(cacheValue))
         {
             value = JsonSerializer.Deserialize<T>(cacheValue);
             return true;
@@ -57,7 +52,7 @@ public class RedisCacheService : IRedisCacheService
 
     public bool AddOrUpdate<T>(string key, T value, DateTimeOffset expirationTime, bool fireAndForget = false)
     {
-        TimeSpan expiryTime = expirationTime.DateTime.Subtract(DateTime.Now);
+        var expiryTime = expirationTime.DateTime.Subtract(DateTime.Now);
         var isSet = _db.StringSet(key, JsonSerializer.Serialize(value), expiryTime, When.Always,
             fireAndForget ? CommandFlags.FireAndForget : CommandFlags.None);
         return isSet;
@@ -65,7 +60,7 @@ public class RedisCacheService : IRedisCacheService
 
     public async Task<bool> AddOrUpdateAsync<T>(string key, T value, DateTimeOffset expirationTime, bool fireAndForget = false)
     {
-        TimeSpan expiryTime = expirationTime.DateTime.Subtract(DateTime.Now);
+        var expiryTime = expirationTime.DateTime.Subtract(DateTime.Now);
         var result = await _db.StringSetAsync(key, JsonSerializer.Serialize(value), expiryTime, When.Always,
             fireAndForget ? CommandFlags.FireAndForget : CommandFlags.None);
         return result;
@@ -73,12 +68,8 @@ public class RedisCacheService : IRedisCacheService
 
     public object Remove(string key)
     {
-        bool _isKeyExist = _db.KeyExists(key);
-        if (_isKeyExist == true)
-        {
-            return _db.KeyDelete(key);
-        }
-        return false;
+        var isKeyExist = _db.KeyExists(key);
+        return isKeyExist && _db.KeyDelete(key);
     }
 
     public void Clear()
