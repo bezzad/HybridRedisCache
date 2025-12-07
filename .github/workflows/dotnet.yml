@@ -15,7 +15,7 @@ jobs:
     environment: Linux
     strategy:
       matrix:
-        dotnet-version: [ 9.0.x ]
+        dotnet-version: [ 10.0.x ]
     # Service containers to run with `runner-job`
 #    services:
 #      # Label used to access the service container
