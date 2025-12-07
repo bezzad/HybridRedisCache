@@ -352,7 +352,7 @@ public class ScriptEvaluateTests(ITestOutputHelper testOutputHelper) : BaseCache
         // Arrange
         var key = UniqueKey;
         var value = "to-be-deleted";
-        await Cache.SetAsync(key, value, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(1));
+        await Cache.SetAsync(key, value, localCacheEnable: false, redisExpiry: TimeSpan.FromMinutes(1));
 
         var luaScript = "return redis.call('DEL', KEYS[1])";
         var keys = new[] { key };
