@@ -18,6 +18,13 @@ public class BsonCachingSerializer(JsonSerializerSettings options) : ICachingSer
         if (bytes?.Length > 0)
         {
             var json = Encoding.UTF8.GetString(bytes);
+            
+            if (typeof(T) == typeof(string) && !json.StartsWith("\""))
+            {
+                // ignore deserialize unsupported strings
+                return (T)(object)json;
+            }
+            
             return JsonConvert.DeserializeObject<T>(json, options);
         }
 
