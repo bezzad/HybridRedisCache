@@ -875,4 +875,24 @@ public partial class HybridCache
         await RedisDb.ScriptEvaluateAsync(luaScript, values: [cacheKeyPattern],
             flags: (CommandFlags)flags).ConfigureAwait(false);
     }
+
+    public async Task<RedisResult> ScriptEvaluateAsync(string luaScript, string[] keys = null, string[] values = null, Flags flags = Flags.None)
+    {
+        // Execute the Lua script
+        return await RedisDb.ScriptEvaluateAsync(luaScript,
+                keys: keys?.Select(s => (RedisKey)s).ToArray(),
+                values: values?.Select(s => (RedisValue)s).ToArray(),
+                flags: (CommandFlags)flags)
+            .ConfigureAwait(false);
+    }
+
+    public async Task<RedisResult> ScriptEvaluateAsync(LuaScript script, object parameters = null, Flags flags = Flags.None)
+    {
+        return await RedisDb.ScriptEvaluateAsync(script, parameters, flags: (CommandFlags)flags).ConfigureAwait(false);
+    }
+
+    public async Task<RedisResult> ScriptEvaluateAsync(LoadedLuaScript script, object parameters = null, Flags flags = Flags.None)
+    { 
+        return await RedisDb.ScriptEvaluateAsync(script, parameters, flags: (CommandFlags)flags).ConfigureAwait(false);  
+    }
 }

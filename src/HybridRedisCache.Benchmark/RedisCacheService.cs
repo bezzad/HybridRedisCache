@@ -39,7 +39,7 @@ public class RedisCacheService(IConnectionMultiplexer connection) : IRedisCacheS
 
     public bool TryGetValue<T>(string key, out T value)
     {
-        var cacheValue = _db.StringGet(key);
+        string cacheValue = _db.StringGet(key);
         if (!string.IsNullOrWhiteSpace(cacheValue))
         {
             value = JsonSerializer.Deserialize<T>(cacheValue);

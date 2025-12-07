@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFrameworks>net8.0;net9.0</TargetFrameworks>
+        <TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>
         <Version>5.0.2</Version>
         <LangVersion>default</LangVersion>
         <ImplicitUsings>enable</ImplicitUsings>
@@ -20,12 +20,7 @@
         <RepositoryType>git</RepositoryType>
         <PackageTags>redis; cache; in-memory; memcache; RedisMemoryCache; HybridCachePlus; InRedisCache; MemRedisCache; RedisFusionCache; RedisMemCache; RedisInMemoryCache; MemHybridCache; RedisHybridStore; HybridRedisCache</PackageTags>
         <PackageReleaseNotes>
-            - Introduced a serializer interface to allow custom binary serializers.
-            - Added MessagePack serializer option.
-            - Added MemoryPack serializer option.
-            - Added BSON option as the default serializer.
-            - Added JsonSerializerSettings to configure Newtonsoft.Json serialization.
-            - Fixed various bugs and issues.
+            - feat: add multiple overloads for ScriptEvaluateAsync to enhance Lua script execution flexibility
             - Note: This version does not use string serialization; all values are converted to bytes and read as binary.
         </PackageReleaseNotes>
         <IncludeSymbols>True</IncludeSymbols>
@@ -46,10 +41,10 @@
     <ItemGroup>
         <PackageReference Include="MemoryPack" Version="1.21.4" />
         <PackageReference Include="MessagePack" Version="3.1.4" />
-        <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="9.0.10" />
+        <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="10.0.0" />
         <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
         <PackageReference Include="prometheus-net" Version="8.2.1" />
-        <PackageReference Include="StackExchange.Redis" Version="2.9.32" />
+        <PackageReference Include="StackExchange.Redis" Version="2.10.1" />
     </ItemGroup>
 
 </Project>

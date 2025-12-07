@@ -206,4 +206,10 @@ public interface IHybridCache : IHybridCacheAsync
     /// <seealso href="https://redis.io/commands/pexpire"/>.
     /// </remarks>
     void KeyExpire(string key, TimeSpan expiry, Flags flags = Flags.None, ExpireCondition expireWhen = ExpireCondition.Always);
+
+    Task<RedisResult> ScriptEvaluateAsync(string luaScript, string[] keys = null, string[] values = null, Flags flags = Flags.None);
+
+    Task<RedisResult> ScriptEvaluateAsync(LuaScript script, object parameters = null, Flags flags = Flags.None);
+
+    Task<RedisResult> ScriptEvaluateAsync(LoadedLuaScript script, object parameters = null, Flags flags = Flags.None);
 }
