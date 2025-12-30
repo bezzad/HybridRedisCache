@@ -98,73 +98,70 @@ public partial class HybridCache
 
     public bool Set<T>(string key, T value, HybridCacheEntry cacheEntry)
     {
-        return Set(key, value, cacheEntry.LocalExpiry, cacheEntry.RedisExpiry,
-            cacheEntry.Flags, cacheEntry.When, cacheEntry.KeepTtl,
-            cacheEntry.LocalCacheEnable, cacheEntry.RedisCacheEnable);
+        using var activity = PopulateActivity(OperationTypes.SetCache);
+        var cacheKey = GetCacheKey(key);
+        SetValidExpiryTimes(cacheEntry);
+        var inserted = true;
+
+        try
+        {
+            if (cacheEntry.RedisCacheEnable)
+            {
+                var val = Serialize(cacheKey, value);
+                inserted = RedisDb.StringSet(cacheKey, val,
+                    cacheEntry.KeepTtl ? null : cacheEntry.RedisExpiry,
+                    cacheEntry.KeepTtl, when: (When)cacheEntry.When, flags: (CommandFlags)cacheEntry.Flags);
+            }
+        }
+        catch (Exception ex)
+        {
+            LogMessage($"set cache key [{key}] error", ex);
+            if (_options.ThrowIfDistributedCacheError)
+                throw;
+
+            return false;
+        }
+
+        // Wait to Redis set operation to be completed
+        // KeySpace sent a signal and removed local cache
+        // So, now we can set the local cache
+        if (inserted && cacheEntry.LocalCacheEnable)
+            inserted = SetLocalMemory(cacheKey, value, cacheEntry.LocalExpiry, cacheEntry.When);
+
+        return inserted;
     }
 
     public bool Set<T>(string key, T value, TimeSpan? localExpiry = null, TimeSpan? redisExpiry = null,
         Flags flags = Flags.PreferMaster, Condition when = Condition.Always,
         bool keepTtl = false, bool localCacheEnable = true, bool redisCacheEnable = true)
     {
+        return Set(key, value, new HybridCacheEntry
+        {
+            When = when,
+            KeepTtl = keepTtl,
+            LocalExpiry = localExpiry,
+            RedisExpiry = redisExpiry,
+            Flags = flags,
+            LocalCacheEnable = localCacheEnable,
+            RedisCacheEnable = redisCacheEnable
+        });
+    }
+
+    public async Task<bool> SetAsync<T>(string key, T value, HybridCacheEntry cacheEntry)
+    {
         using var activity = PopulateActivity(OperationTypes.SetCache);
         var cacheKey = GetCacheKey(key);
-        SetExpiryTimes(ref localExpiry, ref redisExpiry);
+        SetValidExpiryTimes(cacheEntry);
         var inserted = true;
 
         try
         {
-            if (redisCacheEnable)
-            {
-                var val = Serialize(cacheKey, value);
-                inserted = RedisDb.StringSet(cacheKey, val,
-                    keepTtl ? null : redisExpiry,
-                    keepTtl, when: (When)when, flags: (CommandFlags)flags);
-            }
-        }
-        catch (Exception ex)
-        {
-            LogMessage($"set cache key [{key}] error", ex);
-
-            if (_options.ThrowIfDistributedCacheError)
-                throw;
-
-            return false;
-        }
-
-        // Wait to Redis set operation to be completed
-        // KeySpace sent a signal and removed local cache
-        // So, now we can set the local cache
-        if (inserted && localCacheEnable)
-            inserted = SetLocalMemory(cacheKey, value, localExpiry, when);
-
-        return inserted;
-    }
-
-    public Task<bool> SetAsync<T>(string key, T value, HybridCacheEntry cacheEntry)
-    {
-        return SetAsync(key, value, cacheEntry.LocalExpiry, cacheEntry.RedisExpiry,
-            cacheEntry.Flags, cacheEntry.When, cacheEntry.KeepTtl,
-            cacheEntry.LocalCacheEnable, cacheEntry.RedisCacheEnable);
-    }
-
-    public async Task<bool> SetAsync<T>(string key, T value, TimeSpan? localExpiry = null, TimeSpan? redisExpiry = null,
-        Flags flags = Flags.PreferMaster, Condition when = Condition.Always,
-        bool keepTtl = false, bool localCacheEnable = true, bool redisCacheEnable = true)
-    {
-        using var activity = PopulateActivity(OperationTypes.SetCache);
-        var cacheKey = GetCacheKey(key);
-        SetExpiryTimes(ref localExpiry, ref redisExpiry);
-        var inserted = true;
-
-        try
-        {
-            if (redisCacheEnable)
+            if (cacheEntry.RedisCacheEnable)
             {
                 var val = Serialize(cacheKey, value);
                 inserted = await RedisDb.StringSetAsync(cacheKey, val,
-                    keepTtl ? null : redisExpiry,
-                    keepTtl, when: (When)when, flags: (CommandFlags)flags).ConfigureAwait(false);
+                    cacheEntry.KeepTtl ? null : cacheEntry.RedisExpiry,
+                    cacheEntry.KeepTtl, when: (When)cacheEntry.When, flags: (CommandFlags)cacheEntry.Flags).ConfigureAwait(false);
             }
         }
         catch (Exception ex)
@@ -180,26 +177,93 @@ public partial class HybridCache
         // Wait to Redis set operation to be completed
         // KeySpace sent a signal and removed local cache
         // So, now we can set the local cache
-        if (inserted && localCacheEnable)
-            inserted = SetLocalMemory(cacheKey, value, localExpiry, redisCacheEnable ? Condition.Always : when);
+        if (inserted && cacheEntry.LocalCacheEnable)
+            inserted = SetLocalMemory(cacheKey, value, cacheEntry.LocalExpiry, cacheEntry.RedisCacheEnable ? Condition.Always : cacheEntry.When);
 
         return inserted;
+    }
+
+    public Task<bool> SetAsync<T>(string key, T value, TimeSpan? localExpiry = null, TimeSpan? redisExpiry = null,
+        Flags flags = Flags.PreferMaster, Condition when = Condition.Always,
+        bool keepTtl = false, bool localCacheEnable = true, bool redisCacheEnable = true)
+    {
+        return SetAsync(key, value, new HybridCacheEntry
+        {
+            When = when,
+            KeepTtl = keepTtl,
+            LocalExpiry = localExpiry,
+            RedisExpiry = redisExpiry,
+            Flags = flags,
+            LocalCacheEnable = localCacheEnable,
+            RedisCacheEnable = redisCacheEnable
+        });
     }
 
     public bool SetAll<T>(IDictionary<string, T> value, HybridCacheEntry cacheEntry)
     {
-        return SetAll(value, cacheEntry.LocalExpiry, cacheEntry.RedisExpiry,
-            cacheEntry.Flags, cacheEntry.When, cacheEntry.KeepTtl,
-            cacheEntry.LocalCacheEnable, cacheEntry.RedisCacheEnable);
+        using var activity = PopulateActivity(OperationTypes.SetBatchCache);
+        value.NotNullAndCountGtZero(nameof(value));
+        SetValidExpiryTimes(cacheEntry);
+        var result = true;
+
+        foreach (var kvp in value)
+        {
+            var inserted = true;
+            var cacheKey = GetCacheKey(kvp.Key);
+
+            try
+            {
+                if (cacheEntry.RedisCacheEnable)
+                {
+                    var val = Serialize(cacheKey, kvp.Value);
+                    inserted = RedisDb.StringSet(cacheKey, val,
+                        cacheEntry.KeepTtl ? null : cacheEntry.RedisExpiry,
+                        cacheEntry.KeepTtl, when: (When)cacheEntry.When, flags: (CommandFlags)cacheEntry.Flags);
+                }
+            }
+            catch (Exception ex)
+            {
+                LogMessage($"set cache key [{kvp.Key}] error", ex);
+
+                if (_options.ThrowIfDistributedCacheError)
+                    throw;
+
+                inserted = false;
+            }
+
+            // Wait to Redis set operation to be completed
+            // KeySpace sent a signal and removed local cache
+            // So, now we can set the local cache
+            if (inserted && cacheEntry.LocalCacheEnable)
+                inserted = SetLocalMemory(cacheKey, value, cacheEntry.LocalExpiry, cacheEntry.RedisCacheEnable ? Condition.Always : cacheEntry.When);
+
+            result &= inserted;
+        }
+
+        return result;
     }
 
     public bool SetAll<T>(IDictionary<string, T> value, TimeSpan? localExpiry = null, TimeSpan? redisExpiry = null,
         Flags flags = Flags.PreferMaster, Condition when = Condition.Always,
         bool keepTtl = false, bool localCacheEnable = true, bool redisCacheEnable = true)
     {
+        return SetAll(value, new HybridCacheEntry
+        {
+            When = when,
+            KeepTtl = keepTtl,
+            LocalExpiry = localExpiry,
+            RedisExpiry = redisExpiry,
+            Flags = flags,
+            LocalCacheEnable = localCacheEnable,
+            RedisCacheEnable = redisCacheEnable
+        });
+    }
+
+    public async Task<bool> SetAllAsync<T>(IDictionary<string, T> value, HybridCacheEntry cacheEntry)
+    {
         using var activity = PopulateActivity(OperationTypes.SetBatchCache);
         value.NotNullAndCountGtZero(nameof(value));
-        SetExpiryTimes(ref localExpiry, ref redisExpiry);
+        SetValidExpiryTimes(cacheEntry);
         var result = true;
 
         foreach (var kvp in value)
@@ -209,12 +273,13 @@ public partial class HybridCache
 
             try
             {
-                if (redisCacheEnable)
+                if (cacheEntry.RedisCacheEnable)
                 {
                     var val = Serialize(cacheKey, kvp.Value);
-                    inserted = RedisDb.StringSet(cacheKey, val,
-                        keepTtl ? null : redisExpiry,
-                        keepTtl, when: (When)when, flags: (CommandFlags)flags);
+                    inserted = await RedisDb.StringSetAsync(cacheKey, val,
+                            cacheEntry.KeepTtl ? null : cacheEntry.RedisExpiry,
+                            cacheEntry.KeepTtl, when: (When)cacheEntry.When, flags: (CommandFlags)cacheEntry.Flags)
+                        .ConfigureAwait(false);
                 }
             }
             catch (Exception ex)
@@ -230,8 +295,8 @@ public partial class HybridCache
             // Wait to Redis set operation to be completed
             // KeySpace sent a signal and removed local cache
             // So, now we can set the local cache
-            if (inserted && localCacheEnable)
-                inserted = SetLocalMemory(cacheKey, value, localExpiry, redisCacheEnable ? Condition.Always : when);
+            if (inserted && cacheEntry.LocalCacheEnable)
+                inserted = SetLocalMemory(cacheKey, value, cacheEntry.LocalExpiry, cacheEntry.RedisCacheEnable ? Condition.Always : cacheEntry.When);
 
             result &= inserted;
         }
@@ -239,58 +304,21 @@ public partial class HybridCache
         return result;
     }
 
-    public Task<bool> SetAllAsync<T>(IDictionary<string, T> value, HybridCacheEntry cacheEntry)
-    {
-        return SetAllAsync(value, cacheEntry.LocalExpiry, cacheEntry.RedisExpiry,
-            cacheEntry.Flags, cacheEntry.When, cacheEntry.KeepTtl,
-            cacheEntry.LocalCacheEnable, cacheEntry.RedisCacheEnable);
-    }
-
-    public async Task<bool> SetAllAsync<T>(IDictionary<string, T> value,
+    public Task<bool> SetAllAsync<T>(IDictionary<string, T> value,
         TimeSpan? localExpiry = null, TimeSpan? redisExpiry = null,
         Flags flags = Flags.PreferMaster, Condition when = Condition.Always,
         bool keepTtl = false, bool localCacheEnable = true, bool redisCacheEnable = true)
     {
-        using var activity = PopulateActivity(OperationTypes.SetBatchCache);
-        value.NotNullAndCountGtZero(nameof(value));
-        SetExpiryTimes(ref localExpiry, ref redisExpiry);
-        var result = true;
-
-        foreach (var kvp in value)
+        return SetAllAsync(value, new HybridCacheEntry
         {
-            var inserted = true;
-            var cacheKey = GetCacheKey(kvp.Key);
-
-            try
-            {
-                if (redisCacheEnable)
-                {
-                    var val = Serialize(cacheKey, kvp.Value);
-                    inserted = await RedisDb.StringSetAsync(cacheKey, val,
-                        keepTtl ? null : redisExpiry,
-                        keepTtl, when: (When)when, flags: (CommandFlags)flags).ConfigureAwait(false);
-                }
-            }
-            catch (Exception ex)
-            {
-                LogMessage($"set cache key [{kvp.Key}] error", ex);
-
-                if (_options.ThrowIfDistributedCacheError)
-                    throw;
-
-                inserted = false;
-            }
-
-            // Wait to Redis set operation to be completed
-            // KeySpace sent a signal and removed local cache
-            // So, now we can set the local cache
-            if (inserted && localCacheEnable)
-                inserted = SetLocalMemory(cacheKey, value, localExpiry, redisCacheEnable ? Condition.Always : when);
-
-            result &= inserted;
-        }
-
-        return result;
+            When = when,
+            KeepTtl = keepTtl,
+            LocalExpiry = localExpiry,
+            RedisExpiry = redisExpiry,
+            Flags = flags,
+            LocalCacheEnable = localCacheEnable,
+            RedisCacheEnable = redisCacheEnable
+        });
     }
 
     public T Get<T>(string key, bool localCacheEnable = true)
@@ -302,27 +330,19 @@ public partial class HybridCache
     [Obsolete("Use GetAsync method instead.")]
     public T Get<T>(string key, Func<string, T> dataRetriever, HybridCacheEntry cacheEntry)
     {
-        return Get(key, dataRetriever, cacheEntry.LocalExpiry, cacheEntry.RedisExpiry, cacheEntry.Flags,
-            cacheEntry.LocalCacheEnable);
-    }
-
-    [Obsolete("Use GetAsync method instead.")]
-    public T Get<T>(string key, Func<string, T> dataRetriever, TimeSpan? localExpiry = null,
-        TimeSpan? redisExpiry = null, Flags flags = Flags.PreferMaster, bool localCacheEnable = true)
-    {
-        if (TryGetValue(key, localCacheEnable, out T value))
+        if (TryGetValue(key, cacheEntry.LocalCacheEnable, out T value))
             return value;
 
         using var activity = PopulateActivity(OperationTypes.SetCacheWithDataRetriever);
         var cacheKey = GetCacheKey(key);
-        SetExpiryTimes(ref localExpiry, ref redisExpiry);
+        SetValidExpiryTimes(cacheEntry);
 
         try
         {
             value = dataRetriever(key);
             if (value is not null)
             {
-                Set(key, value, localExpiry, redisExpiry, flags, localCacheEnable: localCacheEnable);
+                Set(key, value, cacheEntry);
                 activity?.SetRetrievalStrategyActivity(RetrievalStrategy.DataRetrieverExecution);
                 activity?.SetCacheHitActivity(CacheResultType.Miss, cacheKey);
                 return value;
@@ -340,36 +360,41 @@ public partial class HybridCache
         return value;
     }
 
+    [Obsolete("Use GetAsync method instead.")]
+    public T Get<T>(string key, Func<string, T> dataRetriever, TimeSpan? localExpiry = null,
+        TimeSpan? redisExpiry = null, Flags flags = Flags.PreferMaster, bool localCacheEnable = true, bool redisCacheEnable = true)
+    {
+        return Get(key, dataRetriever, new HybridCacheEntry
+        {
+            LocalExpiry = localExpiry,
+            RedisExpiry = redisExpiry,
+            Flags = flags,
+            LocalCacheEnable = localCacheEnable,
+            RedisCacheEnable = redisCacheEnable
+        });
+    }
+
     public async Task<T> GetAsync<T>(string key, bool localCacheEnable = true)
     {
         var resp = await TryGetValueAsync<T>(key, localCacheEnable).ConfigureAwait(false);
         return resp.value;
     }
 
-    public Task<T> GetAsync<T>(string key, Func<string, Task<T>> dataRetriever, HybridCacheEntry cacheEntry)
+    public async Task<T> GetAsync<T>(string key, Func<string, Task<T>> dataRetriever, HybridCacheEntry cacheEntry)
     {
-        return GetAsync(key, dataRetriever, cacheEntry.LocalExpiry, cacheEntry.RedisExpiry,
-            cacheEntry.Flags, cacheEntry.LocalCacheEnable);
-    }
-
-    public async Task<T> GetAsync<T>(string key, Func<string, Task<T>> dataRetriever,
-        TimeSpan? localExpiry = null, TimeSpan? redisExpiry = null,
-        Flags flags = Flags.PreferMaster, bool localCacheEnable = true)
-    {
-        var resp = await TryGetValueAsync<T>(key, localCacheEnable);
+        var resp = await TryGetValueAsync<T>(key, cacheEntry.LocalCacheEnable).ConfigureAwait(false);
         if (resp.success) return resp.value;
 
         using var activity = PopulateActivity(OperationTypes.SetCacheWithDataRetriever);
         var cacheKey = GetCacheKey(key);
-        SetExpiryTimes(ref localExpiry, ref redisExpiry);
+        SetValidExpiryTimes(cacheEntry);
 
         try
         {
             var value = await FetchDataSafely(key, dataRetriever).ConfigureAwait(false);
             if (value is not null)
             {
-                await SetAsync(key, value, localExpiry, redisExpiry, flags, localCacheEnable: localCacheEnable)
-                    .ConfigureAwait(false);
+                await SetAsync(key, value, cacheEntry).ConfigureAwait(false);
                 activity?.SetRetrievalStrategyActivity(RetrievalStrategy.DataRetrieverExecution);
                 activity?.SetCacheHitActivity(CacheResultType.Miss, cacheKey);
                 return value;
@@ -385,6 +410,20 @@ public partial class HybridCache
         LogMessage($"distributed cache can not get the value of key[{key}]. Data retriever also had a problem.");
         activity?.SetCacheHitActivity(CacheResultType.Miss, cacheKey);
         return default;
+    }
+
+    public Task<T> GetAsync<T>(string key, Func<string, Task<T>> dataRetriever,
+        TimeSpan? localExpiry = null, TimeSpan? redisExpiry = null,
+        Flags flags = Flags.PreferMaster, bool localCacheEnable = true, bool redisCacheEnable = true)
+    {
+        return GetAsync(key, dataRetriever, new HybridCacheEntry
+        {
+            LocalExpiry = localExpiry,
+            RedisExpiry = redisExpiry,
+            Flags = flags,
+            LocalCacheEnable = localCacheEnable,
+            RedisCacheEnable = redisCacheEnable
+        });
     }
 
     public bool TryGetValue<T>(string key, out T value)

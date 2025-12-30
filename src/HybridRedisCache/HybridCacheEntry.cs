@@ -29,10 +29,10 @@ public class HybridCacheEntry(
     /// <summary>
     /// The flags to use for this operation
     /// </summary>
-    public Flags Flags { get; set; } = fireAndForget ? flags | Flags.FireAndForget : Flags.PreferMaster;
+    public Flags Flags { get; set; } = fireAndForget ? flags | Flags.FireAndForget : flags;
 
     /// <summary>
-    /// Set key to hold the string value. If key already holds a value, it is overwriiten, regardless of its type.
+    /// Set key to hold the string value. If key already holds a value, it is overwritten, regardless of its type.
     /// </summary>
     /// <remarks>
     /// Which condition to set the value under (defaults to Always)

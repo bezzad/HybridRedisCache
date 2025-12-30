@@ -33,9 +33,9 @@ public interface IHybridCacheAsync
     /// <inheritdoc cref="IHybridCache.Get{T}(string, bool)"/>
     Task<T> GetAsync<T>(string key, bool localCacheEnable = true);
 
-    /// <inheritdoc cref="IHybridCache.Get{T}(string, Func{string, T}, TimeSpan?, TimeSpan?, Flags, bool)"/>
+    /// <inheritdoc cref="IHybridCache.Get{T}(string, Func{string, T}, TimeSpan?, TimeSpan?, Flags, bool, bool)"/>
     Task<T> GetAsync<T>(string cacheKey, Func<string, Task<T>> dataRetriever, TimeSpan? localExpiry = null,
-        TimeSpan? redisExpiry = null, Flags flags = Flags.PreferMaster, bool localCacheEnable = true);
+        TimeSpan? redisExpiry = null, Flags flags = Flags.PreferMaster, bool localCacheEnable = true, bool redisCacheEnable = true);
 
     /// <inheritdoc cref="IHybridCache.Get{T}(string, Func{string, T}, HybridCacheEntry)"/>
     Task<T> GetAsync<T>(string cacheKey, Func<string, Task<T>> dataRetriever, HybridCacheEntry cacheEntry);

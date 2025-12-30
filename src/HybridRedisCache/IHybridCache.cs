@@ -121,8 +121,9 @@ public interface IHybridCache : IHybridCacheAsync
     /// <param name="redisExpiry">The expiration time for the redis cache entry. If not specified, the default distributed expiration time is used.</param>
     /// <param name="flags">The flags to use for this operation.</param>
     /// <param name="localCacheEnable">Set local memory or not?</param>
+    /// <param name="redisCacheEnable">Set redis or not?</param>
     T Get<T>(string cacheKey, Func<string, T> dataRetriever, TimeSpan? localExpiry = null, TimeSpan? redisExpiry = null,
-        Flags flags = Flags.PreferMaster, bool localCacheEnable = true);
+        Flags flags = Flags.PreferMaster, bool localCacheEnable = true, bool redisCacheEnable = true);
 
     /// <summary>
     /// Get the specified cacheKey, dataRetriever, and expiration.

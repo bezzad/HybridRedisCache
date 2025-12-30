@@ -385,12 +385,12 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
         return true;
     }
 
-    private void SetExpiryTimes(ref TimeSpan? localExpiry, ref TimeSpan? redisExpiry)
+    private void SetValidExpiryTimes(HybridCacheEntry entry)
     {
-        localExpiry ??= _options.DefaultLocalExpirationTime;
-        redisExpiry ??= _options.DefaultDistributedExpirationTime;
-        if (localExpiry.Value > redisExpiry.Value)
-            localExpiry = redisExpiry;
+        entry.LocalExpiry ??= _options.DefaultLocalExpirationTime;
+        entry.RedisExpiry ??= _options.DefaultDistributedExpirationTime;
+        if (entry.LocalExpiry.Value >  entry.RedisExpiry.Value)
+            entry.LocalExpiry =  entry.RedisExpiry;
     }
 
     private byte[] Serialize(string key, object value)

@@ -1739,12 +1739,11 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         var key1 = UniqueKey;
         var value1 = "value1";
 
+        // Act
         await Cache.SetAsync(key1, value1,
             TimeSpan.FromMilliseconds(100),
             TimeSpan.FromMinutes(10),
             redisCacheEnable: false); // without redis caching
-
-        // Act
         var fetchedValue = await Cache.GetAsync<string>(key1);
         await Task.Delay(100);
         var fetchedNullValue = await Cache.GetAsync<string>(key1);
@@ -1753,26 +1752,51 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         Assert.Equal(value1, fetchedValue);
         Assert.Null(fetchedNullValue); // read from redis, but also redis has been expired
     }
-    
+
     [Fact]
     public async Task Cache_On_Local_Without_Redis_Set_Entry_Test()
     {
         // Arrange
         var key1 = UniqueKey;
         var value1 = "value1";
-
-        await Cache.SetAsync(key1, value1, new HybridCacheEntry
+        var opt = new HybridCacheEntry
         {
             FireAndForget = false,
             LocalCacheEnable = true,
-            RedisCacheEnable = false,  // without redis caching
+            RedisCacheEnable = false, // without redis caching
             RedisExpiry = TimeSpan.FromMinutes(1),
-            LocalExpiry =  TimeSpan.FromMilliseconds(100)
-        });
+            LocalExpiry = TimeSpan.FromMilliseconds(100)
+        };
 
         // Act
+        await Cache.SetAsync(key1, value1, opt);
         var fetchedValue = await Cache.GetAsync<string>(key1);
         await Task.Delay(100);
+        var fetchedNullValue = await Cache.GetAsync<string>(key1);
+
+        // Assert
+        Assert.Equal(value1, fetchedValue);
+        Assert.Null(fetchedNullValue); // read from redis, but also redis has been expired
+    }
+
+    [Fact]
+    public async Task Cache_On_Local_Without_Redis_by_GetSet_Test()
+    {
+        // Arrange
+        var key1 = UniqueKey;
+        var value1 = "value1";
+        var opt = new HybridCacheEntry
+        {
+            FireAndForget = false,
+            LocalCacheEnable = true,
+            RedisCacheEnable = false, // without redis caching
+            RedisExpiry = TimeSpan.FromMinutes(1),
+            LocalExpiry = TimeSpan.FromMilliseconds(100)
+        };
+
+        // Act
+        var fetchedValue = await Cache.GetAsync(key1, _ => Task.FromResult(value1), opt);
+        await Task.Delay(110);
         var fetchedNullValue = await Cache.GetAsync<string>(key1);
 
         // Assert
