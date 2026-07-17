@@ -136,3 +136,56 @@ rtk init --global       # Add RTK to ~/.claude/CLAUDE.md
 
 Overall average: **60-90% token reduction** on common development operations.
 <!-- /rtk-instructions -->
+
+---
+
+# HybridRedisCache — project guide
+
+Two-layer cache: an in-process `MemoryCache` in front of Redis. Redis key-space notifications are what
+keep the local layer of every instance honest — most of the design follows from that.
+
+## Layout (`src/`)
+
+| Project | Purpose |
+| --- | --- |
+| `HybridRedisCache` | The library. Multi-targets `net8.0;net9.0;net10.0`. |
+| `HybridRedisCache.Test` | xunit tests. See "Running tests" below. |
+| `HybridRedisCache.Benchmark` | BenchmarkDotNet comparison against EasyCaching. |
+| `HybridRedisCache.Sample` | Interactive console sample. |
+
+`HybridCache` is one partial class across three files: `HybridCache.cs` (connection, bus, local cache,
+serialization), `HybridCache.Public.cs` (most of the public API) and `HybridCache.Hash.cs` (hash API).
+Public surface is declared in `IHybridCache` / `IHybridCacheAsync` — **keep interface defaults in sync with
+the implementation's defaults**; they silently disagreed on `ExistsAsync` before.
+
+## Running tests
+
+Two independent harnesses:
+
+* **In-process (no Docker).** `InProcessRedisFixture` starts Microsoft Garnet, a Redis-compatible server,
+  inside the test process. Derive from `InProcessCacheTest`. This is the default for new tests — it runs
+  anywhere and takes under a second.
+* **Container-backed.** `BaseCacheTest` runs real Redis via Testcontainers and **needs a Docker daemon**.
+  Required for anything Garnet cannot do; the list lives in the `InProcessRedisFixture` doc comment
+  (key-space notifications, pub/sub, and the Redis 8 `HSETEX`/`HGETDEL` hash commands).
+
+```bash
+# Everything that runs without Docker:
+dotnet test src/HybridRedisCache.Test --filter "FullyQualifiedName~InProcess|FullyQualifiedName~SerializerTests|FullyQualifiedName~ArgumentCheckTest|FullyQualifiedName~ObjectHelperTest|FullyQualifiedName~SetAllBehaviorTests|FullyQualifiedName~CancellationTokenTests"
+```
+
+The container image tag is pinned in `BaseCacheTest.RedisImage` and must stay on Redis 8.x, because
+`HashSetAsync(key, IDictionary, ...)` issues `HSETEX`.
+
+## Things worth knowing
+
+* **`CONFIG SET` is not guaranteed.** Azure Cache for Redis and AWS ElastiCache block it. Startup logs the
+  failure and continues in a degraded mode where the local cache only expires on its own TTL. Never make
+  startup depend on a `CONFIG` call succeeding.
+* **Cancellation is caller-side only.** StackExchange.Redis takes no `CancellationToken` on commands. The
+  `Cancelable(token)` helper in `ObjectHelper` wraps `Task.WaitAsync`, so cancelling abandons the wait but
+  does not stop the command. Say so in any doc you write about it.
+* **`SetAll` iterates a dictionary.** Write `kvp.Value` to the local cache, not `value` — passing the
+  dictionary compiles fine (`T` infers as the dictionary) and silently corrupts every entry.
+* **`ClearLocalMemory` disposes and reassigns `_memoryCache`** while other code reads the field without the
+  lock. Treat that area as racy.

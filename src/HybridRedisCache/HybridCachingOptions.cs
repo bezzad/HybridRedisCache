@@ -115,14 +115,14 @@ public record HybridCachingOptions
     public int KeepAlive { get; set; } = 60;
 
     /// <summary>
-    /// Gets or sets the SocketManager instance to be used with these options.
-    /// If this is false a shared cross-multiplexer is used.
-    /// Else this is true the thead pool is used.
+    /// Gets or sets whether the thread pool socket manager is used.
     /// </summary>
     /// <remarks>
-    /// This is only used when a ConnectionMultiplexer is created.
-    /// Modifying it afterwards will have no effect on already-created multiplexers.
+    /// No longer has any effect. StackExchange.Redis 3.x removed <c>SocketManager</c> and always
+    /// schedules socket work itself, so this value is ignored. The property is retained only for
+    /// source compatibility and will be removed in a future major release.
     /// </remarks>
+    [Obsolete("SocketManager was removed in StackExchange.Redis 3.x; this option is ignored and will be removed in a future major release.")]
     public bool ThreadPoolSocketManagerEnable { get; set; }
 
     /// <summary>

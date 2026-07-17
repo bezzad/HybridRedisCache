@@ -21,6 +21,8 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
     private IMemoryCache _recentlySetKeys;
     private int _reconfigureAttemptCount;
 
+    private static readonly TimeSpan ReconnectBackOff = TimeSpan.FromMilliseconds(500);
+
     private readonly TimeSpan _timeWindow = TimeSpan.FromSeconds(5); // Expiration time window
     private readonly KeyMeter _keyMeter;
     public IDatabase RedisDb { get; private set; }
@@ -61,9 +63,10 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
         redisConfig.ConnectTimeout = _options.ConnectionTimeout;
         redisConfig.KeepAlive = _options.KeepAlive;
         redisConfig.AllowAdmin = _options.AllowAdmin;
-        redisConfig.SocketManager = _options.ThreadPoolSocketManagerEnable
-            ? SocketManager.ThreadPool
-            : SocketManager.Shared;
+
+        // Note: ConfigurationOptions.SocketManager was removed in StackExchange.Redis 3.x.
+        // The client now always uses its own dedicated socket scheduling, so
+        // HybridCachingOptions.ThreadPoolSocketManagerEnable is no longer honoured.
 
         return redisConfig;
     }
@@ -110,6 +113,10 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
     {
         while (true)
         {
+            // Set whenever an iteration ends without reaching a connected state. Without it the
+            // loop would re-run immediately and spin the CPU while Redis is unreachable.
+            var backOff = false;
+
             await _reconnectSemaphore.WaitAsync().ConfigureAwait(false);
             try
             {
@@ -129,6 +136,12 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
                     Connect(redisConfig);
                     _reconfigureAttemptCount = 0;
                 }
+                else
+                {
+                    // Redis answered, but the multiplexer has not reported itself connected yet;
+                    // wait for it to settle instead of re-checking in a tight loop.
+                    backOff = true;
+                }
             }
             catch (Exception ex)
             {
@@ -142,11 +155,17 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
                         "Marking Redis cache as down.", ex);
                     throw;
                 } // else continue the while( true )
+
+                backOff = true;
             }
             finally
             {
                 _reconnectSemaphore.Release();
             }
+
+            // Delay outside the semaphore so a reconnect attempt never blocks other callers.
+            if (backOff)
+                await Task.Delay(ReconnectBackOff).ConfigureAwait(false);
         }
     }
 
@@ -157,8 +176,6 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
 
     private void SetRedisServersConfigs()
     {
-        var clientId = RedisDb.Execute("CLIENT", "ID");
-
         // Set the notify-keyspace-events configuration
         // Explanation of notify-keyspace-events Flags
         //
@@ -179,13 +196,38 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
         //    A     Alias for "g$lshztxed", so that the "AKE" string means all the events except "m" and "n".
         // 
         // https://redis.io/docs/latest/develop/use/keyspace-notifications/
-        RedisDb.Execute("CONFIG", "SET", "notify-keyspace-events", "KA");
-
-        if (_options.EnableRedisClientTracking)
+        //
+        // Managed Redis services (Azure Cache for Redis, AWS ElastiCache, ...) and Redis-compatible
+        // servers block or omit CONFIG SET. Failing here would make the whole cache unusable on those
+        // servers, so the error is logged and startup continues: key-space notifications may already
+        // be enabled server-side, and if they are not, the local cache simply relies on its own TTL.
+        try
         {
+            RedisDb.Execute("CONFIG", "SET", "notify-keyspace-events", "KA");
+        }
+        catch (Exception ex)
+        {
+            LogMessage(
+                "Unable to enable key-space notifications (CONFIG SET notify-keyspace-events KA). " +
+                "Cross-instance local cache invalidation will not work unless 'notify-keyspace-events' " +
+                "is enabled on the server. Local cache entries will still expire via their own TTL.", ex);
+        }
+
+        if (!_options.EnableRedisClientTracking)
+            return;
+
+        try
+        {
+            var clientId = RedisDb.Execute("CLIENT", "ID");
+
             // Enable tracking with specific key prefixes to reduce overhead
             RedisDb.Execute($"CLIENT", "TRACKING", "ON", "REDIRECT", (long)clientId, "BCAST", "PREFIX",
                 $"{_options.InstancesSharedName}:*", "NOLOOP");
+        }
+        catch (Exception ex)
+        {
+            // Client tracking is not available on every server (e.g. Redis Enterprise Cloud, issue #16).
+            LogMessage("Unable to enable Redis client tracking (CLIENT TRACKING ON).", ex);
         }
     }
 

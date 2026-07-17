@@ -2,7 +2,7 @@
 
     <PropertyGroup>
         <TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>
-        <Version>5.2.0</Version>
+        <Version>6.0.0</Version>
         <LangVersion>default</LangVersion>
         <ImplicitUsings>enable</ImplicitUsings>
         <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
@@ -20,8 +20,21 @@
         <RepositoryType>git</RepositoryType>
         <PackageTags>redis; cache; in-memory; memcache; RedisMemoryCache; HybridCachePlus; InRedisCache; MemRedisCache; RedisFusionCache; RedisMemCache; RedisInMemoryCache; MemHybridCache; RedisHybridStore; HybridRedisCache</PackageTags>
         <PackageReleaseNotes>
-            - fix: retrieve cached value only from dataRetriever and set it in the local cache, excluding Redis
-            - refactor: improved code structure and readability
+            Breaking:
+            - Upgraded to StackExchange.Redis 3.x. Consumers must also move to 3.x.
+            - HybridCachingOptions.ThreadPoolSocketManagerEnable is obsolete and ignored: StackExchange.Redis 3.x
+            removed SocketManager and always schedules socket work itself.
+            - Async APIs gained a trailing optional CancellationToken parameter (source compatible, binary breaking).
+
+            Fixed:
+            - SetAll/SetAllAsync wrote the whole dictionary into the local cache under every key instead of that
+            key's own value. With RedisCacheEnable=false this lost the data outright; otherwise it bloated memory
+            and made every local read miss.
+            - Startup no longer fails when the server rejects "CONFIG SET notify-keyspace-events" (Azure Cache for
+            Redis, AWS ElastiCache and other managed/compatible servers). The error is logged and startup continues.
+            - Reconnect no longer spins the CPU in a tight loop while Redis is unreachable.
+            - RemoveWithPatternAsync logged a removed-key count that was always 0.
+            - ExistsAsync's interface default flag (None) disagreed with the implementation (PreferMaster).
         </PackageReleaseNotes>
         <IncludeSymbols>True</IncludeSymbols>
         <PackageLicenseFile>LICENSE</PackageLicenseFile>
@@ -44,7 +57,7 @@
         <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="10.0.10" />
         <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
         <PackageReference Include="prometheus-net" Version="8.2.1" />
-        <PackageReference Include="StackExchange.Redis" Version="2.10.1" />
+        <PackageReference Include="StackExchange.Redis" Version="3.0.17" />
     </ItemGroup>
 
 </Project>

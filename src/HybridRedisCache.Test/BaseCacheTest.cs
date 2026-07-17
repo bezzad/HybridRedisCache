@@ -32,7 +32,6 @@ public abstract class BaseCacheTest : ContainerTest<RedisBuilder, RedisContainer
         AsyncTimeout = 500000,
         KeepAlive = 6000,
         ConnectionTimeout = 5000,
-        ThreadPoolSocketManagerEnable = true,
         EnableTracing = true,
         EnableLogging = true,
     };
@@ -50,14 +49,16 @@ public abstract class BaseCacheTest : ContainerTest<RedisBuilder, RedisContainer
         });
     }
 
-    protected override RedisBuilder Configure(RedisBuilder builder)
+    // Pinned image tag: "redis:latest" made test runs non-reproducible across machines and CI.
+    // Must stay on Redis 8.x: HashSetAsync(key, IDictionary, ...) issues HSETEX, which is 8.0+.
+    private const string RedisImage = "redis:8.2";
+
+    protected override RedisBuilder Configure()
     {
-        return new RedisBuilder()
+        return new RedisBuilder(RedisImage)
             .WithReuse(false)
-            .WithPrivileged(true)
             .WithAutoRemove(true)
-            .WithLogger(LoggerFactory.CreateLogger("RedisTestContainer"))
-            .WithImage("redis:latest");
+            .WithLogger(LoggerFactory.CreateLogger("RedisTestContainer"));
     }
 
     protected async Task AssertKeysAreRemoved(Dictionary<string, string> keyValues)
