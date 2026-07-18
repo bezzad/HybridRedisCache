@@ -57,9 +57,13 @@ jobs:
 
       # SymbolPackageFormat=snupkg: the csproj sets IncludeSymbols=True but no format, which
       # would produce the legacy .symbols.nupkg that nuget.org's symbol server rejects.
+      # GeneratePackageOnBuild=false: the csproj sets it true, which makes `dotnet pack` skip
+      # the implicit build and fail with NU5026 (missing dll); disabling it restores pack's
+      # normal build-then-pack behavior.
       - name: Pack (Release)
         run: |
           dotnet pack src/HybridRedisCache/HybridRedisCache.csproj -c Release \
+            -p:GeneratePackageOnBuild=false \
             -p:SymbolPackageFormat=snupkg \
             -o src/HybridRedisCache/bin/nupkg/
 
