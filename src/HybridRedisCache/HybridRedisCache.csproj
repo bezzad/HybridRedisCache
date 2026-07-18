@@ -20,21 +20,21 @@
         <RepositoryType>git</RepositoryType>
         <PackageTags>redis; cache; in-memory; memcache; RedisMemoryCache; HybridCachePlus; InRedisCache; MemRedisCache; RedisFusionCache; RedisMemCache; RedisInMemoryCache; MemHybridCache; RedisHybridStore; HybridRedisCache</PackageTags>
         <PackageReleaseNotes>
-            Breaking:
-            - Upgraded to StackExchange.Redis 3.x. Consumers must also move to 3.x.
-            - HybridCachingOptions.ThreadPoolSocketManagerEnable is obsolete and ignored: StackExchange.Redis 3.x
-            removed SocketManager and always schedules socket work itself.
-            - Async APIs gained a trailing optional CancellationToken parameter (source compatible, binary breaking).
+### Breaking
+- Upgraded to StackExchange.Redis 3.x. Consumers must also move to 3.x.
+- `HybridCachingOptions.ThreadPoolSocketManagerEnable` is obsolete and ignored: StackExchange.Redis 3.x removed SocketManager and always schedules socket work itself.
+- Async APIs gained a trailing optional `CancellationToken` parameter (source compatible, binary breaking).
 
-            Fixed:
-            - SetAll/SetAllAsync wrote the whole dictionary into the local cache under every key instead of that
-            key's own value. With RedisCacheEnable=false this lost the data outright; otherwise it bloated memory
-            and made every local read miss.
-            - Startup no longer fails when the server rejects "CONFIG SET notify-keyspace-events" (Azure Cache for
-            Redis, AWS ElastiCache and other managed/compatible servers). The error is logged and startup continues.
-            - Reconnect no longer spins the CPU in a tight loop while Redis is unreachable.
-            - RemoveWithPatternAsync logged a removed-key count that was always 0.
-            - ExistsAsync's interface default flag (None) disagreed with the implementation (PreferMaster).
+### Fixed
+- `SetAll`/`SetAllAsync` wrote the whole dictionary into the local cache under every key instead of that key's own value. With `RedisCacheEnable=false` this lost the data outright; otherwise it bloated memory and made every local read miss.
+- Startup no longer fails when the server rejects `CONFIG SET notify-keyspace-events` (Azure Cache for Redis, AWS ElastiCache and other managed/compatible servers). The error is logged and startup continues.
+- Reconnect no longer spins the CPU in a tight loop while Redis is unreachable.
+- `RemoveWithPatternAsync` logged a removed-key count that was always 0.
+- `ExistsAsync`'s interface default flag (`None`) disagreed with the implementation (`PreferMaster`).
+
+### CI / tooling
+- New one-shot release routine (`scripts/release.sh`) and tag-triggered release workflow publishing to nuget.org via Trusted Publishing (OIDC, no stored API key).
+- Test coverage is now uploaded to Codecov.
         </PackageReleaseNotes>
         <IncludeSymbols>True</IncludeSymbols>
         <PackageLicenseFile>LICENSE</PackageLicenseFile>
