@@ -1732,6 +1732,21 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         }
     }
 
+    // MemoryCache checks absolute expiry lazily against its own clock, which can lag Task.Delay
+    // by a few milliseconds — poll past the expiry instead of racing it with a fixed delay.
+    private async Task<string> GetAfterLocalExpiryAsync(string key)
+    {
+        string value = null;
+        for (var i = 0; i < 50; i++)
+        {
+            await Task.Delay(50);
+            value = await Cache.GetAsync<string>(key);
+            if (value is null) break;
+        }
+
+        return value;
+    }
+
     [Fact]
     public async Task Cache_On_Local_Without_Redis_Set_Option_Test()
     {
@@ -1745,8 +1760,7 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
             TimeSpan.FromMinutes(10),
             redisCacheEnable: false); // without redis caching
         var fetchedValue = await Cache.GetAsync<string>(key1);
-        await Task.Delay(100);
-        var fetchedNullValue = await Cache.GetAsync<string>(key1);
+        var fetchedNullValue = await GetAfterLocalExpiryAsync(key1);
 
         // Assert
         Assert.Equal(value1, fetchedValue);
@@ -1771,8 +1785,7 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         // Act
         await Cache.SetAsync(key1, value1, opt);
         var fetchedValue = await Cache.GetAsync<string>(key1);
-        await Task.Delay(100);
-        var fetchedNullValue = await Cache.GetAsync<string>(key1);
+        var fetchedNullValue = await GetAfterLocalExpiryAsync(key1);
 
         // Assert
         Assert.Equal(value1, fetchedValue);
@@ -1796,8 +1809,7 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
 
         // Act
         var fetchedValue = await Cache.GetAsync(key1, _ => Task.FromResult(value1), opt);
-        await Task.Delay(110);
-        var fetchedNullValue = await Cache.GetAsync<string>(key1);
+        var fetchedNullValue = await GetAfterLocalExpiryAsync(key1);
 
         // Assert
         Assert.Equal(value1, fetchedValue);
