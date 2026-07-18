@@ -1,5 +1,6 @@
 [![NuGet](https://img.shields.io/nuget/dt/HybridRedisCache.svg)](https://www.nuget.org/packages/HybridRedisCache)
 [![NuGet](https://img.shields.io/nuget/vpre/HybridRedisCache.svg)](https://www.nuget.org/packages/HybridRedisCache)
+[![codecov](https://codecov.io/github/bezzad/HybridRedisCache/graph/badge.svg)](https://codecov.io/github/bezzad/HybridRedisCache)
 [![Generic badge](https://img.shields.io/badge/support-.Net_Core-blue.svg)](https://github.com/bezzad/HybridRedisCache)
 
 # HybridRedisCache
@@ -78,7 +79,6 @@ var options = new HybridCachingOptions()
     MaxReconfigureAttempts = 10,
     EnableLogging = true,
     EnableTracing = true,
-    ThreadPoolSocketManagerEnable = true,
     FlushLocalCacheOnBusReconnection = true,
     TracingActivitySourceName = nameof(HybridRedisCache),
     EnableRedisClientTracking = true,
@@ -122,7 +122,6 @@ builder.Services.AddHybridRedisCaching(options =>
     options.ConnectRetry = 10;
     options.EnableLogging = true;
     options.EnableTracing = true;
-    options.ThreadPoolSocketManagerEnable = true;
     options.TracingActivitySourceName = nameof(HybridRedisCache);
     options.FlushLocalCacheOnBusReconnection = true;
 });
@@ -200,6 +199,33 @@ Other features of `HybridCache` include:
 Overall, `HybridCache` provides a powerful and flexible caching solution that helps enhance the performance and
 scalability of your applications while ensuring that cached data remains consistent across all instances.
 
+## Cancellation tokens
+
+Every asynchronous API accepts an optional trailing `CancellationToken`:
+
+```csharp
+using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+
+await cache.SetAsync("mykey", "myvalue", token: cts.Token);
+var value = await cache.GetAsync<string>("mykey", token: cts.Token);
+```
+
+> **What cancelling actually does.** `StackExchange.Redis` does not accept a `CancellationToken` on its
+> command APIs. Cancelling therefore stops *your* call from waiting and throws `OperationCanceledException`;
+> the command has already been handed to the multiplexer and the server may still apply it. Use the token to
+> bound how long a caller waits, not to guarantee a write never lands.
+
+## Server requirements
+
+* **Redis 6.0+** for general use.
+* **Redis 8.0+** for `HashSetAsync(key, IDictionary<string, string>, ...)` (issues `HSETEX`) and
+  `HashFieldGetAndDeleteAsync` (issues `HGETDEL`).
+* **`notify-keyspace-events`** must be enabled for cross-instance local cache invalidation. `HybridCache`
+  tries to enable it at startup with `CONFIG SET notify-keyspace-events KA`. Managed services such as
+  **Azure Cache for Redis** and **AWS ElastiCache** block `CONFIG SET`; there the call is logged as an error
+  and startup continues. Enable `notify-keyspace-events` through the provider's own configuration, otherwise
+  local cache entries only expire via their own TTL and may serve stale data until then.
+
 ## When should I enable caching?
 
 Each time the value of a cached key is modified in the database,
@@ -220,15 +246,103 @@ Install docker on your OS.
 Open bash and type below commands:
 
 ```cmd
-$ docker pull redis:latest
-$ docker run --name redis -p 6379:6379 -d redis:latest
+$ docker pull redis:8.2
+$ docker run --name redis -p 6379:6379 -d redis:8.2
 ```
+
+> Use a **Redis 8.x** tag. `HashSetAsync(key, IDictionary<string, string>, ...)` issues `HSETEX` and
+> `HashFieldGetAndDeleteAsync` issues `HGETDEL`; both are Redis 8.0+. See
+> [Server requirements](#server-requirements). Avoid `redis:latest` — it silently moves between major
+> versions.
 
 Test is redis running:
 
 ```cmd
 $ docker exec -it redis redis-cli
 $ ping
+```
+
+## Building and testing
+
+### Prerequisites
+
+* **.NET 10 SDK** — the library multi-targets `net8.0`, `net9.0` and `net10.0`, so building the solution
+  needs the newest of those installed.
+* **Docker** — required only for the container-backed test suite, described below.
+
+### The two test suites
+
+The tests are split by what they need to run:
+
+| Suite | Base class | Needs Docker? |
+| --- | --- | --- |
+| In-process | `InProcessCacheTest` | No |
+| Container-backed | `BaseCacheTest` | **Yes** |
+
+The **in-process** suite runs [Microsoft Garnet](https://github.com/microsoft/garnet), a Redis-compatible
+server, inside the test process. No daemon, no image pull. Run it anywhere with:
+
+```bash
+dotnet test src/HybridRedisCache.Test --filter "FullyQualifiedName~InProcess|FullyQualifiedName~SerializerTests|FullyQualifiedName~ArgumentCheckTest|FullyQualifiedName~ObjectHelperTest|FullyQualifiedName~SetAllBehaviorTests|FullyQualifiedName~CancellationTokenTests"
+```
+
+The **container-backed** suite uses [Testcontainers](https://dotnet.testcontainers.org/) to start a real
+Redis. It exists because Garnet does not implement everything this library uses — key-space notifications
+(`CONFIG SET notify-keyspace-events`), pub/sub, and the Redis 8 `HSETEX` / `HGETDEL` hash commands. Anything
+covering those behaviours must live here.
+
+### Docker prerequisites for the container-backed suite
+
+**1. A running Docker daemon.** Testcontainers talks to `/var/run/docker.sock`.
+
+**2. Non-root access to the daemon.** Testcontainers connects to the socket as whoever owns the test
+process and has no way to escalate, so **running the tests with `sudo` does not help** — an IDE such as
+Rider runs as your own user. Your user must be able to reach the socket unaided. On Linux:
+
+```bash
+sudo usermod -aG docker $USER
+```
+
+Then **log out and back in** — group membership is applied at login, so an existing shell or IDE will keep
+failing until you start a new session. Symptoms of missing this step:
+
+```
+Docker is either not running or misconfigured. Please ensure that Docker is running
+and that the endpoint is properly configured.
+  Details: Failed to connect to Docker endpoint at 'unix:///var/run/docker.sock'.
+```
+
+```
+permission denied while trying to connect to the docker API at unix:///var/run/docker.sock
+```
+
+Verify with:
+
+```bash
+docker info --format '{{.ServerVersion}}'   # must succeed without sudo
+```
+
+> If Docker was installed as a **snap**, the `docker` group may not exist yet. Create it and restart the
+> service first: `sudo addgroup --system docker && sudo snap disable docker && sudo snap enable docker`.
+
+**3. The images.** Testcontainers pulls these on first run; pre-pulling avoids a first-run timeout:
+
+```bash
+docker pull redis:8.2
+docker pull testcontainers/ryuk:0.14.0   # Testcontainers' container-cleanup sidecar
+```
+
+> The `ryuk` tag is chosen by the `Testcontainers` package, not by this repo, so it changes when that
+> package is upgraded. If the pull 404s, let Testcontainers pull it itself on the first test run, or read
+> the current tag from the package.
+
+You do **not** need to start Redis yourself — each test class starts and disposes its own container on a
+random port. The image tag is pinned in `BaseCacheTest.RedisImage` and must stay on Redis 8.x.
+
+Once the above is in place, run everything:
+
+```bash
+dotnet test src/HybridRedisCache.sln
 ```
 
 ## Contributing

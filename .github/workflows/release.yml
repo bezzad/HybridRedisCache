@@ -1,0 +1,114 @@
+name: Release
+
+# Packs the HybridRedisCache NuGet package, publishes it to nuget.org, and attaches the
+# .nupkg/.snupkg to the GitHub Release for this tag. Triggered by scripts/release.sh (which bumps
+# <Version>/<PackageReleaseNotes>, merges develop -> main, and pushes the vX.Y.Z tag) or manually.
+#
+# Publishing uses nuget.org Trusted Publishing (no long-lived secret): the NuGet/login step
+# exchanges this run's GitHub OIDC token for a short-lived API key. The trust policy lives at
+# nuget.org -> Account -> Trusted Publishing (owner bezzad, repo HybridRedisCache, workflow
+# release.yml, no environment) under the BehzadKhosravifar account.
+on:
+  push:
+    tags: [ 'v*' ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            9.0.x
+            10.0.x
+
+      # Container-backed tests (BaseCacheTest) use Testcontainers; the Docker daemon on
+      # ubuntu-latest runners covers them.
+      - name: Test (Release)
+        run: dotnet test src/HybridRedisCache.sln -c Release --verbosity minimal
+
+  publish:
+    name: Pack + publish NuGet package
+    needs: test
+    runs-on: ubuntu-latest
+    # id-token: write lets NuGet/login request the OIDC token that Trusted Publishing exchanges
+    # for a temp API key; job-level permissions replace the top-level block, so contents: write
+    # must be restated for the release-creation step.
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            9.0.x
+            10.0.x
+
+      # SymbolPackageFormat=snupkg: the csproj sets IncludeSymbols=True but no format, which
+      # would produce the legacy .symbols.nupkg that nuget.org's symbol server rejects.
+      - name: Pack (Release)
+        run: |
+          dotnet pack src/HybridRedisCache/HybridRedisCache.csproj -c Release \
+            -p:SymbolPackageFormat=snupkg \
+            -o src/HybridRedisCache/bin/nupkg/
+
+      # Create the GitHub Release (with the packages attached) BEFORE pushing to the feed, so that
+      # a feed-push failure never leaves the tag without a release. scripts/release.sh then
+      # overwrites the body with curated notes; the `notes` job is the safety net for tags pushed
+      # by hand.
+      - name: Create GitHub Release + attach packages
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            src/HybridRedisCache/bin/nupkg/*.nupkg
+            src/HybridRedisCache/bin/nupkg/*.snupkg
+          fail_on_unmatched_files: false
+
+      # Trusted Publishing: trade this run's OIDC token for a short-lived nuget.org API key.
+      # `user` is the nuget.org account that owns the trust policy, not the GitHub user.
+      - name: NuGet login (Trusted Publishing)
+        id: nuget-login
+        uses: NuGet/login@v1
+        with:
+          user: BehzadKhosravifar
+
+      # Pushing the .nupkg also uploads the sibling .snupkg to nuget.org's symbol server.
+      - name: Push to nuget.org
+        run: |
+          dotnet nuget push "src/HybridRedisCache/bin/nupkg/*.nupkg" \
+            --source https://api.nuget.org/v3/index.json \
+            --api-key "${{ steps.nuget-login.outputs.NUGET_API_KEY }}" \
+            --skip-duplicate
+
+  notes:
+    name: Ensure release notes
+    needs: publish
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Fill notes if empty
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          body=$(gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --json body --jq '.body' 2>/dev/null || true)
+          if [ -z "$body" ]; then
+            notes=$(gh api "repos/$GITHUB_REPOSITORY/releases/generate-notes" -f tag_name="$GITHUB_REF_NAME" --jq '.body')
+            gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --notes "$notes"
+            echo "Filled auto-generated notes."
+          else
+            echo "Release already has notes — leaving them as-is."
+          fi

@@ -3,42 +3,45 @@
 public interface IHybridCacheAsync
 {
     /// <inheritdoc cref="IHybridCache.Subscribe"/>
-    Task SubscribeAsync(string channel, RedisChannelMessage handler);
+    Task SubscribeAsync(string channel, RedisChannelMessage handler, CancellationToken token = default);
 
     /// <inheritdoc cref="IHybridCache.Unsubscribe"/>
-    Task UnsubscribeAsync(string channel);
+    Task UnsubscribeAsync(string channel, CancellationToken token = default);
 
     /// <inheritdoc cref="IHybridCache.Publish(string, string, string, Flags)"/>
-    Task<long> PublishAsync(string channel, string key, string value, Flags flags = Flags.FireAndForget);
+    Task<long> PublishAsync(string channel, string key, string value, Flags flags = Flags.FireAndForget, CancellationToken token = default);
 
     /// <inheritdoc cref="IHybridCache.Exists"/>
-    Task<bool> ExistsAsync(string key, Flags flags = Flags.None);
+    Task<bool> ExistsAsync(string key, Flags flags = Flags.PreferMaster, CancellationToken token = default);
 
     /// <inheritdoc cref="IHybridCache.Set{T}(string, T, TimeSpan?, TimeSpan?, Flags, Condition, bool, bool, bool)"/>
     Task<bool> SetAsync<T>(string key, T value, TimeSpan? localExpiry = null, TimeSpan? redisExpiry = null,
         Flags flags = Flags.PreferMaster, Condition when = Condition.Always,
-        bool keepTtl = false, bool localCacheEnable = true, bool redisCacheEnable = true);
+        bool keepTtl = false, bool localCacheEnable = true, bool redisCacheEnable = true,
+        CancellationToken token = default);
 
     /// <inheritdoc cref="IHybridCache.Set{T}(string, T, HybridCacheEntry)"/>
-    Task<bool> SetAsync<T>(string key, T value, HybridCacheEntry cacheEntry);
+    Task<bool> SetAsync<T>(string key, T value, HybridCacheEntry cacheEntry, CancellationToken token = default);
     
     /// <inheritdoc cref="IHybridCache.SetAll{T}(IDictionary{string, T}, TimeSpan?, TimeSpan?, Flags, Condition, bool, bool, bool)"/>
     Task<bool> SetAllAsync<T>(IDictionary<string, T> value, TimeSpan? localExpiry = null, TimeSpan? redisExpiry = null,
         Flags flags = Flags.PreferMaster, Condition when = Condition.Always,
-        bool keepTtl = false, bool localCacheEnable = true, bool redisCacheEnable = true);
+        bool keepTtl = false, bool localCacheEnable = true, bool redisCacheEnable = true,
+        CancellationToken token = default);
 
     /// <inheritdoc cref="IHybridCache.SetAll{T}(IDictionary{string, T}, HybridCacheEntry)"/>
-    Task<bool> SetAllAsync<T>(IDictionary<string, T> value, HybridCacheEntry cacheEntry);
+    Task<bool> SetAllAsync<T>(IDictionary<string, T> value, HybridCacheEntry cacheEntry, CancellationToken token = default);
 
     /// <inheritdoc cref="IHybridCache.Get{T}(string, bool)"/>
-    Task<T> GetAsync<T>(string key, bool localCacheEnable = true);
+    Task<T> GetAsync<T>(string key, bool localCacheEnable = true, CancellationToken token = default);
 
     /// <inheritdoc cref="IHybridCache.Get{T}(string, Func{string, T}, TimeSpan?, TimeSpan?, Flags, bool, bool)"/>
     Task<T> GetAsync<T>(string cacheKey, Func<string, Task<T>> dataRetriever, TimeSpan? localExpiry = null,
-        TimeSpan? redisExpiry = null, Flags flags = Flags.PreferMaster, bool localCacheEnable = true, bool redisCacheEnable = true);
+        TimeSpan? redisExpiry = null, Flags flags = Flags.PreferMaster, bool localCacheEnable = true,
+        bool redisCacheEnable = true, CancellationToken token = default);
 
     /// <inheritdoc cref="IHybridCache.Get{T}(string, Func{string, T}, HybridCacheEntry)"/>
-    Task<T> GetAsync<T>(string cacheKey, Func<string, Task<T>> dataRetriever, HybridCacheEntry cacheEntry);
+    Task<T> GetAsync<T>(string cacheKey, Func<string, Task<T>> dataRetriever, HybridCacheEntry cacheEntry, CancellationToken token = default);
     
     /// <summary>
     /// Try gets a cached value with the specified key.
@@ -50,13 +53,13 @@ public interface IHybridCacheAsync
     /// A tuple containing the cached value, or null if the key is not found in the cache,
     /// and a boolean indicating whether the value was found in the cache.
     /// </returns>
-    ValueTask<(bool success, T value)> TryGetValueAsync<T>(string key, bool localCacheEnable = true);
+    ValueTask<(bool success, T value)> TryGetValueAsync<T>(string key, bool localCacheEnable = true, CancellationToken token = default);
 
     /// <inheritdoc cref="IHybridCache.Remove(string[], Flags)"/>
-    Task<bool> RemoveAsync(string[] keys, Flags flags = Flags.PreferMaster);
+    Task<bool> RemoveAsync(string[] keys, Flags flags = Flags.PreferMaster, CancellationToken token = default);
 
     /// <inheritdoc cref="IHybridCache.Remove(string, Flags)"/>
-    Task<bool> RemoveAsync(string key, Flags flags = Flags.PreferMaster);
+    Task<bool> RemoveAsync(string key, Flags flags = Flags.PreferMaster, CancellationToken token = default);
 
     /// <summary>
     /// Deletes all keys in Redis that match the specified pattern, operating entirely on the Redis server side.
@@ -76,7 +79,7 @@ public interface IHybridCacheAsync
     /// This operation requires Redis version 2.8.0 or higher, as it relies on the SCAN command and Lua scripting support.
     /// </para>
     /// </remarks>
-    ValueTask RemoveWithPatternOnRedisAsync(string pattern, Flags flags = Flags.None);
+    ValueTask RemoveWithPatternOnRedisAsync(string pattern, Flags flags = Flags.None, CancellationToken token = default);
 
     /// <summary>
     /// Asynchronously removes a cached value with a key pattern.
@@ -98,7 +101,7 @@ public interface IHybridCacheAsync
         int batchRemovePackSize = 1024, CancellationToken token = default);
 
     /// <inheritdoc cref="IHybridCache.GetExpiration(string)"/>
-    Task<TimeSpan?> GetExpirationAsync(string cacheKey);
+    Task<TimeSpan?> GetExpirationAsync(string cacheKey, CancellationToken token = default);
 
     /// <summary>
     /// Returns all keys matching <paramref name="pattern"/>.
@@ -113,16 +116,16 @@ public interface IHybridCacheAsync
         CancellationToken token = default);
 
     /// <inheritdoc cref="IHybridCache.FlushLocalCaches"/>
-    Task FlushLocalCachesAsync();
+    Task FlushLocalCachesAsync(CancellationToken token = default);
 
     /// <inheritdoc cref="IHybridCache.ClearAll"/>
-    Task ClearAllAsync(Flags flags = Flags.PreferMaster);
+    Task ClearAllAsync(Flags flags = Flags.PreferMaster, CancellationToken token = default);
 
     /// <summary>
     /// Ping all servers and clusters to health checking of Redis server
     /// </summary>
     /// <returns>Sum of pings durations</returns>
-    Task<TimeSpan> PingAsync();
+    Task<TimeSpan> PingAsync(CancellationToken token = default);
 
     /// <summary>
     /// Returns the IP and port number of the primary with that name.
@@ -132,7 +135,7 @@ public interface IHybridCacheAsync
     /// <param name="flags">The command flags to use.</param>
     /// <returns>The primary IP and port.</returns>
     /// <remarks><seealso href="https://redis.io/topics/sentinel"/></remarks>
-    Task<string> SentinelGetMasterAddressByNameAsync(string serviceName, Flags flags = Flags.None);
+    Task<string> SentinelGetMasterAddressByNameAsync(string serviceName, Flags flags = Flags.None, CancellationToken token = default);
 
     /// <summary>
     /// Returns the IP and port numbers of all known Sentinels for the given service name.
@@ -141,7 +144,7 @@ public interface IHybridCacheAsync
     /// <param name="flags">The command flags to use.</param>
     /// <returns>A list of the sentinel IPs and ports.</returns>
     /// <remarks><seealso href="https://redis.io/topics/sentinel"/></remarks>
-    Task<string[]> SentinelGetSentinelAddressesAsync(string serviceName, Flags flags = Flags.None);
+    Task<string[]> SentinelGetSentinelAddressesAsync(string serviceName, Flags flags = Flags.None, CancellationToken token = default);
 
     /// <summary>
     /// Returns the IP and port numbers of all known Sentinel replicas for the given service name.
@@ -150,7 +153,7 @@ public interface IHybridCacheAsync
     /// <param name="flags">The command flags to use.</param>
     /// <returns>A list of the replica IPs and ports.</returns>
     /// <remarks><seealso href="https://redis.io/topics/sentinel"/></remarks>
-    Task<string[]> SentinelGetReplicaAddressesAsync(string serviceName, Flags flags = Flags.None);
+    Task<string[]> SentinelGetReplicaAddressesAsync(string serviceName, Flags flags = Flags.None, CancellationToken token = default);
 
     /// <summary>
     /// Return the number of keys in the database.
@@ -158,7 +161,7 @@ public interface IHybridCacheAsync
     /// <param name="database">The database ID.</param>
     /// <param name="flags">The command flags to use.</param>
     /// <remarks><seealso href="https://redis.io/commands/dbsize"/></remarks>
-    Task<long> DatabaseSizeAsync(int database = -1, Flags flags = Flags.None);
+    Task<long> DatabaseSizeAsync(int database = -1, Flags flags = Flags.None, CancellationToken token = default);
 
     /// <summary>
     /// Return the same message passed in.
@@ -166,7 +169,7 @@ public interface IHybridCacheAsync
     /// <param name="message">The message to echo.</param>
     /// <param name="flags">The command flags to use.</param>
     /// <remarks><seealso href="https://redis.io/commands/echo"/></remarks>
-    Task<string[]> EchoAsync(string message, Flags flags = Flags.None);
+    Task<string[]> EchoAsync(string message, Flags flags = Flags.None, CancellationToken token = default);
 
     /// <summary>
     /// The <c>TIME</c> command returns the current server time in UTC format.
@@ -175,7 +178,7 @@ public interface IHybridCacheAsync
     /// <param name="flags">The command flags to use.</param>
     /// <returns>The server's current time.</returns>
     /// <remarks><seealso href="https://redis.io/commands/time"/></remarks>
-    Task<DateTime> TimeAsync(Flags flags = Flags.None);
+    Task<DateTime> TimeAsync(Flags flags = Flags.None, CancellationToken token = default);
 
     /// <summary>
     /// Takes a lock (specifying a token value) if it is not already taken.
@@ -186,7 +189,7 @@ public interface IHybridCacheAsync
     /// <param name="expiry">The expiration of the lock key.</param>
     /// <param name="flags">The flags to use for this operation.</param>
     /// <returns>Return the <see cref="RedisLockObject"/> if the lock was successfully acquired; otherwise, wait until the key is released.</returns>
-    Task<RedisLockObject> LockKeyAsync(string key, TimeSpan? expiry = null, Flags flags = Flags.None);
+    Task<RedisLockObject> LockKeyAsync(string key, TimeSpan? expiry = null, Flags flags = Flags.None, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Takes a lock (specifying a token value) if it is not already taken.
@@ -197,7 +200,7 @@ public interface IHybridCacheAsync
     /// <param name="expiry">The expiration of the lock key.</param>
     /// <param name="flags">The flags to use for this operation.</param>
     /// <returns><see langword="true"/> if the lock was successfully taken, <see langword="false"/> otherwise.</returns>
-    Task<bool> TryLockKeyAsync(string key, string token, TimeSpan? expiry, Flags flags = Flags.None);
+    Task<bool> TryLockKeyAsync(string key, string token, TimeSpan? expiry = null, Flags flags = Flags.None, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Extends a lock, if the token value is correct.
@@ -207,7 +210,7 @@ public interface IHybridCacheAsync
     /// <param name="expiry">The expiration of the lock key.</param>
     /// <param name="flags">The flags to use for this operation.</param>
     /// <returns><see langword="true"/> if the lock was successfully extended.</returns>
-    Task<bool> TryExtendLockAsync(string key, string token, TimeSpan? expiry, Flags flags = Flags.None);
+    Task<bool> TryExtendLockAsync(string key, string token, TimeSpan? expiry, Flags flags = Flags.None, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Releases a lock, if the token value is correct.
@@ -216,7 +219,7 @@ public interface IHybridCacheAsync
     /// <param name="token">The value at the key that must match.</param>
     /// <param name="flags">The flags to use for this operation.</param>
     /// <returns><see langword="true"/> if the lock was successfully released, <see langword="false"/> otherwise.</returns>
-    Task<bool> TryReleaseLockAsync(string key, string token, Flags flags = Flags.None);
+    Task<bool> TryReleaseLockAsync(string key, string token, Flags flags = Flags.None, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Releases a lock if the token value is correct.
@@ -242,7 +245,7 @@ public interface IHybridCacheAsync
     /// <seealso href="https://redis.io/commands/incrby"/>,
     /// <seealso href="https://redis.io/commands/incr"/>.
     /// </remarks>
-    Task<long> ValueIncrementAsync(string key, long value = 1, Flags flags = Flags.None);
+    Task<long> ValueIncrementAsync(string key, long value = 1, Flags flags = Flags.None, CancellationToken token = default);
 
     /// <summary>
     /// Increments the string representing a floating point number stored at key by the specified increment.
@@ -254,7 +257,7 @@ public interface IHybridCacheAsync
     /// <param name="flags">The flags to use for this operation.</param>
     /// <returns>The value of key after the increment.</returns>
     /// <remarks><seealso href="https://redis.io/commands/incrbyfloat"/></remarks>
-    Task<double> ValueIncrementAsync(string key, double value, Flags flags = Flags.None);
+    Task<double> ValueIncrementAsync(string key, double value, Flags flags = Flags.None, CancellationToken token = default);
 
     /// <summary>
     /// Decrements the number stored at key by decrement.
@@ -271,7 +274,7 @@ public interface IHybridCacheAsync
     /// <seealso href="https://redis.io/commands/decrby"/>,
     /// <seealso href="https://redis.io/commands/decr"/>.
     /// </remarks>
-    Task<long> ValueDecrementAsync(string key, long value = 1, Flags flags = Flags.None);
+    Task<long> ValueDecrementAsync(string key, long value = 1, Flags flags = Flags.None, CancellationToken token = default);
 
     /// <summary>
     /// Decrements the string representing a floating point number stored at key by the specified decrement.
@@ -283,10 +286,10 @@ public interface IHybridCacheAsync
     /// <param name="flags">The flags to use for this operation.</param>
     /// <returns>The value of key after the decrement.</returns>
     /// <remarks><seealso href="https://redis.io/commands/incrbyfloat"/></remarks>
-    Task<double> ValueDecrementAsync(string key, double value, Flags flags = Flags.None);
+    Task<double> ValueDecrementAsync(string key, double value, Flags flags = Flags.None, CancellationToken token = default);
 
     /// <inheritdoc cref="IHybridCache.KeyExpire(string, TimeSpan, Flags, ExpireCondition)"/>
-    Task KeyExpireAsync(string key, TimeSpan expiry, Flags flags = Flags.None, ExpireCondition expireWhen = ExpireCondition.Always);
+    Task KeyExpireAsync(string key, TimeSpan expiry, Flags flags = Flags.None, ExpireCondition expireWhen = ExpireCondition.Always, CancellationToken token = default);
 
     /// <summary>
     /// Gets the values of the specified hash fields and sets their expiration times.
@@ -297,7 +300,7 @@ public interface IHybridCacheAsync
     /// <param name="when">Which conditions under which to set the field value (defaults to always).</param>
     /// <param name="flags">The flags to use for this operation.</param>
     /// <returns>The values of the specified hash fields.</returns>
-    Task HashSetAsync(string key, IDictionary<string, string> hashFields, TimeSpan? expiry = null, Condition when = Condition.Always, Flags flags = Flags.PreferMaster);
+    Task HashSetAsync(string key, IDictionary<string, string> hashFields, TimeSpan? expiry = null, Condition when = Condition.Always, Flags flags = Flags.PreferMaster, CancellationToken token = default);
 
     /// <summary>
     /// Sets field in the hash stored at key to value.
@@ -315,7 +318,7 @@ public interface IHybridCacheAsync
     /// <seealso href="https://redis.io/commands/hset"/>,
     /// <seealso href="https://redis.io/commands/hsetnx"/>.
     /// </remarks>
-    Task<bool> HashSetAsync(string key, string hashField, string value, Condition when = Condition.Always, Flags flags = Flags.PreferMaster);
+    Task<bool> HashSetAsync(string key, string hashField, string value, Condition when = Condition.Always, Flags flags = Flags.PreferMaster, CancellationToken token = default);
 
     /// <summary>
     /// Returns all fields and values of the hash stored at key.
@@ -324,7 +327,7 @@ public interface IHybridCacheAsync
     /// <param name="flags">The flags to use for this operation.</param>
     /// <returns>List of fields and their values stored in the hash, or an empty list when key does not exist.</returns>
     /// <remarks><seealso href="https://redis.io/commands/hgetall"/></remarks>
-    Task<Dictionary<string, string>> HashGetAsync(string key, Flags flags = Flags.None);
+    Task<Dictionary<string, string>> HashGetAsync(string key, Flags flags = Flags.None, CancellationToken token = default);
 
     /// <summary>
     /// Returns the value associated with field in the hash stored at key.
@@ -334,7 +337,7 @@ public interface IHybridCacheAsync
     /// <param name="flags">The flags to use for this operation.</param>
     /// <returns>The value associated with field, or Null when field is not present in the hash or key does not exist.</returns>
     /// <remarks><seealso href="https://redis.io/commands/hget"/></remarks>
-    Task<string> HashGetAsync(string key, string hashField, Flags flags = Flags.None);
+    Task<string> HashGetAsync(string key, string hashField, Flags flags = Flags.None, CancellationToken token = default);
 
     /// <summary>
     /// Returns if field is an existing field in the hash stored at key.
@@ -344,7 +347,7 @@ public interface IHybridCacheAsync
     /// <param name="flags">The flags to use for this operation.</param>
     /// <returns><see langword="true"/> if the hash contains field, <see langword="false"/> if the hash does not contain field, or key does not exist.</returns>
     /// <remarks><seealso href="https://redis.io/commands/hexists"/></remarks>
-    Task<bool> HashExistsAsync(string key, string hashField, Flags flags = Flags.PreferMaster);
+    Task<bool> HashExistsAsync(string key, string hashField, Flags flags = Flags.PreferMaster, CancellationToken token = default);
 
     /// <summary>
     /// Removes the specified fields from the hash stored at key.
@@ -355,7 +358,7 @@ public interface IHybridCacheAsync
     /// <param name="flags">The flags to use for this operation.</param>
     /// <returns><see langword="true"/> if the field was removed.</returns>
     /// <remarks><seealso href="https://redis.io/commands/hdel"/></remarks>
-    Task<bool> HashDeleteAsync(string key, string hashField, Flags flags = Flags.PreferMaster);
+    Task<bool> HashDeleteAsync(string key, string hashField, Flags flags = Flags.PreferMaster, CancellationToken token = default);
 
     /// <summary>
     /// Removes the specified fields from the hash stored at key.
@@ -366,7 +369,7 @@ public interface IHybridCacheAsync
     /// <param name="flags">The flags to use for this operation.</param>
     /// <returns>The number of fields that were removed.</returns>
     /// <remarks><seealso href="https://redis.io/commands/hdel"/></remarks>
-    Task<long> HashDeleteAsync(string key, string[] hashFields, Flags flags = Flags.PreferMaster);
+    Task<long> HashDeleteAsync(string key, string[] hashFields, Flags flags = Flags.PreferMaster, CancellationToken token = default);
 
     /// <summary>
     /// The HSCAN command is used to incrementally iterate over a hash.
@@ -376,7 +379,7 @@ public interface IHybridCacheAsync
     /// <param name="flags">The flags to use for this operation.</param>
     /// <returns>Yields all elements of the hash matching the pattern.</returns>
     /// <remarks><seealso href="https://redis.io/commands/hscan"/></remarks>
-    IAsyncEnumerable<KeyValuePair<string, string>> HashScanAsync(string key, string pattern, Flags flags = Flags.None);
+    IAsyncEnumerable<KeyValuePair<string, string>> HashScanAsync(string key, string pattern, Flags flags = Flags.None, CancellationToken token = default);
 
     /// <summary>
     /// The HSCAN command is used to incrementally iterate over a hash and return only field names.
@@ -387,7 +390,7 @@ public interface IHybridCacheAsync
     /// <param name="flags">The flags to use for this operation.</param>
     /// <returns>Yields all elements of the hash matching the pattern.</returns>
     /// <remarks><seealso href="https://redis.io/commands/hscan"/></remarks>
-    IAsyncEnumerable<string> HashScanNoValuesAsync(string key, string pattern, Flags flags = Flags.None);
+    IAsyncEnumerable<string> HashScanNoValuesAsync(string key, string pattern, Flags flags = Flags.None, CancellationToken token = default);
 
     /// <summary>
     /// Returns all values in the hash stored at key.
@@ -396,7 +399,7 @@ public interface IHybridCacheAsync
     /// <param name="flags">The flags to use for this operation.</param>
     /// <returns>List of values in the hash, or an empty list when key does not exist.</returns>
     /// <remarks><seealso href="https://redis.io/commands/hvals"/></remarks>
-    Task<string[]> HashValuesAsync(string key, Flags flags = Flags.None);
+    Task<string[]> HashValuesAsync(string key, Flags flags = Flags.None, CancellationToken token = default);
 
     /// <summary>
     /// Returns all field names in the hash stored at key.
@@ -405,7 +408,7 @@ public interface IHybridCacheAsync
     /// <param name="flags">The flags to use for this operation.</param>
     /// <returns>List of fields in the hash, or an empty list when key does not exist.</returns>
     /// <remarks><seealso href="https://redis.io/commands/hkeys"/></remarks>
-    Task<string[]> HashKeysAsync(string key, Flags flags = Flags.None);
+    Task<string[]> HashKeysAsync(string key, Flags flags = Flags.None, CancellationToken token = default);
     
     /// <summary>
     /// Returns the value associated with field in the hash stored at key.
@@ -415,7 +418,7 @@ public interface IHybridCacheAsync
     /// <param name="flags">The flags to use for this operation.</param>
     /// <returns>The value associated with field, or Null when field is not present in the hash or key does not exist.</returns>
     /// <remarks><seealso href="https://redis.io/commands/hget"/></remarks>
-    Task<string> HashFieldGetAndDeleteAsync(string key, string hashField, Flags flags = Flags.None);
+    Task<string> HashFieldGetAndDeleteAsync(string key, string hashField, Flags flags = Flags.None, CancellationToken token = default);
 
     /// <summary>
     /// Returns the number of fields contained in the hash stored at key.
@@ -424,5 +427,5 @@ public interface IHybridCacheAsync
     /// <param name="flags">The flags to use for this operation.</param>
     /// <returns>The number of fields in the hash, or 0 when key does not exist.</returns>
     /// <remarks><seealso href="https://redis.io/commands/hlen"/></remarks>
-    Task<long> HashLengthAsync(string key, Flags flags = Flags.None);
+    Task<long> HashLengthAsync(string key, Flags flags = Flags.None, CancellationToken token = default);
 }

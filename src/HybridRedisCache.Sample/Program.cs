@@ -18,7 +18,6 @@ var options = new HybridCachingOptions()
     MaxReconfigureAttempts = 2,
     EnableLogging = true,
     EnableTracing = true,
-    ThreadPoolSocketManagerEnable = true,
     FlushLocalCacheOnBusReconnection = true,
     TracingActivitySourceName = nameof(HybridRedisCache),
     EnableRedisClientTracking = true,

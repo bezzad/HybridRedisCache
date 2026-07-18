@@ -45,6 +45,26 @@ internal static class ObjectHelper
         return false;
     }
     
+    /// <summary>
+    /// Observes <paramref name="token"/> while awaiting a Redis operation.
+    /// </summary>
+    /// <remarks>
+    /// StackExchange.Redis does not accept a <see cref="CancellationToken"/> on its command APIs.
+    /// Cancelling therefore stops <i>this caller</i> from awaiting the result; the command itself has
+    /// already been handed to the multiplexer and may still be executed by the server. Use it to bound
+    /// how long a caller waits, not to guarantee the write never happens.
+    /// </remarks>
+    public static Task<T> Cancelable<T>(this Task<T> task, CancellationToken token)
+    {
+        return token.CanBeCanceled ? task.WaitAsync(token) : task;
+    }
+
+    /// <inheritdoc cref="Cancelable{T}(Task{T}, CancellationToken)"/>
+    public static Task Cancelable(this Task task, CancellationToken token)
+    {
+        return token.CanBeCanceled ? task.WaitAsync(token) : task;
+    }
+
     public static ICachingSerializer GetDefaultSerializer(this HybridCachingOptions options)
     {
         return options.SerializerType switch

@@ -368,3 +368,6 @@ src/.idea/*
 
 # Ignore all .user files
 *.user
+
+# Claude Code worktrees
+.claude/worktrees/

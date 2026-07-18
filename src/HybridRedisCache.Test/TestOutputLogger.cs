@@ -12,6 +12,16 @@ public class TestOutputLogger(ITestOutputHelper outputHelper, string categoryNam
 
     public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception exception, Func<TState, Exception, string> formatter)
     {
-        outputHelper.WriteLine($"{categoryName} [{logLevel}]: {formatter(state, exception)}");
+        try
+        {
+            outputHelper.WriteLine($"{categoryName} [{logLevel}]: {formatter(state, exception)}");
+        }
+        catch (InvalidOperationException)
+        {
+            // The Redis multiplexer logs from its own threads and can emit after the test that owns
+            // this ITestOutputHelper has finished, which makes xunit throw "There is no currently
+            // active test". That escapes as an unhandled exception on a background thread and aborts
+            // the whole run, so late output is dropped instead.
+        }
     }
 }

@@ -8,7 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="BenchmarkDotNet" Version="0.15.2" />
+    <PackageReference Include="BenchmarkDotNet" Version="0.15.8" />
     <PackageReference Include="EasyCaching.Core" Version="1.9.2" />
     <PackageReference Include="EasyCaching.HybridCache" Version="1.9.2" />
     <PackageReference Include="EasyCaching.InMemory" Version="1.9.2" />
