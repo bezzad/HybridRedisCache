@@ -1,5 +1,6 @@
 [![NuGet](https://img.shields.io/nuget/dt/HybridRedisCache.svg)](https://www.nuget.org/packages/HybridRedisCache)
 [![NuGet](https://img.shields.io/nuget/vpre/HybridRedisCache.svg)](https://www.nuget.org/packages/HybridRedisCache)
+[![codecov](https://codecov.io/github/bezzad/HybridRedisCache/graph/badge.svg)](https://codecov.io/github/bezzad/HybridRedisCache)
 [![Generic badge](https://img.shields.io/badge/support-.Net_Core-blue.svg)](https://github.com/bezzad/HybridRedisCache)
 
 # HybridRedisCache

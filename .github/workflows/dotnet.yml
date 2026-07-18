@@ -46,8 +46,18 @@ jobs:
     - name: Build solution
       run: dotnet build -c Release ./src/HybridRedisCache.sln --verbosity minimal
 
-    - name: Run tests
-      run: dotnet test -c Release ./src/HybridRedisCache.sln --verbosity normal --no-build --no-restore
+    - name: Run tests and collect coverage
+      run: |
+        dotnet test -c Release ./src/HybridRedisCache.sln --verbosity normal --no-build --no-restore \
+          --collect:"XPlat Code Coverage" --results-directory ./TestResults/
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v5
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
+        files: ./TestResults/**/coverage.cobertura.xml
+        name: codecov-umbrella
+        fail_ci_if_error: false
 
       # a new Redis client.
 #      env:
