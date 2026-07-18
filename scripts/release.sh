@@ -8,8 +8,8 @@
 #   3. Merges `develop` -> `main` (the default branch) and pushes `main`.
 #   4. Tags `vX.Y.Z` on `main` and pushes the tag. The tag push triggers
 #      .github/workflows/release.yml, which packs the NuGet package and publishes it to
-#      nuget.org using the repo's Actions secrets (NUGET_API_KEY — this script never sees
-#      or needs that value), then attaches the .nupkg/.snupkg to the GitHub Release for the tag.
+#      nuget.org via Trusted Publishing (GitHub OIDC — no API key stored anywhere), then
+#      attaches the .nupkg/.snupkg to the GitHub Release for the tag.
 #   5. Waits for that workflow run to finish, then sets the curated release notes (your
 #      highlights + GitHub's auto-generated "What's Changed") on the release it created.
 #

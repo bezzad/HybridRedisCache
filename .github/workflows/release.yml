@@ -4,8 +4,10 @@ name: Release
 # .nupkg/.snupkg to the GitHub Release for this tag. Triggered by scripts/release.sh (which bumps
 # <Version>/<PackageReleaseNotes>, merges develop -> main, and pushes the vX.Y.Z tag) or manually.
 #
-# Secrets required (repo settings -> Secrets and variables -> Actions):
-#   NUGET_API_KEY   - nuget.org API key
+# Publishing uses nuget.org Trusted Publishing (no long-lived secret): the NuGet/login step
+# exchanges this run's GitHub OIDC token for a short-lived API key. The trust policy lives at
+# nuget.org -> Account -> Trusted Publishing (owner bezzad, repo HybridRedisCache, workflow
+# release.yml, no environment) under the BehzadKhosravifar account.
 on:
   push:
     tags: [ 'v*' ]
@@ -37,6 +39,12 @@ jobs:
     name: Pack + publish NuGet package
     needs: test
     runs-on: ubuntu-latest
+    # id-token: write lets NuGet/login request the OIDC token that Trusted Publishing exchanges
+    # for a temp API key; job-level permissions replace the top-level block, so contents: write
+    # must be restated for the release-creation step.
+    permissions:
+      contents: write
+      id-token: write
     steps:
       - uses: actions/checkout@v4
 
@@ -68,12 +76,20 @@ jobs:
             src/HybridRedisCache/bin/nupkg/*.snupkg
           fail_on_unmatched_files: false
 
+      # Trusted Publishing: trade this run's OIDC token for a short-lived nuget.org API key.
+      # `user` is the nuget.org account that owns the trust policy, not the GitHub user.
+      - name: NuGet login (Trusted Publishing)
+        id: nuget-login
+        uses: NuGet/login@v1
+        with:
+          user: BehzadKhosravifar
+
       # Pushing the .nupkg also uploads the sibling .snupkg to nuget.org's symbol server.
       - name: Push to nuget.org
         run: |
           dotnet nuget push "src/HybridRedisCache/bin/nupkg/*.nupkg" \
             --source https://api.nuget.org/v3/index.json \
-            --api-key "${{ secrets.NUGET_API_KEY }}" \
+            --api-key "${{ steps.nuget-login.outputs.NUGET_API_KEY }}" \
             --skip-duplicate
 
   notes:
