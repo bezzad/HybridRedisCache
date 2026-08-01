@@ -5,38 +5,28 @@
 
 # HybridRedisCache
 
-`HybridRedisCache` is a simple in-memory and Redis hybrid caching solution for .NET applications.
-It provides a way to cache frequently accessed data in memory for fast access and automatically falls back to using
-Redis as a persistent cache when memory cache capacity is exceeded.
+`HybridRedisCache` is a Redis-focused, two-level caching library for .NET applications. It combines a fast
+in-process memory cache (L1) with a shared Redis cache (L2). Reads check L1 first, then Redis on a local miss;
+values retrieved from Redis can repopulate L1.
 
-## Types of Cache
+This is not a capacity-triggered fallback. L1 and L2 have independent expiration policies, and Redis provides the
+shared cache used by all application instances.
 
-Basically, there are two types of caching .NET Core supports
+## Cache layers
 
-1. In-Memory Caching
-2. Distributed Caching
+### In-memory cache (L1)
 
-When we use In-Memory Cache then in that case data is stored in the application server memory and whenever we need then
-we fetch data from that and use it wherever we need it. And in Distributed Caching there are many third-party mechanisms
-like Redis and many others. But in this section, we work with the Redis Cache in the .NET Core.
+The local cache lives inside each application process. It offers the lowest latency, but every server or pod has its
+own copy and loses that copy when the process stops.
 
-## Distributed Caching
+### Redis cache (L2)
 
-Basically, in distributed caching data are stored and shared between multiple servers
-Also, it’s easy to improve the scalability and performance of the application after managing the load between multiple
-servers when we use a multi-tenant application
-Suppose, In the future, if one server crashes and restarts then the application does not have any impact because
-multiple servers are as per our need if we want
-Redis is the most popular cache which is used by many companies nowadays to improve the performance and scalability of
-the application. So, we are going to discuss Redis and its usage one by one.
+Redis is a shared, in-memory data store available to all application instances. It allows instances to reuse cached
+data after local misses and helps preserve cache availability when an application instance restarts.
 
-## Redis Cache
-
-Redis is an Open Source (BSD Licensed) in-memory Data Structure store used as a database.
-Basically, it is used to store the frequently used and some static data inside the cache and use and reserve that as per
-user requirement.
-There are many data structures present in the Redis that we are able to use like List, Set, Hashing, Stream, and many
-more to store the data.
+The important challenge in a two-level cache is invalidation: when one instance changes a Redis key, local copies held
+by other instances can become stale. `HybridRedisCache` uses Redis keyspace notifications to invalidate those local
+copies across instances. See [Server requirements](#server-requirements).
 
 ## Redis vs. In-Memory caching in single instance benchmark
 
@@ -62,6 +52,7 @@ Here's an example:
 
 ```csharp
 using HybridRedisCache;
+using HybridRedisCache.Serializers;
 
 ...
 
@@ -72,8 +63,8 @@ var options = new HybridCachingOptions()
     DefaultDistributedExpirationTime = TimeSpan.FromDays(1),
     InstancesSharedName = "SampleApp",
     ThrowIfDistributedCacheError = true,
-    RedisConnectString = "localhost",
-    BusRetryCount = 10,
+    RedisConnectionString = "localhost:6379",
+    ConnectRetry = 10,
     AbortOnConnectFail = true,
     ReconfigureOnConnectFail = true,
     MaxReconfigureAttempts = 10,
@@ -85,7 +76,7 @@ var options = new HybridCachingOptions()
     EnableMeterData = true,
     WarningHeavyDataThresholdBytes = 20 * 1024, // 20KB
     DataSizeHistogramMetricName = "my_app_keys_data_size_histogram_metric",
-    SerializerType = SerializerType.Bason, // Bson, MessagePack, MemoryPack, Or Custom
+    SerializerType = SerializerType.Bson, // Bson, MessagePack, MemoryPack, or custom
     // Serializer = new CustomBinarySerializer(),
 };
 var cache = new HybridCache(options);
@@ -96,13 +87,12 @@ cache.Set("mykey", "myvalue", TimeSpan.FromMinutes(1));
 // Retrieve the cached value with the key "mykey"
 var value = cache.Get<string>("mykey");
 
-// Retrieve the cached value with the key "mykey" 
-// If not exist create one by dataRetriever method
-var value = await cache.GetAsync("mykey", 
-        dataRetriever: async key => await CreateValueTaskAsync(key, ...), 
-        localExpiry: TimeSpan.FromMinutes(1), 
-        redisExpiry: TimeSpan.FromHours(6), 
-        fireAndForget: true);
+// Retrieve the value or create and cache it when it does not exist
+var retrievedValue = await cache.GetAsync(
+    "mykey",
+    dataRetriever: key => CreateValueTaskAsync(key, ...),
+    localExpiry: TimeSpan.FromMinutes(1),
+    redisExpiry: TimeSpan.FromHours(6));
 
 ```
 
@@ -127,41 +117,40 @@ builder.Services.AddHybridRedisCaching(options =>
 });
 ```
 
-### Write code in your controller
+### Use the cache in a controller
 
 ```csharp
+[ApiController]
 [Route("api/[controller]")]
-public class WeatherForecastController : Controller
+public sealed class WeatherForecastController : ControllerBase
 {
-    private readonly IHybridCache _cacheService;
+    private readonly IHybridCache _cache;
 
-    public VWeatherForecastController(IHybridCache cacheService)
+    public WeatherForecastController(IHybridCache cache)
     {
-        this._cacheService = cacheService;
+        _cache = cache;
     }
 
-    [HttpGet]
-    public string Handle()
+    [HttpPut("{id:int}")]
+    public async Task<IActionResult> Set(
+        int id,
+        WeatherForecast forecast,
+        CancellationToken token)
     {
-        //Set
-        _cacheService.Set("demo", "123", TimeSpan.FromMinutes(1));
-            
-        //Set Async
-        await _cacheService.SetAsync("demo", "123", TimeSpan.FromMinutes(1));                  
+        await _cache.SetAsync(
+            $"weather:{id}",
+            forecast,
+            localExpiry: TimeSpan.FromMinutes(1),
+            redisExpiry: TimeSpan.FromHours(6),
+            token: token);
+
+        return NoContent();
     }
 
-    [HttpGet)]
-    public async Task<WeatherForecast> Get(int id)
+    [HttpGet("{id:int}")]
+    public Task<WeatherForecast> Get(int id, CancellationToken token)
     {
-        var data = await _cacheService.GetAsync<WeatherForecast>(id);
-        return data;
-    }
-
-    [HttpGet)]
-    public IEnumerable<WeatherForecast> Get()
-    {
-        var data = _cacheService.Get<IEnumerable<WeatherForecast>>("demo");
-        return data;
+        return _cache.GetAsync<WeatherForecast>($"weather:{id}", token: token);
     }
 }
 ```
@@ -176,11 +165,9 @@ allowing you to scale out your application and distribute caching across multipl
 This ensures that all instances of your application have access to the same cached data,
 regardless of which instance originally created the cache.
 
-When a value is set in the cache using one instance, the cache invalidation message is sent to all other instances,
-ensuring that the cached data is synchronized across all instances.
-This allows you to take advantage of the benefits of caching,
-such as reduced latency and **improved performance**, while ensuring that the cached data is consistent across all
-instances.
+When a Redis key is changed or removed, Redis keyspace notifications tell the other application instances to evict
+their local copies. A subsequent read reloads the current value from Redis. This reduces latency while limiting the
+window in which another instance could serve stale local data.
 
 Other features of `HybridCache` include:
 
@@ -198,6 +185,42 @@ Other features of `HybridCache` include:
 
 Overall, `HybridCache` provides a powerful and flexible caching solution that helps enhance the performance and
 scalability of your applications while ensuring that cached data remains consistent across all instances.
+
+## Why not use Microsoft's HybridCache?
+
+Microsoft's [`HybridCache`](https://learn.microsoft.com/aspnet/core/performance/caching/hybrid) is an excellent
+general-purpose cache. It uses `MemoryCache` as its primary cache and any configured `IDistributedCache`
+implementation as its secondary cache. Redis is one possible secondary backend, but the abstraction is intentionally
+not Redis-specific.
+
+The main difference for applications running on multiple servers or pods is local-cache invalidation. Microsoft
+documents that removing a key or tag invalidates the current server and the secondary cache, but
+[does not affect in-memory entries on other servers](https://learn.microsoft.com/aspnet/core/performance/caching/hybrid#cache-storage).
+Those servers can continue serving their existing L1 value until its local expiration.
+
+`HybridRedisCache` is designed specifically for Redis and uses Redis keyspace notifications to evict matching L1
+entries in other application instances.
+
+| Feature | Microsoft `HybridCache` | `HybridRedisCache` |
+| --- | --- | --- |
+| L1 in-process memory cache | Yes | Yes |
+| L2 cache | Any `IDistributedCache` provider | Redis |
+| Read-through caching and concurrent request coalescing | Yes | Yes |
+| Cross-instance L1 invalidation after a Redis key changes | No | Yes, through Redis keyspace notifications |
+| Direct Redis `IDatabase` access | No | Yes |
+| Redis pub/sub | No | Yes |
+| Distributed Redis locks | No | Yes |
+| Redis hashes and Lua scripts | No | Yes |
+| Redis Sentinel and server operations | No | Yes |
+| Serialization | Built-in JSON/string support and custom serializers | BSON, MessagePack, MemoryPack, or a custom serializer |
+| Tag-based logical invalidation | Yes | No |
+
+Choose Microsoft `HybridCache` when you want a general cache abstraction and short L1 staleness bounded by local TTL
+is acceptable. Choose `HybridRedisCache` when Redis-specific operations or prompt cross-instance L1 invalidation are
+requirements.
+
+> Cross-instance invalidation requires Redis keyspace notifications. If they are not enabled, other instances can keep
+> stale local entries until their L1 TTL expires, just as with a cache that has no cross-instance invalidation channel.
 
 ## Cancellation tokens
 
@@ -255,7 +278,7 @@ $ docker run --name redis -p 6379:6379 -d redis:8.2
 > [Server requirements](#server-requirements). Avoid `redis:latest` — it silently moves between major
 > versions.
 
-Test is redis running:
+Verify that Redis is running:
 
 ```cmd
 $ docker exec -it redis redis-cli
@@ -359,4 +382,4 @@ If you'd like to contribute to `HybridRedisCache`, please follow these steps:
 ## License
 
 `HybridRedisCache` is licensed under the Apache License, Version 2.0. See
-the [LICENSE](https://raw.githubusercontent.com/bezzad/HybridRedisCache/dev/LICENSE) file for more information.
+the [LICENSE](https://raw.githubusercontent.com/bezzad/HybridRedisCache/main/LICENSE) file for more information.
