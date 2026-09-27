@@ -51,7 +51,7 @@ public interface IHybridCache : IHybridCacheAsync
     /// <param name="key">Cache key</param>
     /// <param name="flags">The flags to use for this operation.</param>
     /// <returns>The bool for key is exist or not.</returns>
-    bool Exists(string key, Flags flags = Flags.None);
+    bool Exists(string key, Flags flags = Flags.PreferMaster);
 
     /// <summary>
     /// Sets a value in the cache with the specified key.

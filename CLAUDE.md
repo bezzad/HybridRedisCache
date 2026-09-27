@@ -207,5 +207,16 @@ default token, since a cancellable one would skip the fast path it exists to cov
   does not stop the command. Say so in any doc you write about it.
 * **`SetAll` iterates a dictionary.** Write `kvp.Value` to the local cache, not `value` — passing the
   dictionary compiles fine (`T` infers as the dictionary) and silently corrupts every entry.
-* **`ClearLocalMemory` disposes and reassigns `_memoryCache`** while other code reads the field without the
-  lock. Treat that area as racy.
+* **The local caches are `readonly` on purpose.** `ClearLocalMemory` used to dispose and reassign
+  `_memoryCache`/`_recentlySetKeys` while every other reader touched the fields unsynchronised, which threw
+  `ObjectDisposedException`. They are now fixed instances cleared in place with `MemoryCache.Clear()`. Never
+  reintroduce a reassignment; clearing runs on the bus thread and on reconnect, concurrently with reads.
+* **`GetAsync` with a data retriever is single-flight per key.** Concurrent misses on one key share one
+  retriever execution, so callers that pass *different* retrievers for the same key still get one shared
+  value — the key names the value. `_dataRetrieverTasks` must hold the in-flight `Task`, never the
+  delegate; holding the delegate meant no de-duplication at all and let a caller run someone else's
+  retriever.
+* **`Flags.None` and `Flags.PreferMaster` are both `0`.** Swapping one for the other changes nothing at
+  runtime, so an interface/implementation "mismatch" between those two is cosmetic. Real drift in an
+  optional argument's default *is* a bug (the call site bakes it in), and
+  `RegressionTests.InterfaceOptionalArguments_MatchTheImplementation` guards the whole surface.
