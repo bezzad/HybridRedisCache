@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Testcontainers.Redis;
@@ -17,6 +18,11 @@ public abstract class BaseCacheTest : ContainerTest<RedisBuilder, RedisContainer
     protected readonly ILoggerFactory LoggerFactory;
     protected readonly ITestOutputHelper TestOutputHelper;
     protected static string UniqueKey => Guid.NewGuid().ToString("N");
+
+    /// <summary>
+    /// The token xunit cancels when the run is cancelled or a test's Timeout elapses.
+    /// </summary>
+    protected static CancellationToken TestToken => TestContext.Current.CancellationToken;
 
     protected HybridCachingOptions Options => new()
     {

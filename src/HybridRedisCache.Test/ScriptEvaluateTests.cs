@@ -14,13 +14,13 @@ public class ScriptEvaluateTests(ITestOutputHelper testOutputHelper) : BaseCache
         // Arrange
         var key = UniqueKey;
         var value = "test-value";
-        await Cache.SetAsync(key, value, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(1));
+        await Cache.SetAsync(key, value, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(1), token: TestToken);
 
         var luaScript = "return redis.call('GET', KEYS[1])";
         var keys = new[] { key };
 
         // Act
-        var result = await Cache.ScriptEvaluateAsync(luaScript, keys);
+        var result = await Cache.ScriptEvaluateAsync(luaScript, keys, token: TestToken);
 
         // Assert
         Assert.NotNull(result);
@@ -38,7 +38,7 @@ public class ScriptEvaluateTests(ITestOutputHelper testOutputHelper) : BaseCache
         var values = new[] { value };
 
         // Act
-        var result = await Cache.ScriptEvaluateAsync(luaScript, keys, values);
+        var result = await Cache.ScriptEvaluateAsync(luaScript, keys, values, token: TestToken);
 
         // Assert
         Assert.NotNull(result);
@@ -56,8 +56,8 @@ public class ScriptEvaluateTests(ITestOutputHelper testOutputHelper) : BaseCache
         var value1 = "value1";
         var value2 = "value2";
 
-        await Cache.SetAsync(key1, value1, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(1));
-        await Cache.SetAsync(key2, value2, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(1));
+        await Cache.SetAsync(key1, value1, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(1), token: TestToken);
+        await Cache.SetAsync(key2, value2, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(1), token: TestToken);
 
         var luaScript = @"
             local val1 = redis.call('GET', KEYS[1])
@@ -67,7 +67,7 @@ public class ScriptEvaluateTests(ITestOutputHelper testOutputHelper) : BaseCache
         var keys = new[] { key1, key2 };
 
         // Act
-        var result = await Cache.ScriptEvaluateAsync(luaScript, keys);
+        var result = await Cache.ScriptEvaluateAsync(luaScript, keys, token: TestToken);
 
         // Assert
         Assert.NotNull(result);
@@ -81,7 +81,7 @@ public class ScriptEvaluateTests(ITestOutputHelper testOutputHelper) : BaseCache
         var luaScript = "return 42";
 
         // Act
-        var result = await Cache.ScriptEvaluateAsync(luaScript);
+        var result = await Cache.ScriptEvaluateAsync(luaScript, token: TestToken);
 
         // Assert
         Assert.NotNull(result);
@@ -103,7 +103,7 @@ public class ScriptEvaluateTests(ITestOutputHelper testOutputHelper) : BaseCache
         var keys = new[] { key };
 
         // Act
-        var result = await Cache.ScriptEvaluateAsync(luaScript, keys);
+        var result = await Cache.ScriptEvaluateAsync(luaScript, keys, token: TestToken);
 
         // Assert
         Assert.NotNull(result);
@@ -117,7 +117,7 @@ public class ScriptEvaluateTests(ITestOutputHelper testOutputHelper) : BaseCache
         var luaScript = "return 'Hello from Lua'";
 
         // Act
-        var result = await Cache.ScriptEvaluateAsync(luaScript);
+        var result = await Cache.ScriptEvaluateAsync(luaScript, token: TestToken);
 
         // Assert
         Assert.NotNull(result);
@@ -131,13 +131,13 @@ public class ScriptEvaluateTests(ITestOutputHelper testOutputHelper) : BaseCache
         // Arrange
         var key = UniqueKey;
         var value = "flagged-value";
-        await Cache.SetAsync(key, value, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(1));
+        await Cache.SetAsync(key, value, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(1), token: TestToken);
 
         var luaScript = "return redis.call('GET', KEYS[1])";
         var keys = new[] { key };
 
         // Act
-        var result = await Cache.ScriptEvaluateAsync(luaScript, keys, flags: Flags.PreferMaster);
+        var result = await Cache.ScriptEvaluateAsync(luaScript, keys, flags: Flags.PreferMaster, token: TestToken);
 
         // Assert
         Assert.NotNull(result);
@@ -150,13 +150,13 @@ public class ScriptEvaluateTests(ITestOutputHelper testOutputHelper) : BaseCache
         // Arrange
         var key = UniqueKey;
         var value = "lua-script-value";
-        await Cache.SetAsync(key, value, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(1));
+        await Cache.SetAsync(key, value, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(1), token: TestToken);
 
         var luaScript = LuaScript.Prepare("return redis.call('GET', @key)");
         var parameters = new { key = $"{Options.InstancesSharedName}:{key}" };
 
         // Act
-        var result = await Cache.ScriptEvaluateAsync(luaScript, parameters);
+        var result = await Cache.ScriptEvaluateAsync(luaScript, parameters, token: TestToken);
 
         // Assert
         Assert.NotNull(result);
@@ -173,12 +173,12 @@ public class ScriptEvaluateTests(ITestOutputHelper testOutputHelper) : BaseCache
         var parameters = new { key = $"{Options.InstancesSharedName}:{key}", value };
 
         // Act
-        var result = await Cache.ScriptEvaluateAsync(luaScript, parameters);
+        var result = await Cache.ScriptEvaluateAsync(luaScript, parameters, token: TestToken);
 
         // Assert
         Assert.NotNull(result);
         Assert.False(result.IsNull);
-        var retrievedValue = await Cache.GetAsync<string>(key);
+        var retrievedValue = await Cache.GetAsync<string>(key, token: TestToken);
         Assert.Equal(value, retrievedValue);
     }
 
@@ -205,7 +205,7 @@ public class ScriptEvaluateTests(ITestOutputHelper testOutputHelper) : BaseCache
         };
 
         // Act
-        var result = await Cache.ScriptEvaluateAsync(luaScript, parameters);
+        var result = await Cache.ScriptEvaluateAsync(luaScript, parameters, token: TestToken);
 
         // Assert
         Assert.NotNull(result);
@@ -220,7 +220,7 @@ public class ScriptEvaluateTests(ITestOutputHelper testOutputHelper) : BaseCache
         var luaScript = LuaScript.Prepare("return 'No parameters needed'");
 
         // Act
-        var result = await Cache.ScriptEvaluateAsync(luaScript);
+        var result = await Cache.ScriptEvaluateAsync(luaScript, token: TestToken);
 
         // Assert
         Assert.NotNull(result);
@@ -234,13 +234,13 @@ public class ScriptEvaluateTests(ITestOutputHelper testOutputHelper) : BaseCache
         // Arrange
         var key = UniqueKey;
         var value = "flagged-lua-value";
-        await Cache.SetAsync(key, value, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(1));
+        await Cache.SetAsync(key, value, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(1), token: TestToken);
 
         var luaScript = LuaScript.Prepare("return redis.call('GET', @key)");
         var parameters = new { key = $"{Options.InstancesSharedName}:{key}" };
 
         // Act
-        var result = await Cache.ScriptEvaluateAsync(luaScript, parameters, Flags.PreferMaster);
+        var result = await Cache.ScriptEvaluateAsync(luaScript, parameters, Flags.PreferMaster, token: TestToken);
 
         // Assert
         Assert.NotNull(result);
@@ -253,14 +253,14 @@ public class ScriptEvaluateTests(ITestOutputHelper testOutputHelper) : BaseCache
         // Arrange
         var key = UniqueKey;
         var value = "loaded-script-value";
-        await Cache.SetAsync(key, value, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(1));
+        await Cache.SetAsync(key, value, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(1), token: TestToken);
 
         var luaScript = LuaScript.Prepare("return redis.call('GET', @key)");
         var loadedScript = await luaScript.LoadAsync(Cache.RedisDb.Multiplexer.GetServer(Cache.RedisDb.Multiplexer.GetEndPoints().First()));
         var parameters = new { key = $"{Options.InstancesSharedName}:{key}" };
 
         // Act
-        var result = await Cache.ScriptEvaluateAsync(loadedScript, parameters);
+        var result = await Cache.ScriptEvaluateAsync(loadedScript, parameters, token: TestToken);
 
         // Assert
         Assert.NotNull(result);
@@ -278,12 +278,12 @@ public class ScriptEvaluateTests(ITestOutputHelper testOutputHelper) : BaseCache
         var parameters = new { key = $"{Options.InstancesSharedName}:{key}", value };
 
         // Act
-        var result = await Cache.ScriptEvaluateAsync(loadedScript, parameters);
+        var result = await Cache.ScriptEvaluateAsync(loadedScript, parameters, token: TestToken);
 
         // Assert
         Assert.NotNull(result);
         Assert.False(result.IsNull);
-        var retrievedValue = await Cache.GetAsync<string>(key);
+        var retrievedValue = await Cache.GetAsync<string>(key, token: TestToken);
         Assert.Equal(value, retrievedValue);
     }
 
@@ -303,7 +303,7 @@ public class ScriptEvaluateTests(ITestOutputHelper testOutputHelper) : BaseCache
         var parameters = new { key };
 
         // Act
-        var result = await Cache.ScriptEvaluateAsync(loadedScript, parameters);
+        var result = await Cache.ScriptEvaluateAsync(loadedScript, parameters, token: TestToken);
 
         // Assert
         Assert.NotNull(result);
@@ -318,7 +318,7 @@ public class ScriptEvaluateTests(ITestOutputHelper testOutputHelper) : BaseCache
         var loadedScript = luaScript.Load(Cache.RedisDb.Multiplexer.GetServer(Cache.RedisDb.Multiplexer.GetEndPoints().First()));
 
         // Act
-        var result = await Cache.ScriptEvaluateAsync(loadedScript);
+        var result = await Cache.ScriptEvaluateAsync(loadedScript, token: TestToken);
 
         // Assert
         Assert.NotNull(result);
@@ -331,14 +331,14 @@ public class ScriptEvaluateTests(ITestOutputHelper testOutputHelper) : BaseCache
         // Arrange
         var key = UniqueKey;
         var value = "flagged-loaded-value";
-        await Cache.SetAsync(key, value, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(1));
+        await Cache.SetAsync(key, value, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(1), token: TestToken);
 
         var luaScript = LuaScript.Prepare("return redis.call('GET', @key)");
         var loadedScript = luaScript.Load(Cache.RedisDb.Multiplexer.GetServer(Cache.RedisDb.Multiplexer.GetEndPoints().First()));
         var parameters = new { key = $"{Options.InstancesSharedName}:{key}" };
 
         // Act
-        var result = await Cache.ScriptEvaluateAsync(loadedScript, parameters, Flags.PreferMaster);
+        var result = await Cache.ScriptEvaluateAsync(loadedScript, parameters, Flags.PreferMaster, token: TestToken);
 
         // Assert
         Assert.NotNull(result);
@@ -351,14 +351,14 @@ public class ScriptEvaluateTests(ITestOutputHelper testOutputHelper) : BaseCache
         // Arrange
         var key = UniqueKey;
         var value = "to-be-deleted";
-        await Cache.SetAsync(key, value, localCacheEnable: false, redisExpiry: TimeSpan.FromMinutes(1));
+        await Cache.SetAsync(key, value, localCacheEnable: false, redisExpiry: TimeSpan.FromMinutes(1), token: TestToken);
 
         var luaScript = "return redis.call('DEL', KEYS[1])";
         var keys = new[] { key };
 
         // Act
-        var result = await Cache.ScriptEvaluateAsync(luaScript, keys);
-        var retrievedValue = await Cache.GetAsync<string>(key);
+        var result = await Cache.ScriptEvaluateAsync(luaScript, keys, token: TestToken);
+        var retrievedValue = await Cache.GetAsync<string>(key, token: TestToken);
 
         // Assert
         Assert.NotNull(result);
@@ -382,13 +382,13 @@ public class ScriptEvaluateTests(ITestOutputHelper testOutputHelper) : BaseCache
         var keys = new[] { key };
 
         // Act - first call without setting the key
-        var result1 = await Cache.ScriptEvaluateAsync(luaScript, keys);
+        var result1 = await Cache.ScriptEvaluateAsync(luaScript, keys, token: TestToken);
 
         // Set the key
-        await Cache.SetAsync(key, "some-value", TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(1));
+        await Cache.SetAsync(key, "some-value", TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(1), token: TestToken);
 
         // Act - second call after setting the key
-        var result2 = await Cache.ScriptEvaluateAsync(luaScript, keys);
+        var result2 = await Cache.ScriptEvaluateAsync(luaScript, keys, token: TestToken);
 
         // Assert
         Assert.Equal("not-exists", (string)result1);
@@ -403,9 +403,9 @@ public class ScriptEvaluateTests(ITestOutputHelper testOutputHelper) : BaseCache
         var key2 = UniqueKey;
         var key3 = UniqueKey;
 
-        await Cache.SetAsync(key1, "val1", TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(1));
-        await Cache.SetAsync(key2, "val2", TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(1));
-        await Cache.SetAsync(key3, "val3", TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(1));
+        await Cache.SetAsync(key1, "val1", TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(1), token: TestToken);
+        await Cache.SetAsync(key2, "val2", TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(1), token: TestToken);
+        await Cache.SetAsync(key3, "val3", TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(1), token: TestToken);
 
         var luaScript = LuaScript.Prepare(@"
             return {
@@ -422,7 +422,7 @@ public class ScriptEvaluateTests(ITestOutputHelper testOutputHelper) : BaseCache
         };
 
         // Act
-        var result = await Cache.ScriptEvaluateAsync(luaScript, parameters);
+        var result = await Cache.ScriptEvaluateAsync(luaScript, parameters, token: TestToken);
 
         // Assert
         Assert.NotNull(result);

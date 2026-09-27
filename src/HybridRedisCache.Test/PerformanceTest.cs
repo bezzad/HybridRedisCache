@@ -22,7 +22,7 @@ public class PerformanceTest(ITestOutputHelper testOutputHelper) : BaseCacheTest
         sw.Start();
         for (var i = 0; i < count; i++)
         {
-            await Cache.SetAsync(key, value);
+            await Cache.SetAsync(key, value, token: TestToken);
         }
 
         sw.Stop();
@@ -31,7 +31,7 @@ public class PerformanceTest(ITestOutputHelper testOutputHelper) : BaseCacheTest
         sw.Start();
         for (var i = 0; i < count; i++)
         {
-            await Cache.GetAsync<string>(key);
+            await Cache.GetAsync<string>(key, token: TestToken);
         }
 
         sw.Stop();
@@ -40,7 +40,7 @@ public class PerformanceTest(ITestOutputHelper testOutputHelper) : BaseCacheTest
         sw.Start();
         for (var i = 0; i < count; i++)
         {
-            await Cache.RemoveAsync(key);
+            await Cache.RemoveAsync(key, token: TestToken);
         }
 
         sw.Stop();
@@ -65,17 +65,17 @@ public class PerformanceTest(ITestOutputHelper testOutputHelper) : BaseCacheTest
         };
 
         // Act
-        var inserted = await Cache.SetAsync(key, value1, hybridOpt);
-        await Task.Delay(50);
+        var inserted = await Cache.SetAsync(key, value1, hybridOpt, token: TestToken);
+        await Task.Delay(50, TestToken);
         var fetched = Cache.TryGetValue(key, out string _);
-        await Task.Delay(50);
-        var insertedSecondTime = await Cache.SetAsync(key, value2, hybridOpt);
-        await Task.Delay(50);
+        await Task.Delay(50, TestToken);
+        var insertedSecondTime = await Cache.SetAsync(key, value2, hybridOpt, token: TestToken);
+        await Task.Delay(50, TestToken);
         while (counter-- > 0)
         {
             fetched &= Cache.TryGetValue(key, out string value);
             // testOutputHelper.WriteLine($"key[{key}]: " + value);
-            await Task.Delay(50);
+            await Task.Delay(50, TestToken);
         }
 
         // Assert
@@ -97,7 +97,7 @@ public class PerformanceTest(ITestOutputHelper testOutputHelper) : BaseCacheTest
     {
         // Arrange
         var expectedTime = (insertCount / 100) + (insertCount / batchRemovePackSize * 10) + 500;
-        await Cache.ClearAllAsync(); // Clear local cache first
+        await Cache.ClearAllAsync(token: TestToken); // Clear local cache first
         var keyValues =
             await PrepareDummyKeys(insertCount, keyPrefix: "", localCacheEnable: false, generateNoiseKeys: true);
 
@@ -105,7 +105,7 @@ public class PerformanceTest(ITestOutputHelper testOutputHelper) : BaseCacheTest
         var sw = Stopwatch.StartNew();
         var removedKeys = await Cache.RemoveWithPatternAsync(KeyPattern,
             flags: Flags.FireAndForget | Flags.PreferReplica,
-            batchRemovePackSize: batchRemovePackSize);
+            batchRemovePackSize: batchRemovePackSize, token: TestToken);
         sw.Stop();
         TestOutputHelper.WriteLine($"Remove with pattern operation duration: {sw.ElapsedMilliseconds}ms");
 
@@ -122,13 +122,13 @@ public class PerformanceTest(ITestOutputHelper testOutputHelper) : BaseCacheTest
     public async Task TestDeleteKeysByPatternOnRedisAsync(int insertCount)
     {
         // Arrange
-        await Cache.ClearAllAsync(); // Clear local cache first
+        await Cache.ClearAllAsync(token: TestToken); // Clear local cache first
         var keyValues =
             await PrepareDummyKeys(insertCount, keyPrefix: "", localCacheEnable: false, generateNoiseKeys: true);
 
         // Action
         var sw = Stopwatch.StartNew();
-        await Cache.RemoveWithPatternOnRedisAsync(KeyPattern, Flags.PreferReplica | Flags.FireAndForget);
+        await Cache.RemoveWithPatternOnRedisAsync(KeyPattern, Flags.PreferReplica | Flags.FireAndForget, token: TestToken);
         sw.Stop();
         TestOutputHelper.WriteLine($"### Remove with pattern operation duration: {sw.ElapsedMilliseconds}ms");
 

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics.Metrics;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Xunit;
@@ -31,6 +32,9 @@ public sealed class CacheLookupMeteringTests : IAsyncDisposable
     private readonly List<HybridCache> _caches = [];
 
     private static string UniqueKey => Guid.NewGuid().ToString("N");
+
+    /// <summary>The token xunit cancels when the run is cancelled or a Timeout elapses.</summary>
+    private static CancellationToken TestToken => TestContext.Current.CancellationToken;
 
     public CacheLookupMeteringTests(InProcessRedisFixture fixture, ITestOutputHelper output)
     {
@@ -94,9 +98,9 @@ public sealed class CacheLookupMeteringTests : IAsyncDisposable
     {
         var cache = CreateCache();
         var key = UniqueKey;
-        await cache.SetAsync(key, "value", TimeSpan.FromMinutes(1));
+        await cache.SetAsync(key, "value", TimeSpan.FromMinutes(1), token: TestToken);
 
-        Assert.Equal("value", await cache.GetAsync<string>(key));
+        Assert.Equal("value", await cache.GetAsync<string>(key, token: TestToken));
 
         AssertLookups(localHit: 1);
     }
@@ -106,13 +110,13 @@ public sealed class CacheLookupMeteringTests : IAsyncDisposable
     {
         var cache = CreateCache();
         var key = UniqueKey;
-        await cache.SetAsync(key, "value", redisExpiry: TimeSpan.FromMinutes(1), localCacheEnable: false);
+        await cache.SetAsync(key, "value", redisExpiry: TimeSpan.FromMinutes(1), localCacheEnable: false, token: TestToken);
 
-        Assert.Equal("value", await cache.GetAsync<string>(key));
+        Assert.Equal("value", await cache.GetAsync<string>(key, token: TestToken));
         AssertLookups(localMiss: 1, redisHit: 1);
 
         // The Redis hit wrote the value back to local memory.
-        Assert.Equal("value", await cache.GetAsync<string>(key));
+        Assert.Equal("value", await cache.GetAsync<string>(key, token: TestToken));
         AssertLookups(localHit: 1, localMiss: 1, redisHit: 1);
     }
 
@@ -121,7 +125,7 @@ public sealed class CacheLookupMeteringTests : IAsyncDisposable
     {
         var cache = CreateCache();
 
-        var (success, _) = await cache.TryGetValueAsync<string>(UniqueKey);
+        var (success, _) = await cache.TryGetValueAsync<string>(UniqueKey, token: TestToken);
 
         Assert.False(success);
         AssertLookups(localMiss: 1, redisMiss: 1);
@@ -146,7 +150,7 @@ public sealed class CacheLookupMeteringTests : IAsyncDisposable
     {
         var cache = CreateCache();
 
-        var value = await cache.GetAsync(UniqueKey, _ => Task.FromResult("fetched"), TimeSpan.FromMinutes(1));
+        var value = await cache.GetAsync(UniqueKey, _ => Task.FromResult("fetched"), TimeSpan.FromMinutes(1), token: TestToken);
 
         Assert.Equal("fetched", value);
         AssertLookups(localMiss: 1, redisMiss: 1);
@@ -157,10 +161,10 @@ public sealed class CacheLookupMeteringTests : IAsyncDisposable
     {
         var cache = CreateCache(enableMeterData: false);
         var key = UniqueKey;
-        await cache.SetAsync(key, "value", TimeSpan.FromMinutes(1));
+        await cache.SetAsync(key, "value", TimeSpan.FromMinutes(1), token: TestToken);
 
-        await cache.GetAsync<string>(key);
-        await cache.GetAsync<string>(UniqueKey);
+        await cache.GetAsync<string>(key, token: TestToken);
+        await cache.GetAsync<string>(UniqueKey, token: TestToken);
 
         AssertLookups();
     }

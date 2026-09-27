@@ -20,8 +20,8 @@ public class HybridCacheHashTests(ITestOutputHelper testOutputHelper) : BaseCach
         };
 
         // Act
-        await Cache.HashSetAsync(key, fields);
-        var result = await Cache.HashGetAsync(key);
+        await Cache.HashSetAsync(key, fields, token: TestToken);
+        var result = await Cache.HashGetAsync(key, token: TestToken);
 
         // Assert
         Assert.NotNull(result);
@@ -44,9 +44,9 @@ public class HybridCacheHashTests(ITestOutputHelper testOutputHelper) : BaseCach
         var expiry = TimeSpan.FromMilliseconds(500);
 
         // Act
-        await Cache.HashSetAsync(key, fields, expiry);
-        await Task.Delay(TimeSpan.FromSeconds(1));
-        var result = await Cache.HashGetAsync(key);
+        await Cache.HashSetAsync(key, fields, expiry, token: TestToken);
+        await Task.Delay(TimeSpan.FromSeconds(1), TestToken);
+        var result = await Cache.HashGetAsync(key, token: TestToken);
 
         // Assert - fields should have expired
         Assert.NotNull(result);
@@ -62,8 +62,8 @@ public class HybridCacheHashTests(ITestOutputHelper testOutputHelper) : BaseCach
         var value = "testValue";
 
         // Act
-        await Cache.HashSetAsync(key, hashField, value);
-        var result = await Cache.HashGetAsync(key, hashField);
+        await Cache.HashSetAsync(key, hashField, value, token: TestToken);
+        var result = await Cache.HashGetAsync(key, hashField, token: TestToken);
 
         // Assert
         Assert.NotNull(result);
@@ -80,9 +80,9 @@ public class HybridCacheHashTests(ITestOutputHelper testOutputHelper) : BaseCach
         var value2 = "value2";
 
         // Act
-        await Cache.HashSetAsync(key, hashField, value1, Condition.NotExists);
-        await Cache.HashSetAsync(key, hashField, value2, Condition.NotExists);
-        var result = await Cache.HashGetAsync(key, hashField);
+        await Cache.HashSetAsync(key, hashField, value1, Condition.NotExists, token: TestToken);
+        await Cache.HashSetAsync(key, hashField, value2, Condition.NotExists, token: TestToken);
+        var result = await Cache.HashGetAsync(key, hashField, token: TestToken);
 
         // Assert - should still have the first value
         Assert.Equal(value1, result);
@@ -98,9 +98,9 @@ public class HybridCacheHashTests(ITestOutputHelper testOutputHelper) : BaseCach
         var value2 = "value2";
 
         // Act
-        await Cache.HashSetAsync(key, hashField, value1);
-        await Cache.HashSetAsync(key, hashField, value2);
-        var result = await Cache.HashGetAsync(key, hashField);
+        await Cache.HashSetAsync(key, hashField, value1, token: TestToken);
+        await Cache.HashSetAsync(key, hashField, value2, token: TestToken);
+        var result = await Cache.HashGetAsync(key, hashField, token: TestToken);
 
         // Assert - should have the second value
         Assert.Equal(value2, result);
@@ -113,7 +113,7 @@ public class HybridCacheHashTests(ITestOutputHelper testOutputHelper) : BaseCach
         var key = UniqueKey;
 
         // Act
-        var result = await Cache.HashGetAsync(key);
+        var result = await Cache.HashGetAsync(key, token: TestToken);
 
         // Assert
         Assert.NotNull(result);
@@ -131,10 +131,10 @@ public class HybridCacheHashTests(ITestOutputHelper testOutputHelper) : BaseCach
             { "field2", "value2" },
             { "field3", "value3" }
         };
-        await Cache.HashSetAsync(key, fields);
+        await Cache.HashSetAsync(key, fields, token: TestToken);
 
         // Act
-        var result = await Cache.HashGetAsync(key, "field2");
+        var result = await Cache.HashGetAsync(key, "field2", token: TestToken);
 
         // Assert
         Assert.NotNull(result);
@@ -150,10 +150,10 @@ public class HybridCacheHashTests(ITestOutputHelper testOutputHelper) : BaseCach
         {
             { "field1", "value1" }
         };
-        await Cache.HashSetAsync(key, fields);
+        await Cache.HashSetAsync(key, fields, token: TestToken);
 
         // Act
-        var result = await Cache.HashGetAsync(key, "nonExistentField");
+        var result = await Cache.HashGetAsync(key, "nonExistentField", token: TestToken);
 
         // Assert
         Assert.True(string.IsNullOrEmpty(result));
@@ -171,11 +171,11 @@ public class HybridCacheHashTests(ITestOutputHelper testOutputHelper) : BaseCach
             { "field3", "value3" },
             { "field4", "value4" }
         };
-        await Cache.HashSetAsync(key, fields);
+        await Cache.HashSetAsync(key, fields, token: TestToken);
 
         // Act
         var requestedFields = new[] { "field1", "field3", "field4" };
-        var result = await Cache.HashGetAsync(key, requestedFields);
+        var result = await Cache.HashGetAsync(key, requestedFields, token: TestToken);
 
         // Assert
         Assert.NotNull(result);
@@ -195,11 +195,11 @@ public class HybridCacheHashTests(ITestOutputHelper testOutputHelper) : BaseCach
             { "field1", "value1" },
             { "field2", "value2" }
         };
-        await Cache.HashSetAsync(key, fields);
+        await Cache.HashSetAsync(key, fields, token: TestToken);
 
         // Act
         var requestedFields = new[] { "field1", "nonExistent", "field2" };
-        var result = await Cache.HashGetAsync(key, requestedFields);
+        var result = await Cache.HashGetAsync(key, requestedFields, token: TestToken);
 
         // Assert
         Assert.NotNull(result);
@@ -216,10 +216,10 @@ public class HybridCacheHashTests(ITestOutputHelper testOutputHelper) : BaseCach
         var key = UniqueKey;
         var hashField = "testField";
         var value = "testValue";
-        await Cache.HashSetAsync(key, hashField, value);
+        await Cache.HashSetAsync(key, hashField, value, token: TestToken);
 
         // Act
-        var result = await Cache.HashExistsAsync(key, hashField);
+        var result = await Cache.HashExistsAsync(key, hashField, token: TestToken);
 
         // Assert
         Assert.True(result);
@@ -232,10 +232,10 @@ public class HybridCacheHashTests(ITestOutputHelper testOutputHelper) : BaseCach
         var key = UniqueKey;
         var hashField = "testField";
         var value = "testValue";
-        await Cache.HashSetAsync(key, hashField, value);
+        await Cache.HashSetAsync(key, hashField, value, token: TestToken);
 
         // Act
-        var result = await Cache.HashExistsAsync(key, "nonExistentField");
+        var result = await Cache.HashExistsAsync(key, "nonExistentField", token: TestToken);
 
         // Assert
         Assert.False(result);
@@ -248,7 +248,7 @@ public class HybridCacheHashTests(ITestOutputHelper testOutputHelper) : BaseCach
         var key = UniqueKey;
 
         // Act
-        var result = await Cache.HashExistsAsync(key, "anyField");
+        var result = await Cache.HashExistsAsync(key, "anyField", token: TestToken);
 
         // Assert
         Assert.False(result);
@@ -265,11 +265,11 @@ public class HybridCacheHashTests(ITestOutputHelper testOutputHelper) : BaseCach
             { "field2", "value2" },
             { "field3", "value3" }
         };
-        await Cache.HashSetAsync(key, fields);
+        await Cache.HashSetAsync(key, fields, token: TestToken);
 
         // Act
-        var deleted = await Cache.HashDeleteAsync(key, "field2");
-        var remainingFields = await Cache.HashGetAsync(key);
+        var deleted = await Cache.HashDeleteAsync(key, "field2", token: TestToken);
+        var remainingFields = await Cache.HashGetAsync(key, token: TestToken);
 
         // Assert
         Assert.True(deleted);
@@ -288,10 +288,10 @@ public class HybridCacheHashTests(ITestOutputHelper testOutputHelper) : BaseCach
         {
             { "field1", "value1" }
         };
-        await Cache.HashSetAsync(key, fields);
+        await Cache.HashSetAsync(key, fields, token: TestToken);
 
         // Act
-        var deleted = await Cache.HashDeleteAsync(key, "nonExistentField");
+        var deleted = await Cache.HashDeleteAsync(key, "nonExistentField", token: TestToken);
 
         // Assert
         Assert.False(deleted);
@@ -309,12 +309,12 @@ public class HybridCacheHashTests(ITestOutputHelper testOutputHelper) : BaseCach
             { "field3", "value3" },
             { "field4", "value4" }
         };
-        await Cache.HashSetAsync(key, fields);
+        await Cache.HashSetAsync(key, fields, token: TestToken);
 
         // Act
         var fieldsToDelete = new[] { "field1", "field3", "field4" };
-        var deletedCount = await Cache.HashDeleteAsync(key, fieldsToDelete);
-        var remainingFields = await Cache.HashGetAsync(key);
+        var deletedCount = await Cache.HashDeleteAsync(key, fieldsToDelete, token: TestToken);
+        var remainingFields = await Cache.HashGetAsync(key, token: TestToken);
 
         // Assert
         Assert.Equal(3, deletedCount);
@@ -332,12 +332,12 @@ public class HybridCacheHashTests(ITestOutputHelper testOutputHelper) : BaseCach
             { "field1", "value1" },
             { "field2", "value2" }
         };
-        await Cache.HashSetAsync(key, fields);
+        await Cache.HashSetAsync(key, fields, token: TestToken);
 
         // Act
         var fieldsToDelete = new[] { "field1", "nonExistent", "field2" };
-        var deletedCount = await Cache.HashDeleteAsync(key, fieldsToDelete);
-        var remainingFields = await Cache.HashGetAsync(key);
+        var deletedCount = await Cache.HashDeleteAsync(key, fieldsToDelete, token: TestToken);
+        var remainingFields = await Cache.HashGetAsync(key, token: TestToken);
 
         // Assert
         Assert.Equal(2, deletedCount); // Only 2 existing fields deleted
@@ -352,8 +352,8 @@ public class HybridCacheHashTests(ITestOutputHelper testOutputHelper) : BaseCach
         var fields = new Dictionary<string, string>();
 
         // Act & Assert
-        await Cache.HashSetAsync(key, fields);
-        var result = await Cache.HashGetAsync(key);
+        await Cache.HashSetAsync(key, fields, token: TestToken);
+        var result = await Cache.HashGetAsync(key, token: TestToken);
         Assert.NotNull(result);
         Assert.Empty(result);
     }
@@ -372,8 +372,8 @@ public class HybridCacheHashTests(ITestOutputHelper testOutputHelper) : BaseCach
         };
 
         // Act
-        await Cache.HashSetAsync(key, fields);
-        var result = await Cache.HashGetAsync(key);
+        await Cache.HashSetAsync(key, fields, token: TestToken);
+        var result = await Cache.HashGetAsync(key, token: TestToken);
 
         // Assert
         Assert.Equal(4, result.Count);
@@ -397,8 +397,8 @@ public class HybridCacheHashTests(ITestOutputHelper testOutputHelper) : BaseCach
         };
 
         // Act
-        await Cache.HashSetAsync(key, fields);
-        var result = await Cache.HashGetAsync(key);
+        await Cache.HashSetAsync(key, fields, token: TestToken);
+        var result = await Cache.HashGetAsync(key, token: TestToken);
 
         // Assert
         Assert.Equal(4, result.Count);
@@ -420,8 +420,8 @@ public class HybridCacheHashTests(ITestOutputHelper testOutputHelper) : BaseCach
         }
 
         // Act
-        await Cache.HashSetAsync(key, fields);
-        var result = await Cache.HashGetAsync(key);
+        await Cache.HashSetAsync(key, fields, token: TestToken);
+        var result = await Cache.HashGetAsync(key, token: TestToken);
 
         // Assert
         Assert.Equal(1000, result.Count);
@@ -440,11 +440,11 @@ public class HybridCacheHashTests(ITestOutputHelper testOutputHelper) : BaseCach
             { "field1", "value1" },
             { "field2", "value2" }
         };
-        await Cache.HashSetAsync(key, fields);
+        await Cache.HashSetAsync(key, fields, token: TestToken);
 
         // Act
-        await Cache.HashSetAsync(key, "field1", "updatedValue1");
-        var result = await Cache.HashGetAsync(key);
+        await Cache.HashSetAsync(key, "field1", "updatedValue1", token: TestToken);
+        var result = await Cache.HashGetAsync(key, token: TestToken);
 
         // Assert
         Assert.Equal(2, result.Count);
@@ -463,10 +463,10 @@ public class HybridCacheHashTests(ITestOutputHelper testOutputHelper) : BaseCach
         for (int i = 0; i < 10; i++)
         {
             var index = i;
-            tasks.Add(Cache.HashSetAsync(key, $"field{index}", $"value{index}"));
+            tasks.Add(Cache.HashSetAsync(key, $"field{index}", $"value{index}", token: TestToken));
         }
         await Task.WhenAll(tasks);
-        var result = await Cache.HashGetAsync(key);
+        var result = await Cache.HashGetAsync(key, token: TestToken);
 
         // Assert
         Assert.Equal(10, result.Count);
@@ -486,11 +486,11 @@ public class HybridCacheHashTests(ITestOutputHelper testOutputHelper) : BaseCach
             { "field1", "value1" },
             { "field2", "value2" }
         };
-        await Cache.HashSetAsync(key, fields);
+        await Cache.HashSetAsync(key, fields, token: TestToken);
 
         // Act
-        await Cache.HashDeleteAsync(key, new[] { "field1", "field2" });
-        var result = await Cache.HashGetAsync(key);
+        await Cache.HashDeleteAsync(key, new[] { "field1", "field2" }, token: TestToken);
+        var result = await Cache.HashGetAsync(key, token: TestToken);
 
         // Assert
         Assert.NotNull(result);
@@ -506,9 +506,9 @@ public class HybridCacheHashTests(ITestOutputHelper testOutputHelper) : BaseCach
         var value = "testValue";
 
         // Act
-        await Cache.HashSetAsync(key, hashField, value);
-        var exists = await Cache.HashExistsAsync(key, hashField);
-        var deleted = await Cache.HashDeleteAsync(key, hashField);
+        await Cache.HashSetAsync(key, hashField, value, token: TestToken);
+        var exists = await Cache.HashExistsAsync(key, hashField, token: TestToken);
+        var deleted = await Cache.HashDeleteAsync(key, hashField, token: TestToken);
 
         // Assert
         Assert.True(exists);
@@ -526,10 +526,10 @@ public class HybridCacheHashTests(ITestOutputHelper testOutputHelper) : BaseCach
             { "field2", "value2" },
             { "field3", "value3" }
         };
-        await Cache.HashSetAsync(key, fields);
+        await Cache.HashSetAsync(key, fields, token: TestToken);
 
         // Act
-        var values = await Cache.HashValuesAsync(key);
+        var values = await Cache.HashValuesAsync(key, token: TestToken);
 
         // Assert
         Assert.NotNull(values);
@@ -546,7 +546,7 @@ public class HybridCacheHashTests(ITestOutputHelper testOutputHelper) : BaseCach
         var key = UniqueKey;
 
         // Act
-        var values = await Cache.HashValuesAsync(key);
+        var values = await Cache.HashValuesAsync(key, token: TestToken);
 
         // Assert
         Assert.NotNull(values);
@@ -564,10 +564,10 @@ public class HybridCacheHashTests(ITestOutputHelper testOutputHelper) : BaseCach
             { "field2", "value2" },
             { "field3", "value3" }
         };
-        await Cache.HashSetAsync(key, fields);
+        await Cache.HashSetAsync(key, fields, token: TestToken);
 
         // Act
-        var keys = await Cache.HashKeysAsync(key);
+        var keys = await Cache.HashKeysAsync(key, token: TestToken);
 
         // Assert
         Assert.NotNull(keys);
@@ -584,7 +584,7 @@ public class HybridCacheHashTests(ITestOutputHelper testOutputHelper) : BaseCach
         var key = UniqueKey;
 
         // Act
-        var keys = await Cache.HashKeysAsync(key);
+        var keys = await Cache.HashKeysAsync(key, token: TestToken);
 
         // Assert
         Assert.NotNull(keys);
@@ -603,10 +603,10 @@ public class HybridCacheHashTests(ITestOutputHelper testOutputHelper) : BaseCach
             { "field3", "value3" },
             { "field4", "value4" }
         };
-        await Cache.HashSetAsync(key, fields);
+        await Cache.HashSetAsync(key, fields, token: TestToken);
 
         // Act
-        var length = await Cache.HashLengthAsync(key);
+        var length = await Cache.HashLengthAsync(key, token: TestToken);
 
         // Assert
         Assert.Equal(4, length);
@@ -619,7 +619,7 @@ public class HybridCacheHashTests(ITestOutputHelper testOutputHelper) : BaseCach
         var key = UniqueKey;
 
         // Act
-        var length = await Cache.HashLengthAsync(key);
+        var length = await Cache.HashLengthAsync(key, token: TestToken);
 
         // Assert
         Assert.Equal(0, length);
@@ -636,11 +636,11 @@ public class HybridCacheHashTests(ITestOutputHelper testOutputHelper) : BaseCach
             { "field2", "value2" },
             { "field3", "value3" }
         };
-        await Cache.HashSetAsync(key, fields);
-        await Cache.HashDeleteAsync(key, "field2");
+        await Cache.HashSetAsync(key, fields, token: TestToken);
+        await Cache.HashDeleteAsync(key, "field2", token: TestToken);
 
         // Act
-        var length = await Cache.HashLengthAsync(key);
+        var length = await Cache.HashLengthAsync(key, token: TestToken);
 
         // Assert
         Assert.Equal(2, length);
@@ -657,11 +657,11 @@ public class HybridCacheHashTests(ITestOutputHelper testOutputHelper) : BaseCach
             { "field2", "value2" },
             { "field3", "value3" }
         };
-        await Cache.HashSetAsync(key, fields);
+        await Cache.HashSetAsync(key, fields, token: TestToken);
 
         // Act
-        var value = await Cache.HashFieldGetAndDeleteAsync(key, "field2");
-        var remainingFields = await Cache.HashGetAsync(key);
+        var value = await Cache.HashFieldGetAndDeleteAsync(key, "field2", token: TestToken);
+        var remainingFields = await Cache.HashGetAsync(key, token: TestToken);
 
         // Assert
         Assert.Equal("value2", value);
@@ -680,10 +680,10 @@ public class HybridCacheHashTests(ITestOutputHelper testOutputHelper) : BaseCach
         {
             { "field1", "value1" }
         };
-        await Cache.HashSetAsync(key, fields);
+        await Cache.HashSetAsync(key, fields, token: TestToken);
 
         // Act
-        var value = await Cache.HashFieldGetAndDeleteAsync(key, "nonExistentField");
+        var value = await Cache.HashFieldGetAndDeleteAsync(key, "nonExistentField", token: TestToken);
 
         // Assert
         Assert.True(string.IsNullOrEmpty(value));
@@ -696,7 +696,7 @@ public class HybridCacheHashTests(ITestOutputHelper testOutputHelper) : BaseCach
         var key = UniqueKey;
 
         // Act
-        var value = await Cache.HashFieldGetAndDeleteAsync(key, "anyField");
+        var value = await Cache.HashFieldGetAndDeleteAsync(key, "anyField", token: TestToken);
 
         // Assert
         Assert.True(string.IsNullOrEmpty(value));
@@ -715,11 +715,11 @@ public class HybridCacheHashTests(ITestOutputHelper testOutputHelper) : BaseCach
             { "user:2:email", "jane@example.com" },
             { "admin:1:name", "Admin" }
         };
-        await Cache.HashSetAsync(key, fields);
+        await Cache.HashSetAsync(key, fields, token: TestToken);
 
         // Act
         var result = new List<KeyValuePair<string, string>>();
-        await foreach (var entry in Cache.HashScanAsync(key, "user:1:*"))
+        await foreach (var entry in Cache.HashScanAsync(key, "user:1:*", token: TestToken))
         {
             result.Add(entry);
         }
@@ -741,11 +741,11 @@ public class HybridCacheHashTests(ITestOutputHelper testOutputHelper) : BaseCach
             { "field2", "value2" },
             { "field3", "value3" }
         };
-        await Cache.HashSetAsync(key, fields);
+        await Cache.HashSetAsync(key, fields, token: TestToken);
 
         // Act
         var result = new List<KeyValuePair<string, string>>();
-        await foreach (var entry in Cache.HashScanAsync(key, "*"))
+        await foreach (var entry in Cache.HashScanAsync(key, "*", token: TestToken))
         {
             result.Add(entry);
         }
@@ -764,11 +764,11 @@ public class HybridCacheHashTests(ITestOutputHelper testOutputHelper) : BaseCach
             { "field1", "value1" },
             { "field2", "value2" }
         };
-        await Cache.HashSetAsync(key, fields);
+        await Cache.HashSetAsync(key, fields, token: TestToken);
 
         // Act
         var result = new List<KeyValuePair<string, string>>();
-        await foreach (var entry in Cache.HashScanAsync(key, "nonexistent:*"))
+        await foreach (var entry in Cache.HashScanAsync(key, "nonexistent:*", token: TestToken))
         {
             result.Add(entry);
         }
@@ -785,7 +785,7 @@ public class HybridCacheHashTests(ITestOutputHelper testOutputHelper) : BaseCach
 
         // Act
         var result = new List<KeyValuePair<string, string>>();
-        await foreach (var entry in Cache.HashScanAsync(key, "*"))
+        await foreach (var entry in Cache.HashScanAsync(key, "*", token: TestToken))
         {
             result.Add(entry);
         }
@@ -806,11 +806,11 @@ public class HybridCacheHashTests(ITestOutputHelper testOutputHelper) : BaseCach
             { "user:2:name", "Jane" },
             { "admin:1:name", "Admin" }
         };
-        await Cache.HashSetAsync(key, fields);
+        await Cache.HashSetAsync(key, fields, token: TestToken);
 
         // Act
         var result = new List<string>();
-        await foreach (var fieldName in Cache.HashScanNoValuesAsync(key, "user:1:*"))
+        await foreach (var fieldName in Cache.HashScanNoValuesAsync(key, "user:1:*", token: TestToken))
         {
             result.Add(fieldName);
         }
@@ -832,11 +832,11 @@ public class HybridCacheHashTests(ITestOutputHelper testOutputHelper) : BaseCach
             { "field2", "value2" },
             { "field3", "value3" }
         };
-        await Cache.HashSetAsync(key, fields);
+        await Cache.HashSetAsync(key, fields, token: TestToken);
 
         // Act
         var result = new List<string>();
-        await foreach (var fieldName in Cache.HashScanNoValuesAsync(key, "*"))
+        await foreach (var fieldName in Cache.HashScanNoValuesAsync(key, "*", token: TestToken))
         {
             result.Add(fieldName);
         }
@@ -858,11 +858,11 @@ public class HybridCacheHashTests(ITestOutputHelper testOutputHelper) : BaseCach
             { "field1", "value1" },
             { "field2", "value2" }
         };
-        await Cache.HashSetAsync(key, fields);
+        await Cache.HashSetAsync(key, fields, token: TestToken);
 
         // Act
         var result = new List<string>();
-        await foreach (var fieldName in Cache.HashScanNoValuesAsync(key, "nonexistent:*"))
+        await foreach (var fieldName in Cache.HashScanNoValuesAsync(key, "nonexistent:*", token: TestToken))
         {
             result.Add(fieldName);
         }
@@ -879,7 +879,7 @@ public class HybridCacheHashTests(ITestOutputHelper testOutputHelper) : BaseCach
 
         // Act
         var result = new List<string>();
-        await foreach (var fieldName in Cache.HashScanNoValuesAsync(key, "*"))
+        await foreach (var fieldName in Cache.HashScanNoValuesAsync(key, "*", token: TestToken))
         {
             result.Add(fieldName);
         }
@@ -900,11 +900,11 @@ public class HybridCacheHashTests(ITestOutputHelper testOutputHelper) : BaseCach
             { "product:456:name", "Product B" },
             { "order:789:total", "199.99" }
         };
-        await Cache.HashSetAsync(key, fields);
+        await Cache.HashSetAsync(key, fields, token: TestToken);
 
         // Act
         var result = new List<KeyValuePair<string, string>>();
-        await foreach (var entry in Cache.HashScanAsync(key, "product:*:name"))
+        await foreach (var entry in Cache.HashScanAsync(key, "product:*:name", token: TestToken))
         {
             result.Add(entry);
         }
@@ -929,51 +929,51 @@ public class HybridCacheHashTests(ITestOutputHelper testOutputHelper) : BaseCach
             { "user:email", "john@example.com" },
             { "user:age", "30" }
         };
-        await Cache.HashSetAsync(key, initialFields);
+        await Cache.HashSetAsync(key, initialFields, token: TestToken);
 
         // Verify length
-        var length = await Cache.HashLengthAsync(key);
+        var length = await Cache.HashLengthAsync(key, token: TestToken);
         Assert.Equal(4, length);
 
         // Get all keys
-        var keys = await Cache.HashKeysAsync(key);
+        var keys = await Cache.HashKeysAsync(key, token: TestToken);
         Assert.Equal(4, keys.Length);
 
         // Get all values
-        var values = await Cache.HashValuesAsync(key);
+        var values = await Cache.HashValuesAsync(key, token: TestToken);
         Assert.Equal(4, values.Length);
 
         // Check if field exists
-        var exists = await Cache.HashExistsAsync(key, "user:name");
+        var exists = await Cache.HashExistsAsync(key, "user:name", token: TestToken);
         Assert.True(exists);
 
         // Update a field
-        await Cache.HashSetAsync(key, "user:age", "31");
-        var updatedAge = await Cache.HashGetAsync(key, "user:age");
+        await Cache.HashSetAsync(key, "user:age", "31", token: TestToken);
+        var updatedAge = await Cache.HashGetAsync(key, "user:age", token: TestToken);
         Assert.Equal("31", updatedAge);
 
         // Scan with pattern
         var userFields = new List<KeyValuePair<string, string>>();
-        await foreach (var entry in Cache.HashScanAsync(key, "user:*"))
+        await foreach (var entry in Cache.HashScanAsync(key, "user:*", token: TestToken))
         {
             userFields.Add(entry);
         }
         Assert.Equal(4, userFields.Count);
 
         // Get and delete a field
-        var deletedValue = await Cache.HashFieldGetAndDeleteAsync(key, "user:email");
+        var deletedValue = await Cache.HashFieldGetAndDeleteAsync(key, "user:email", token: TestToken);
         Assert.Equal("john@example.com", deletedValue);
 
         // Verify deletion
-        var lengthAfterDelete = await Cache.HashLengthAsync(key);
+        var lengthAfterDelete = await Cache.HashLengthAsync(key, token: TestToken);
         Assert.Equal(3, lengthAfterDelete);
 
         // Delete remaining fields
-        var deletedCount = await Cache.HashDeleteAsync(key, new[] { "user:id", "user:name", "user:age" });
+        var deletedCount = await Cache.HashDeleteAsync(key, new[] { "user:id", "user:name", "user:age" }, token: TestToken);
         Assert.Equal(3, deletedCount);
 
         // Verify hash is empty
-        var finalLength = await Cache.HashLengthAsync(key);
+        var finalLength = await Cache.HashLengthAsync(key, token: TestToken);
         Assert.Equal(0, finalLength);
     }
 }

@@ -9,11 +9,6 @@
     <!-- xunit v3 runs on Microsoft.Testing.Platform. The .NET 10 SDK dropped the VSTest bridge
          for it, so `dotnet test` must use the MTP runner. -->
     <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
-    <!-- xUnit1051 asks every call taking a CancellationToken to pass
-         TestContext.Current.CancellationToken; it fires ~1000 times across this suite and is
-         advisory only. Tests that rely on it for real (the ones declaring a Timeout, which v3
-         enforces through that token) pass it explicitly. -->
-    <NoWarn>$(NoWarn);xUnit1051</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>

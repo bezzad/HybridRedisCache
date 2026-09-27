@@ -189,6 +189,14 @@ dotnet test --solution src/HybridRedisCache.sln
 The container image tag is pinned in `BaseCacheTest.RedisImage` and must stay on Redis 8.x, because
 `HashSetAsync(key, IDictionary, ...)` issues `HSETEX`.
 
+**Pass `TestToken` to every call that takes a cancellation token.** `BaseCacheTest` and
+`InProcessCacheTest` expose it (`TestContext.Current.CancellationToken`); xunit cancels it on run
+cancellation and when a test's `Timeout` elapses, and the `xUnit1051` analyzer fails the build without
+it. Two traps: the argument is `token:` on most of the API but **`cancellationToken:`** on the lock
+methods (`TryLockKeyAsync`, `LockKeyAsync`, `TryExtendLockAsync`, `TryReleaseLockAsync`), where `token`
+already names the lock's own token; and `AsyncMethods_WithDefaultToken_CompleteNormally` must keep the
+default token, since a cancellable one would skip the fast path it exists to cover.
+
 ## Things worth knowing
 
 * **`CONFIG SET` is not guaranteed.** Azure Cache for Redis and AWS ElastiCache block it. Startup logs the

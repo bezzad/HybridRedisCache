@@ -30,23 +30,23 @@ public class IntegrationTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
             }
         };
 
-        await instance1.SetAsync(key, value1, expiry, expiry, Flags.DemandMaster, localCacheEnable: localCacheEnable);
+        await instance1.SetAsync(key, value1, expiry, expiry, Flags.DemandMaster, localCacheEnable: localCacheEnable, token: TestToken);
 
         // wait to receive the cache invalidate message
         // v3 enforces Timeout by cancelling this token, so every wait here must observe it.
         await locker.WaitAsync(TestContext.Current.CancellationToken);
 
         // retrieve the value from the shared cache using instance2
-        var v1I2 = await instance2.GetAsync<string>(key);
+        var v1I2 = await instance2.GetAsync<string>(key, token: TestToken);
 
         // update the value in the shared cache using instance1
-        await instance1.SetAsync(key, value2, expiry, expiry, Flags.DemandMaster, localCacheEnable: localCacheEnable);
+        await instance1.SetAsync(key, value2, expiry, expiry, Flags.DemandMaster, localCacheEnable: localCacheEnable, token: TestToken);
 
         // wait to receive the cache invalidate message
         await locker.WaitAsync(TestContext.Current.CancellationToken);
 
         // retrieve the updated value from the shared cache using instance2
-        var v2I2 = await instance2.GetAsync<string>(key);
+        var v2I2 = await instance2.GetAsync<string>(key, token: TestToken);
 
         // Assert
         Assert.Equal(value1, v1I2);
@@ -80,14 +80,14 @@ public class IntegrationTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         };
 
         // Act
-        await instance1.SetAsync(cacheKey, value1, opt);
-        var shouldReadValueFromInstance1 = await instance1.GetAsync<string>(cacheKey, localCacheEnable: false);
-        var shouldReadValueFromInstance2 = await instance2.GetAsync<string>(cacheKey, localCacheEnable: false);
+        await instance1.SetAsync(cacheKey, value1, opt, token: TestToken);
+        var shouldReadValueFromInstance1 = await instance1.GetAsync<string>(cacheKey, localCacheEnable: false, token: TestToken);
+        var shouldReadValueFromInstance2 = await instance2.GetAsync<string>(cacheKey, localCacheEnable: false, token: TestToken);
 
-        await instance2.SetAsync(cacheKey, value2, opt);
+        await instance2.SetAsync(cacheKey, value2, opt, token: TestToken);
         // can read new value2 which write from another instance
-        var shouldReadValue2FromInstance1 = await instance1.GetAsync<string>(cacheKey, localCacheEnable: false);
-        var shouldReadValue2FromInstance2 = await instance2.GetAsync<string>(cacheKey, localCacheEnable: false);
+        var shouldReadValue2FromInstance1 = await instance1.GetAsync<string>(cacheKey, localCacheEnable: false, token: TestToken);
+        var shouldReadValue2FromInstance2 = await instance2.GetAsync<string>(cacheKey, localCacheEnable: false, token: TestToken);
 
         // Assert
         Assert.Equal(value1, shouldReadValueFromInstance1);
@@ -116,17 +116,17 @@ public class IntegrationTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         await using var instance3 = new HybridCache(Options);
 
         // Act
-        await instance1.SetAsync(cacheKey, value1, opt);
-        var read1Instance1 = await instance1.GetAsync<string>(cacheKey);
-        var read1Instance2 = await instance2.GetAsync<string>(cacheKey);
-        var read1Instance3 = await instance3.GetAsync<string>(cacheKey);
+        await instance1.SetAsync(cacheKey, value1, opt, token: TestToken);
+        var read1Instance1 = await instance1.GetAsync<string>(cacheKey, token: TestToken);
+        var read1Instance2 = await instance2.GetAsync<string>(cacheKey, token: TestToken);
+        var read1Instance3 = await instance3.GetAsync<string>(cacheKey, token: TestToken);
 
-        await instance1.SetAsync(cacheKey, value2, opt);
-        await Task.Delay(100);
+        await instance1.SetAsync(cacheKey, value2, opt, token: TestToken);
+        await Task.Delay(100, TestToken);
 
-        var read2Instance1 = await instance1.GetAsync<string>(cacheKey);
-        var read2Instance2 = await instance2.GetAsync<string>(cacheKey);
-        var read2Instance3 = await instance3.GetAsync<string>(cacheKey);
+        var read2Instance1 = await instance1.GetAsync<string>(cacheKey, token: TestToken);
+        var read2Instance2 = await instance2.GetAsync<string>(cacheKey, token: TestToken);
+        var read2Instance3 = await instance3.GetAsync<string>(cacheKey, token: TestToken);
 
         // Assert
         Assert.Equal(value1, read1Instance1);
@@ -161,9 +161,9 @@ public class IntegrationTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
             var value = "test value " + i;
 
             await instance1.SetAsync(cacheKey, value, opt, ct);
-            var readWithInstance1 = await instance1.GetAsync<string>(cacheKey, false);
-            var readWithInstance2 = await instance2.GetAsync<string>(cacheKey, false);
-            var readWithInstance3 = await instance3.GetAsync<string>(cacheKey, false);
+            var readWithInstance1 = await instance1.GetAsync<string>(cacheKey, false, token: TestToken);
+            var readWithInstance2 = await instance2.GetAsync<string>(cacheKey, false, token: TestToken);
+            var readWithInstance3 = await instance3.GetAsync<string>(cacheKey, false, token: TestToken);
 
             Assert.Equal(value, readWithInstance1);
             Assert.Equal(value, readWithInstance2);
@@ -192,10 +192,10 @@ public class IntegrationTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         {
             var value = "test value " + i;
 
-            await instance1.SetAsync(cacheKey, value, opt);
-            var readWithInstance1 = await instance1.GetAsync<string>(cacheKey, false);
-            var readWithInstance2 = await instance2.GetAsync<string>(cacheKey, false);
-            var readWithInstance3 = await instance3.GetAsync<string>(cacheKey, false);
+            await instance1.SetAsync(cacheKey, value, opt, token: TestToken);
+            var readWithInstance1 = await instance1.GetAsync<string>(cacheKey, false, token: TestToken);
+            var readWithInstance2 = await instance2.GetAsync<string>(cacheKey, false, token: TestToken);
+            var readWithInstance3 = await instance3.GetAsync<string>(cacheKey, false, token: TestToken);
 
             Assert.Equal(value, readWithInstance1);
             Assert.Equal(value, readWithInstance2);
@@ -224,13 +224,13 @@ public class IntegrationTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         await using var instance3 = new HybridCache(Options);
 
         // Act
-        var canInsertI1 = await instance1.SetAsync(cacheKey, value1, opt);
-        var canInsertI2 = await instance2.SetAsync(cacheKey, value1, opt);
-        var canInsertI3 = await instance3.SetAsync(cacheKey, value1, opt);
-        var canInsertI12 = await instance1.SetAsync(cacheKey, value2, opt);
+        var canInsertI1 = await instance1.SetAsync(cacheKey, value1, opt, token: TestToken);
+        var canInsertI2 = await instance2.SetAsync(cacheKey, value1, opt, token: TestToken);
+        var canInsertI3 = await instance3.SetAsync(cacheKey, value1, opt, token: TestToken);
+        var canInsertI12 = await instance1.SetAsync(cacheKey, value2, opt, token: TestToken);
 
         opt.When = Condition.Always;
-        var canInsertI22 = await instance2.SetAsync(cacheKey, value2, opt);
+        var canInsertI22 = await instance2.SetAsync(cacheKey, value2, opt, token: TestToken);
 
         Assert.True(canInsertI1);
         Assert.False(canInsertI2);
@@ -254,12 +254,12 @@ public class IntegrationTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
 
         // Act
 
-        await instance1.TryLockKeyAsync(cacheKey, token1, TimeSpan.FromSeconds(10));
-        var extendLockWithI1T2 = await instance1.TryExtendLockAsync(cacheKey, token2, timespan);
-        var extendLockWithI1T1 = await instance1.TryExtendLockAsync(cacheKey, token1, timespan);
-        var extendLockWithI2T1 = await instance2.TryExtendLockAsync(cacheKey, token1, timespan);
-        var extendLockWithI3T1 = await instance3.TryExtendLockAsync(cacheKey, token1, timespan);
-        var expiry = await instance1.GetExpirationAsync(cacheKey);
+        await instance1.TryLockKeyAsync(cacheKey, token1, TimeSpan.FromSeconds(10), cancellationToken: TestToken);
+        var extendLockWithI1T2 = await instance1.TryExtendLockAsync(cacheKey, token2, timespan, cancellationToken: TestToken);
+        var extendLockWithI1T1 = await instance1.TryExtendLockAsync(cacheKey, token1, timespan, cancellationToken: TestToken);
+        var extendLockWithI2T1 = await instance2.TryExtendLockAsync(cacheKey, token1, timespan, cancellationToken: TestToken);
+        var extendLockWithI3T1 = await instance3.TryExtendLockAsync(cacheKey, token1, timespan, cancellationToken: TestToken);
+        var expiry = await instance1.GetExpirationAsync(cacheKey, token: TestToken);
 
         Assert.False(extendLockWithI1T2);
         Assert.True(extendLockWithI1T1);
@@ -284,9 +284,9 @@ public class IntegrationTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
 
         // Act
 
-        await instance1.PublishAsync(channel, cacheKey, token1);
+        await instance1.PublishAsync(channel, cacheKey, token1, token: TestToken);
 
-        await Task.Delay(1000);
+        await Task.Delay(1000, TestToken);
 
         void OnMessage(string key, string value)
         {
@@ -308,9 +308,9 @@ public class IntegrationTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         await using var instance2 = new HybridCache(Options);
 
         // Act
-        var canLockWithInstance1 = await instance1.TryLockKeyAsync(cacheKey, token, TimeSpan.FromHours(1));
-        var canLockWithInstance2 = await instance2.TryLockKeyAsync(cacheKey, token, TimeSpan.FromHours(1));
-        var canRemove = await instance2.RemoveAsync(cacheKey);
+        var canLockWithInstance1 = await instance1.TryLockKeyAsync(cacheKey, token, TimeSpan.FromHours(1), cancellationToken: TestToken);
+        var canLockWithInstance2 = await instance2.TryLockKeyAsync(cacheKey, token, TimeSpan.FromHours(1), cancellationToken: TestToken);
+        var canRemove = await instance2.RemoveAsync(cacheKey, token: TestToken);
 
         // Assert
         Assert.True(canLockWithInstance1);
@@ -327,25 +327,25 @@ public class IntegrationTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         TimeSpan newExpiry = TimeSpan.FromSeconds(10);
 
         // Step 1: Acquire the lock with 5-second TTL
-        var acquired = await Cache.TryLockKeyAsync(lockKey, lockValue, initialExpiry);
+        var acquired = await Cache.TryLockKeyAsync(lockKey, lockValue, initialExpiry, cancellationToken: TestToken);
         Assert.True(acquired);
         TestOutputHelper.WriteLine($"Lock acquired at {DateTime.UtcNow:HH:mm:ss.fff}, TTL = {initialExpiry.TotalSeconds}sec");
 
         // Step 2: Wait 2 seconds (8 seconds remain)
-        await Task.Delay(2000);
+        await Task.Delay(2000, TestToken);
 
         // Step 3: Extend the lock to 10 seconds
-        var extended = await Cache.TryExtendLockAsync(lockKey, lockValue, newExpiry);
+        var extended = await Cache.TryExtendLockAsync(lockKey, lockValue, newExpiry, cancellationToken: TestToken);
         Assert.True(extended);
         TestOutputHelper.WriteLine($"Lock extended at {DateTime.UtcNow:HH:mm:ss.fff}, new TTL = {newExpiry.TotalSeconds}sec");
 
         // Step 4: Verify remaining TTL
-        var remainingTtl = await Cache.GetExpirationAsync(lockKey);
+        var remainingTtl = await Cache.GetExpirationAsync(lockKey, token: TestToken);
         Assert.NotNull(remainingTtl);
         TestOutputHelper.WriteLine($"Remaining TTL after extension: {remainingTtl.Value.TotalSeconds} seconds");
 
         // Step 5: Release the lock
-        await Cache.TryReleaseLockAsync(lockKey, lockValue);
+        await Cache.TryReleaseLockAsync(lockKey, lockValue, cancellationToken: TestToken);
 
         Assert.True(remainingTtl > initialExpiry);
         Assert.True(remainingTtl <= newExpiry);
@@ -367,12 +367,12 @@ public class IntegrationTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         }";
 
         // act
-        await Cache.SetAsync(cacheKey, oldValue, localCacheEnable: false);
+        await Cache.SetAsync(cacheKey, oldValue, localCacheEnable: false, token: TestToken);
         var retrievedValue = await Cache.GetAsync(cacheKey, _ =>
         {
             retrieverCalled = true;
             return Task.FromResult(newValue);
-        });
+        }, token: TestToken);
 
         // assert
         Assert.True(retrieverCalled);
