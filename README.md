@@ -215,6 +215,25 @@ var value = await cache.GetAsync<string>("mykey", token: cts.Token);
 > the command has already been handed to the multiplexer and the server may still apply it. Use the token to
 > bound how long a caller waits, not to guarantee a write never lands.
 
+## Metrics
+
+Metrics are published through `System.Diagnostics.Metrics` (no `prometheus-net` dependency), so they flow to
+OpenTelemetry, `dotnet-counters` or any `MeterListener`. Set `EnableMeterData = true` **and** register the
+meter on the host — without the registration nothing is collected:
+
+```csharp
+builder.Services.AddOpenTelemetry().WithMetrics(m => m
+    .AddMeter(HybridRedisCache.KeyMeter.MeterName)   // "HybridRedisCache"
+    .AddPrometheusExporter());                       // or any other exporter
+```
+
+| Instrument | Type | Tags | Meaning |
+| --- | --- | --- | --- |
+| `hybrid_cache_lookups` | counter | `cache`, `layer` (`local`, `redis`), `result` (`hit`, `miss`) | One measurement per layer touched by a read. A local miss falls through to Redis, so one read can produce a `local`/`miss` **and** a `redis`/`hit`. |
+| `hybrid_cache_data_bytes` (`DataSizeHistogramMetricName`) | histogram, unit `By` | `cache` | Size of each payload written to Redis. |
+
+The `cache` tag carries `InstancesSharedName`, so several caches in one process stay distinguishable.
+
 ## Server requirements
 
 * **Redis 6.0+** for general use.

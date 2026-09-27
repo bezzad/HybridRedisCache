@@ -462,12 +462,14 @@ public partial class HybridCache
         catch (JsonSerializationException ex)
         {
             LogMessage($"Redis cache deserialization error, [{key}]", ex);
+            _keyMeter.RecordLookup(KeyMeter.RedisLayer, hit: false);
             activity?.SetCacheHitActivity(CacheResultType.Miss, cacheKey);
             return false;
         }
         catch (Exception ex)
         {
             LogMessage($"Redis cache get error, [{key}]", ex);
+            _keyMeter.RecordLookup(KeyMeter.RedisLayer, hit: false);
             if (_options.ThrowIfDistributedCacheError)
                 throw;
         }
@@ -496,12 +498,14 @@ public partial class HybridCache
         catch (JsonSerializationException ex)
         {
             LogMessage($"Redis cache deserialization error, [{key}]", ex);
+            _keyMeter.RecordLookup(KeyMeter.RedisLayer, hit: false);
             activity?.SetCacheHitActivity(CacheResultType.Miss, cacheKey);
             return (false, default);
         }
         catch (Exception ex)
         {
             LogMessage($"Redis cache get error, [{key}]", ex);
+            _keyMeter.RecordLookup(KeyMeter.RedisLayer, hit: false);
             if (_options.ThrowIfDistributedCacheError)
                 throw;
         }

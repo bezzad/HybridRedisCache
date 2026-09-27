@@ -132,14 +132,17 @@ public record HybridCachingOptions
     public bool EnableRedisClientTracking { get; set; } = false;
 
     /// <summary>
-    /// Enable metering and logging of data writes to Redis.
-    /// When enabled, any data write exceeding the specified threshold will be logged as a warning
-    /// and recorded in Prometheus metrics for monitoring purposes.
+    /// Enable metering of cache reads and of data writes to Redis, and logging of heavy writes.
+    /// When enabled, every read is counted on the <see cref="KeyMeter.LookupsMetricName"/> counter per layer
+    /// and result, payload sizes are recorded on the <see cref="DataSizeHistogramMetricName"/> histogram, and
+    /// any write exceeding <see cref="WarningHeavyDataThresholdBytes"/> is logged as a warning.
+    /// Both instruments live on the <see cref="KeyMeter.MeterName"/> meter, which the host must register
+    /// (for example <c>AddMeter(KeyMeter.MeterName)</c>) for anything to be collected.
     /// </summary>
     public bool EnableMeterData { get; set; } = false;
 
     /// <summary>
-    /// Set name of the Prometheus histogram metric for data size tracking.
+    /// Set name of the histogram instrument for data size tracking.
     /// Default metric name is "hybrid_cache_data_bytes".
     /// </summary>
     public string DataSizeHistogramMetricName { get; set; } = "hybrid_cache_data_bytes";

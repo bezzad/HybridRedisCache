@@ -446,7 +446,9 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
 
     private bool TryGetMemoryValue<T>(string cacheKey, Activity activity, out T value)
     {
-        if (_memoryCache.TryGetValue(cacheKey, out value))
+        var hit = _memoryCache.TryGetValue(cacheKey, out value);
+        _keyMeter.RecordLookup(KeyMeter.LocalLayer, hit);
+        if (hit)
         {
             activity?.SetRetrievalStrategyActivity(RetrievalStrategy.MemoryCache);
             activity?.SetCacheHitActivity(CacheResultType.Hit, cacheKey);
@@ -459,11 +461,14 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
     private bool TryUpdateRedisValueOnLocalCache<T>(string cacheKey, RedisValueWithExpiry redisValue, bool localCacheEnable, Activity activity, out T value)
     {
         value = default;
-        if (!redisValue.Value.HasValue) return false;
+        var val = redisValue.Value;
+        if (!val.HasValue)
+        {
+            _keyMeter.RecordLookup(KeyMeter.RedisLayer, hit: false);
+            return false;
+        }
 
         var localExpiry = TimeSpan.Zero;
-        var val = redisValue.Value;
-        if (!val.HasValue) return false;
 
         if (redisValue.Expiry.HasValue) // should be cached in local memory
             localExpiry = redisValue.Expiry.Value;
@@ -473,6 +478,7 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
         if (localExpiry > TimeSpan.Zero && localCacheEnable)
             SetLocalMemory(cacheKey, value, localExpiry, Condition.Always, false);
 
+        _keyMeter.RecordLookup(KeyMeter.RedisLayer, hit: true);
         activity?.SetRetrievalStrategyActivity(RetrievalStrategy.RedisCache);
         activity?.SetCacheHitActivity(CacheResultType.Hit, cacheKey);
 
