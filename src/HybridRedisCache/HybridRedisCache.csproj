@@ -26,6 +26,9 @@
 ### Added
 - New `hybrid_cache_lookups` counter recording every cache read, tagged with `cache` (the instance shared name), `layer` (`local`, `redis`) and `result` (`hit`, `miss`). A local miss falls through to redis, so a single read can produce two measurements.
 - The data-size histogram now carries the `By` unit, explicit bucket boundaries and the same `cache` tag.
+
+### Dependencies
+- `StackExchange.Redis` 3.0.17 -&gt; 3.3.1 (raises the minimum consumers must resolve), `MessagePack` 3.1.8 -&gt; 3.1.10, `Microsoft.Extensions.Caching.Memory` 10.0.10 -&gt; 10.0.12.
         </PackageReleaseNotes>
         <IncludeSymbols>True</IncludeSymbols>
         <PackageLicenseFile>LICENSE</PackageLicenseFile>
@@ -44,10 +47,10 @@
 
     <ItemGroup>
         <PackageReference Include="MemoryPack" Version="1.21.4" />
-        <PackageReference Include="MessagePack" Version="3.1.8" />
-        <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="10.0.10" />
+        <PackageReference Include="MessagePack" Version="3.1.10" />
+        <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="10.0.12" />
         <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
-        <PackageReference Include="StackExchange.Redis" Version="3.0.17" />
+        <PackageReference Include="StackExchange.Redis" Version="3.3.1" />
     </ItemGroup>
 
 </Project>

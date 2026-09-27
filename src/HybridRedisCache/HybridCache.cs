@@ -89,8 +89,10 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
         _connection = ConnectionMultiplexer.Connect(redisConfig);
         if (!_connection.IsConnected)
         {
+            // No command is in flight at connect time, hence CommandFlags.None.
             throw new RedisConnectionException(ConnectionFailureType.UnableToConnect,
-                "Unable to connect Redis in initializing!");
+                CommandFlags.None, "Unable to connect Redis in initializing!",
+                innerException: null, commandStatus: CommandStatus.Unknown);
         }
 
         _connection.ConnectionRestored += OnReconnect;
