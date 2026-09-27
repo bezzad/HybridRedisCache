@@ -169,9 +169,21 @@ Two independent harnesses:
   Required for anything Garnet cannot do; the list lives in the `InProcessRedisFixture` doc comment
   (key-space notifications, pub/sub, and the Redis 8 `HSETEX`/`HGETDEL` hash commands).
 
+The suite is **xunit v3**, which runs on Microsoft.Testing.Platform; `global.json` opts `dotnet test`
+into that runner. Two consequences: the solution goes through `--solution`, and VSTest's
+`--filter "FullyQualifiedName~..."` is gone. For filtering, run xunit's own runner via `dotnet run`
+and its [query filter language](https://xunit.net/docs/query-filter-language) — `/assembly/namespace/class/method`,
+repeating `-filter` to OR them. MTP's `--filter` does **not** accept these queries.
+
 ```bash
 # Everything that runs without Docker:
-dotnet test src/HybridRedisCache.Test --filter "FullyQualifiedName~InProcess|FullyQualifiedName~SerializerTests|FullyQualifiedName~ArgumentCheckTest|FullyQualifiedName~ObjectHelperTest|FullyQualifiedName~SetAllBehaviorTests|FullyQualifiedName~CancellationTokenTests"
+dotnet run --project src/HybridRedisCache.Test -- \
+  -filter "/*/*/InProcess*/*" -filter "/*/*/SerializerTests/*" -filter "/*/*/ArgumentCheckTest/*" \
+  -filter "/*/*/ObjectHelperTest/*" -filter "/*/*/SetAllBehaviorTests/*" \
+  -filter "/*/*/CancellationTokenTests/*" -filter "/*/*/CacheLookupMeteringTests/*"
+
+# Everything, including the Docker-backed suite:
+dotnet test --solution src/HybridRedisCache.sln
 ```
 
 The container image tag is pinned in `BaseCacheTest.RedisImage` and must stay on Redis 8.x, because

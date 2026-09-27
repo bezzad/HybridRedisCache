@@ -5,7 +5,6 @@ using System.Diagnostics.Metrics;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace HybridRedisCache.Test;
 

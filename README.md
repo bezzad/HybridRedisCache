@@ -302,8 +302,16 @@ The **in-process** suite runs [Microsoft Garnet](https://github.com/microsoft/ga
 server, inside the test process. No daemon, no image pull. Run it anywhere with:
 
 ```bash
-dotnet test src/HybridRedisCache.Test --filter "FullyQualifiedName~InProcess|FullyQualifiedName~SerializerTests|FullyQualifiedName~ArgumentCheckTest|FullyQualifiedName~ObjectHelperTest|FullyQualifiedName~SetAllBehaviorTests|FullyQualifiedName~CancellationTokenTests"
+dotnet run --project src/HybridRedisCache.Test -- \
+  -filter "/*/*/InProcess*/*" -filter "/*/*/SerializerTests/*" -filter "/*/*/ArgumentCheckTest/*" \
+  -filter "/*/*/ObjectHelperTest/*" -filter "/*/*/SetAllBehaviorTests/*" \
+  -filter "/*/*/CancellationTokenTests/*" -filter "/*/*/CacheLookupMeteringTests/*"
 ```
+
+> **Why `dotnet run` and `-filter`.** The suite is xunit v3, which runs on Microsoft.Testing.Platform.
+> `dotnet run` starts xunit's own runner, whose [query filter
+> language](https://xunit.net/docs/query-filter-language) takes `/assembly/namespace/class/method`
+> (repeat `-filter` to OR them) in place of VSTest's `--filter "FullyQualifiedName~..."`.
 
 The **container-backed** suite uses [Testcontainers](https://dotnet.testcontainers.org/) to start a real
 Redis. It exists because Garnet does not implement everything this library uses — key-space notifications
@@ -361,8 +369,11 @@ random port. The image tag is pinned in `BaseCacheTest.RedisImage` and must stay
 Once the above is in place, run everything:
 
 ```bash
-dotnet test src/HybridRedisCache.sln
+dotnet test --solution src/HybridRedisCache.sln
 ```
+
+The `--solution` flag is required: `global.json` opts this repo into the Microsoft.Testing.Platform
+runner that xunit v3 uses, and it takes the solution through a flag rather than as a bare path.
 
 ## Contributing
 

@@ -3,7 +3,6 @@ using System.Linq;
 using System.Threading.Tasks;
 using StackExchange.Redis;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace HybridRedisCache.Test;
 

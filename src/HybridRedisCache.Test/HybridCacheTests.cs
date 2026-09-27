@@ -9,7 +9,6 @@ using HybridRedisCache.Test.Models;
 using Newtonsoft.Json;
 using StackExchange.Redis;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace HybridRedisCache.Test;
 
@@ -1407,6 +1406,8 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         var key = UniqueKey;
         var raceConditionKeyOnRedis = UniqueKey;
         var expiry = TimeSpan.FromMilliseconds(100);
+        // v3 enforces Timeout by cancelling this token, so the waits below must observe it.
+        var ct = TestContext.Current.CancellationToken;
         var tasks = Enumerable.Range(0, numberOfConcurrency).Select(LockAndWait);
         await Cache.ClearAllAsync();
 
@@ -1429,7 +1430,7 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
                 TestOutputHelper.WriteLine($"Task {id} locked the {key}");
                 var count = await Cache.GetAsync<int>(raceConditionKeyOnRedis);
                 await Cache.SetAsync(raceConditionKeyOnRedis, count + 1);
-                await Task.Delay(expiry);
+                await Task.Delay(expiry, ct);
             }
 
             TestOutputHelper.WriteLine($"Task {id} released the key {key}");
@@ -1530,7 +1531,9 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
             When = Condition.NotExists
         });
 
-        await semaphore.WaitAsync();
+        // v3 enforces Timeout by cancelling this token, so the wait must observe it or the
+        // test hangs the whole run instead of failing.
+        await semaphore.WaitAsync(TestContext.Current.CancellationToken);
 
         // Assert
         Assert.True(list.Count == 0);
@@ -1553,7 +1556,7 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
 
         // Act
         await Cache.FlushLocalCachesAsync();
-        await semaphore.WaitAsync();
+        await semaphore.WaitAsync(TestContext.Current.CancellationToken);
 
         // Assert
         Assert.True(clearSignalReceived);

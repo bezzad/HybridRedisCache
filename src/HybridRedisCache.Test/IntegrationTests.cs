@@ -3,7 +3,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using HybridRedisCache.Test.Models;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace HybridRedisCache.Test;
 
@@ -34,7 +33,8 @@ public class IntegrationTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         await instance1.SetAsync(key, value1, expiry, expiry, Flags.DemandMaster, localCacheEnable: localCacheEnable);
 
         // wait to receive the cache invalidate message
-        await locker.WaitAsync();
+        // v3 enforces Timeout by cancelling this token, so every wait here must observe it.
+        await locker.WaitAsync(TestContext.Current.CancellationToken);
 
         // retrieve the value from the shared cache using instance2
         var v1I2 = await instance2.GetAsync<string>(key);
@@ -43,7 +43,7 @@ public class IntegrationTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         await instance1.SetAsync(key, value2, expiry, expiry, Flags.DemandMaster, localCacheEnable: localCacheEnable);
 
         // wait to receive the cache invalidate message
-        await locker.WaitAsync();
+        await locker.WaitAsync(TestContext.Current.CancellationToken);
 
         // retrieve the updated value from the shared cache using instance2
         var v2I2 = await instance2.GetAsync<string>(key);
@@ -152,13 +152,15 @@ public class IntegrationTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         await using var instance1 = new HybridCache(Options);
         await using var instance2 = new HybridCache(Options);
         await using var instance3 = new HybridCache(Options);
+        // v3 enforces Timeout by cancelling this token, so the waits below must observe it.
+        var ct = TestContext.Current.CancellationToken;
 
         // Act
         for (var i = 0; i < 100; i++)
         {
             var value = "test value " + i;
 
-            await instance1.SetAsync(cacheKey, value, opt);
+            await instance1.SetAsync(cacheKey, value, opt, ct);
             var readWithInstance1 = await instance1.GetAsync<string>(cacheKey, false);
             var readWithInstance2 = await instance2.GetAsync<string>(cacheKey, false);
             var readWithInstance3 = await instance3.GetAsync<string>(cacheKey, false);

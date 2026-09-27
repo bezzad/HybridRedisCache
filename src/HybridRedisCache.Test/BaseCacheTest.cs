@@ -7,12 +7,11 @@ using Microsoft.Extensions.Logging;
 using Testcontainers.Redis;
 using Testcontainers.Xunit;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace HybridRedisCache.Test;
 
 [Collection("Sequential")] // run tests in order
-public abstract class BaseCacheTest : ContainerTest<RedisBuilder, RedisContainer>, IAsyncLifetime
+public abstract class BaseCacheTest : ContainerTest<RedisBuilder, RedisContainer>
 {
     private HybridCache _cache;
     protected readonly ILoggerFactory LoggerFactory;
@@ -125,9 +124,12 @@ public abstract class BaseCacheTest : ContainerTest<RedisBuilder, RedisContainer
         return keyValues;
     }
 
-    public async Task DisposeAsync()
+    // xunit v3: ContainerTest implements IAsyncLifetime/IAsyncDisposable explicitly and hands
+    // subclasses this hook. A public DisposeAsync() here would compile and never be called,
+    // leaking the cache; the base disposes the container itself.
+    protected override async ValueTask DisposeAsyncCore()
     {
-        if (Container != null) await Container.DisposeAsync();
         if (_cache != null) await _cache.DisposeAsync();
+        await base.DisposeAsyncCore();
     }
 }
