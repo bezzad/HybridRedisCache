@@ -271,6 +271,6 @@ Only warnings on lines you changed matter. Rules for new library code:
 * **Use the lambda parameter** in `GetOrAdd(key, k => ...)`, do not capture `key` (S6612).
 * **Every test asserts something** (S2699): wrap "must not throw" in `Record.ExceptionAsync` + `Assert.Null`.
 * **Markdown:** blank line around headings, lists and code fences; a language on every fence (`text` for
-  output); no `$ ` prompt before commands; lines up to 120 characters.
+  output); no `$` prompt before commands; lines up to 120 characters.
 * **Accepted on purpose (do not "fix"):** CA1716 on `when`/`end` parameter names (they match the existing
   API and StackExchange.Redis); CA1707 underscores in test method names (repo test naming).
