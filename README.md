@@ -167,6 +167,47 @@ public class WeatherForecastController : Controller
 }
 ```
 
+### More Redis commands
+
+These methods talk to Redis directly. The ones that change a key also remove its local copy, on this
+instance and (through key-space notifications) on every other instance.
+
+| Method | Redis command | What it does |
+| --- | --- | --- |
+| `GetAll` / `GetAllAsync` | `GET` (pipelined) | Reads many keys. Keys in the local cache are not sent to Redis. |
+| `GetAndExpireAsync` | `GETEX` | Reads a key and sets a new TTL (`null` removes the TTL). |
+| `KeyRenameAsync` | `RENAME` / `RENAMENX` | Renames a key. `Condition.NotExists` renames only if the new key is free. |
+| `KeyPersistAsync` | `PERSIST` | Removes the TTL, so the key never expires. |
+| `KeyTouchAsync` | `TOUCH` | Marks a key as used, so LRU eviction keeps it longer. |
+| `HyperLogLogAddAsync`, `HyperLogLogLengthAsync` | `PFADD`, `PFCOUNT` | Counts unique values with ~0.81% error in at most 12 KB. |
+| `StringSetBitAsync`, `StringGetBitAsync`, `StringBitCountAsync` | `SETBIT`, `GETBIT`, `BITCOUNT` | Bit flags and counts. |
+| `ServerInfoAsync`, `SlowlogGetAsync`, `ClientListAsync`, `MemoryStatsAsync` | `INFO`, `SLOWLOG`, `CLIENT LIST`, `MEMORY STATS` | Server monitoring (slow log and client list need `AllowAdmin`). |
+
+```csharp
+// Read many keys at once; missing keys are not in the result
+IDictionary<string, User> users = await cache.GetAllAsync<User>(["user:1", "user:2", "user:3"]);
+
+// Read a session and extend it by 20 minutes in one command
+var session = await cache.GetAndExpireAsync<Session>("session:42", TimeSpan.FromMinutes(20));
+
+// Rename only if "report:final" does not exist yet
+bool renamed = await cache.KeyRenameAsync("report:draft", "report:final", Condition.NotExists);
+
+// Unique visitors per day
+await cache.HyperLogLogAddAsync("visitors:2026-09-28", ["10.0.0.1", "10.0.0.2", "10.0.0.1"]);
+long uniqueVisitors = await cache.HyperLogLogLengthAsync("visitors:2026-09-28"); // 2
+
+// Daily check-in flags: bit N = day N
+await cache.StringSetBitAsync("checkin:user:7", offset: 3, bit: true);
+long daysCheckedIn = await cache.StringBitCountAsync("checkin:user:7");
+
+// Monitoring
+string memoryInfo = await cache.ServerInfoAsync("memory");
+CommandTrace[] slowCommands = await cache.SlowlogGetAsync(count: 10);
+```
+
+"Set only if the key is missing" (`SETNX`) is not a new method: use `SetAsync(key, value, when: Condition.NotExists)`.
+
 ## Features
 
 `HybridCache` is a caching library that provides a number of advantages over traditional `in-memory` caching solutions.
