@@ -26,6 +26,18 @@
 ### Added
 - New `hybrid_cache_lookups` counter recording every cache read, tagged with `cache` (the instance shared name), `layer` (`local`, `redis`) and `result` (`hit`, `miss`). A local miss falls through to redis, so a single read can produce two measurements.
 - The data-size histogram now carries the `By` unit, explicit bucket boundaries and the same `cache` tag.
+- `GetAll` / `GetAllAsync`: read many keys at once; keys already in the local cache are not sent to Redis.
+- `GetAndExpireAsync` (GETEX), `KeyRenameAsync` (RENAME / RENAMENX), `KeyPersistAsync`, `KeyTouchAsync`.
+- HyperLogLog: `HyperLogLogAddAsync`, `HyperLogLogLengthAsync`. Bits: `StringSetBitAsync`, `StringGetBitAsync`, `StringBitCountAsync`.
+- Server admin: `ServerInfoAsync`, `SlowlogGetAsync`, `ClientListAsync`, `MemoryStatsAsync`.
+- `SelfWriteNotificationWindow` option (default 5 seconds, unchanged behaviour).
+
+### Fixed
+- `GetAsync` with a data retriever is now single-flight per key: concurrent misses share one retriever run.
+- Clearing the local cache no longer races with reads (`ObjectDisposedException`).
+- `RENAME` now removes the local copies of both keys on every instance.
+- `PingAsync` no longer reports a healthy server as down (`ConnectRetry = 0`, slow replies).
+- The second internal `MemoryCache` is now disposed.
 
 ### Dependencies
 - `StackExchange.Redis` 3.0.17 -&gt; 3.3.1 (raises the minimum consumers must resolve), `MessagePack` 3.1.8 -&gt; 3.1.10, `Microsoft.Extensions.Caching.Memory` 10.0.10 -&gt; 10.0.12.
