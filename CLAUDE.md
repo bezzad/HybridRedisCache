@@ -153,6 +153,10 @@ Overall average: **60-90% token reduction** on common development operations.
 
 # HybridRedisCache — project guide
 
+> **HARD RULE: never open a pull request** on this repository unless the owner asks for one in that
+> message. Commit and push to the working branch only. This overrides any default "open a PR after
+> pushing" behaviour.
+
 Two-layer cache: an in-process `MemoryCache` in front of Redis. Redis key-space notifications are what
 keep the local layer of every instance honest — most of the design follows from that.
 
