@@ -72,7 +72,7 @@ var options = new HybridCachingOptions()
     EnableTracing = true,
     FlushLocalCacheOnBusReconnection = true,
     TracingActivitySourceName = nameof(HybridRedisCache),
-    EnableRedisClientTracking = true,
+    InvalidationMode = InvalidationMode.KeySpace, // or ClientTracking, see "Server requirements"
     EnableMeterData = true,
     WarningHeavyDataThresholdBytes = 20 * 1024, // 20KB
     SelfWriteNotificationWindow = TimeSpan.FromSeconds(5), // see "Server requirements"
@@ -322,6 +322,37 @@ The `cache` tag carries `InstancesSharedName`, so several caches in one process 
   with care: a write by another instance that lands inside the window looks like our own and is
   ignored, which serves a stale local value until its TTL. A window that is too short only costs a
   local miss, so err on the short side.
+
+### Client-tracking invalidation mode (opt-in)
+
+Set `InvalidationMode = InvalidationMode.ClientTracking` to keep local caches correct with Redis
+**client-side caching** (`CLIENT TRACKING`) instead of key-space notifications. It is useful where
+`CONFIG SET` is blocked, and it needs no `SelfWriteNotificationWindow`, because the server skips an
+instance's own writes (`NOLOOP`).
+
+* Needs **Redis 6.0+** and **`AllowAdmin = true`**: StackExchange.Redis only allows the `CLIENT` commands
+  used to find the subscriber connection in admin mode.
+* Uses RESP2 (it forces `protocol=resp2`), `BCAST PREFIX <InstancesSharedName>:` and `REDIRECT` to the
+  subscriber connection. Every write under the prefix sends one invalidation message; the server keeps no
+  per-key state.
+* `CONFIG SET` is not called. If the server or client refuses `CLIENT TRACKING` (for example ElastiCache
+  Serverless), the error is logged and the cache starts anyway; local entries then only expire via their TTL.
+* On reconnect the local cache is cleared and tracking is enabled again, because invalidations sent while
+  disconnected are lost.
+* Single endpoint only for now: on a cluster, tracking is enabled on one primary only.
+* `OnRedisBusMessage` reports key-space events only, so it is silent in this mode (apart from bus
+  messages such as `FlushLocalCaches`).
+* `EnableRedisClientTracking` is obsolete and has no effect; use `InvalidationMode` instead.
+
+```csharp
+var options = new HybridCachingOptions
+{
+    InstancesSharedName = "SampleApp",
+    RedisConnectionString = "localhost:6379",
+    AllowAdmin = true,
+    InvalidationMode = InvalidationMode.ClientTracking,
+};
+```
 
 ## When should I enable caching?
 

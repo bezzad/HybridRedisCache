@@ -1,7 +1,7 @@
 # Proposal
 
-> **Status: R&D only.** Nothing here is scheduled for implementation. The goal is to decide, with a
-> small spike, whether client-side caching should replace or sit next to key-space notifications.
+> **Status: GO (spike done 2026-09-29).** Client tracking sits next to key-space notifications as an
+> opt-in mode (RESP2 + `REDIRECT` + `BCAST`); see design.md D1/D2 for the spike results.
 
 ## Why
 

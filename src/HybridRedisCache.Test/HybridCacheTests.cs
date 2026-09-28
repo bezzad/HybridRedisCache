@@ -1508,6 +1508,8 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
     [Fact(Timeout = 10_000)]
     public async Task TestRedisBusMessagesWhenExpiredKey()
     {
+        Assert.SkipWhen(TestInvalidationMode.Current == InvalidationMode.ClientTracking,
+            "OnRedisBusMessage reports key-space events, which client-tracking mode does not use.");
         // Arrange
         var cacheMsg = "test message";
         var cacheKey = "test_key_" + Guid.NewGuid().ToString("N");

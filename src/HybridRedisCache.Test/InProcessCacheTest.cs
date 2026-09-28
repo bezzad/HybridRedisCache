@@ -43,6 +43,7 @@ public abstract class InProcessCacheTest : IAsyncDisposable
         AllowAdmin = true,
         EnableTracing = true,
         EnableLogging = true,
+        InvalidationMode = TestInvalidationMode.Current,
     };
 
     protected HybridCache Cache => _cache ??= new HybridCache(Options, LoggerFactory);

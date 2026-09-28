@@ -47,6 +47,18 @@ interactive connection.
   (a) `CLIENT LIST` and match on a unique `CLIENT SETNAME`/lib-name per connection;
   (b) run `CLIENT ID` through the subscriber connection if SE.Redis allows it.
 
+**Spike result (2026-09-29, Redis 8.2, SE.Redis 3.3.1): RESP2 + REDIRECT works; RESP3 does not.**
+
+- RESP2: the subscriber connection is the `CLIENT LIST` entry with our `ClientName` and `flags=P`.
+  `CLIENT TRACKING ON REDIRECT <that id> BCAST PREFIX app: NOLOOP` delivers one `__redis__:invalidate`
+  message per key (multi-key `MSET`/`DEL` arrive as separate messages), a null value on `FLUSHALL`,
+  nothing for our own writes (`NOLOOP`) and nothing outside the prefix.
+- RESP3: tracking is accepted but SE.Redis never surfaces the `invalidate` push frames to user code.
+  Client-tracking mode therefore forces `protocol=resp2`.
+- Option (b) is not possible: SE.Redis keeps the connection id internal. Option (a) works, but SE.Redis
+  refuses `CLIENT` commands unless `AllowAdmin` is set, so this mode **requires `AllowAdmin = true`**;
+  without it startup logs an error and continues in the degraded mode.
+
 ### D2. Use BCAST with the instance prefix
 
 - Default mode only tracks keys read by **that connection**. SE.Redis multiplexes all commands of the
@@ -55,6 +67,15 @@ interactive connection.
   current key-space subscription is scoped.
 - Cost: messages for keys we never cached. That is the same as today, so not worse.
 - The spike measures both; BCAST is the default choice for simplicity.
+
+**Spike result:** 100k keys written, this instance read 50k, then all 100k overwritten by another client:
+
+| Mode | Invalidations received | `used_memory` | `tracking_total_keys` |
+| --- | --- | --- | --- |
+| Default | 50,000 | 10.52M | 50,000 |
+| BCAST | 100,000 | 6.64M | 0 |
+
+BCAST sends 2x the messages here but costs no server memory per key. BCAST chosen.
 
 ### D3. Use `NOLOOP` and remove the time window in this mode
 
@@ -71,7 +92,10 @@ run `CLIENT TRACKING` again (with the new subscriber id) and clear the local cac
 
 - [SE.Redis may not support this cleanly] → The spike is the first task; stop the change if it fails.
 - [Subscriber client id changes on reconnect] → Re-run D4 on every `ConnectionRestored` event.
-- [Managed services] → Verify `CLIENT TRACKING` on Azure Cache for Redis and ElastiCache before promising it.
+- [Managed services] → Checked docs (2026-09-29): ElastiCache (node-based, Redis 6+) documents client-side
+  caching and broadcast mode; ElastiCache Serverless does not support it, and users report
+  `unknown subcommand 'tracking'` on some deployments. Azure Cache for Redis does not list `CLIENT TRACKING`
+  as disabled, but this is unverified on a live instance. Mode stays opt-in; a refusal is logged, not fatal.
 - [Cluster] → Tracking is per node. Each primary needs its own `CLIENT TRACKING`. Keep cluster out of v1 or
   loop over all primaries.
 - [Garnet in tests] → Garnet may not support tracking; tests for this mode go to the container suite.

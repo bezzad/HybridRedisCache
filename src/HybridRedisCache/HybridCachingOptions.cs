@@ -126,10 +126,23 @@ public record HybridCachingOptions
     public bool ThreadPoolSocketManagerEnable { get; set; }
 
     /// <summary>
-    /// Enable client tracking with specific key prefixes (client app name) to reduce overhead in KeySpace channel
-    /// Note: Client Tracking not enabled on Redis Enterprise Cloud, issue #16
+    /// No longer has any effect: it redirected invalidations to a connection that never received them.
+    /// Use <see cref="InvalidationMode"/> = <see cref="HybridRedisCache.InvalidationMode.ClientTracking"/>.
     /// </summary>
-    public bool EnableRedisClientTracking { get; set; } = false;
+    [Obsolete("Has no effect. Set InvalidationMode = InvalidationMode.ClientTracking instead.")]
+    public bool EnableRedisClientTracking { get; set; }
+
+    /// <summary>
+    /// How the local cache of every instance learns that a key changed in Redis.
+    /// Defaults to <see cref="HybridRedisCache.InvalidationMode.KeySpace"/>.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="HybridRedisCache.InvalidationMode.ClientTracking"/> needs Redis 6+ and
+    /// <see cref="AllowAdmin"/> = <c>true</c> (the subscriber connection is found with <c>CLIENT LIST</c>),
+    /// and forces the RESP2 protocol. If the server refuses <c>CLIENT TRACKING</c>, the error is logged and
+    /// local entries only expire on their own TTL.
+    /// </remarks>
+    public InvalidationMode InvalidationMode { get; set; } = InvalidationMode.KeySpace;
 
     /// <summary>
     /// Enable metering of cache reads and of data writes to Redis, and logging of heavy writes.

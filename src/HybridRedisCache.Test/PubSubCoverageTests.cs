@@ -49,15 +49,4 @@ public class PubSubCoverageTests(ITestOutputHelper output) : BaseCacheTest(outpu
         await WaitUntil(() => !other.Exists(key));
         Assert.False(other.Exists(key));
     }
-
-    [Fact]
-    public async Task EnableRedisClientTracking_StartsAndServesReads()
-    {
-        var options = Options;
-        options.EnableRedisClientTracking = true;
-        await using var cache = new HybridCache(options, LoggerFactory);
-        var key = UniqueKey;
-        Assert.True(await cache.SetAsync(key, "v", token: TestToken));
-        Assert.Equal("v", await cache.GetAsync<string>(key, localCacheEnable: false, token: TestToken));
-    }
 }

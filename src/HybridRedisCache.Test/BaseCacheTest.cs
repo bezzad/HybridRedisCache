@@ -39,6 +39,7 @@ public abstract class BaseCacheTest : ContainerTest<RedisBuilder, RedisContainer
         ConnectionTimeout = 5000,
         EnableTracing = true,
         EnableLogging = true,
+        InvalidationMode = TestInvalidationMode.Current,
     };
 
     // Lazy Cache: options change inner methods and after that create Cache with first call

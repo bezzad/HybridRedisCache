@@ -13,6 +13,8 @@ public class IntegrationTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
     [InlineData(false)]
     public async Task TestSharedCache(bool localCacheEnable)
     {
+        Assert.SkipWhen(TestInvalidationMode.Current == InvalidationMode.ClientTracking,
+            "OnRedisBusMessage reports key-space events, which client-tracking mode does not use.");
         // Arrange
         var key = "TestSharedCache_" + UniqueKey;
         const string value1 = "Value1";

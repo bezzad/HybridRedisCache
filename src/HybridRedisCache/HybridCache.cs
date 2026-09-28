@@ -25,9 +25,15 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
     private int _reconfigureAttemptCount;
 
     private static readonly TimeSpan ReconnectBackOff = TimeSpan.FromMilliseconds(500);
+    private static readonly RedisChannel TrackingChannel = RedisChannel.Literal("__redis__:invalidate");
+    private const int TrackingRetryCount = 10;
+    private static readonly TimeSpan TrackingRetryDelay = TimeSpan.FromMilliseconds(200);
 
     private readonly KeyMeter _keyMeter;
     public IDatabase RedisDb { get; private set; }
+
+    private bool UseClientTracking => _options.InvalidationMode == InvalidationMode.ClientTracking;
+    private string ClientName => _options.InstancesSharedName + ":" + _instanceId;
 
     /// <summary>
     /// This method initializes the HybridCache instance and subscribes to Redis key-space events 
@@ -58,7 +64,11 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
         redisConfig.AbortOnConnectFail = _options.AbortOnConnectFail;
         redisConfig.ConnectRetry = _options.ConnectRetry;
         redisConfig.ReconnectRetryPolicy = new LinearRetry(1000);
-        redisConfig.ClientName = _options.InstancesSharedName + ":" + _instanceId;
+        redisConfig.ClientName = ClientName;
+
+        // SE.Redis does not surface RESP3 "invalidate" push frames, so tracking needs RESP2 + REDIRECT.
+        if (UseClientTracking)
+            redisConfig.Protocol = RedisProtocol.Resp2;
         redisConfig.AsyncTimeout = _options.AsyncTimeout;
         redisConfig.SyncTimeout = _options.SyncTimeout;
         redisConfig.ConnectTimeout = _options.ConnectionTimeout;
@@ -106,6 +116,10 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
         _keySpaceChannelName = $"__keyspace@{RedisDb.Database}__:{_options.InstancesSharedName}:";
         var keySpaceChannel = GetRedisKeySpaceChannel("*", RedisChannel.PatternMode.Pattern);
         _redisSubscriber.Subscribe(keySpaceChannel, OnBusMessage, CommandFlags.FireAndForget);
+
+        // Not fire-and-forget: CLIENT TRACKING redirects to this subscriber connection, so it must exist first.
+        if (UseClientTracking)
+            _redisSubscriber.Subscribe(TrackingChannel, OnTrackingInvalidation);
         SetRedisServersConfigs();
 
         LogMessage("HybridRedisCache connected and configured at endpoints: " +
@@ -204,6 +218,13 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
         // servers block or omit CONFIG SET. Failing here would make the whole cache unusable on those
         // servers, so the error is logged and startup continues: key-space notifications may already
         // be enabled server-side, and if they are not, the local cache simply relies on its own TTL.
+        if (UseClientTracking)
+        {
+            // Client tracking needs no CONFIG SET, which is the point of the mode.
+            EnableClientTracking();
+            return;
+        }
+
         try
         {
             RedisDb.Execute("CONFIG", "SET", "notify-keyspace-events", "KA");
@@ -215,22 +236,88 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
                 "Cross-instance local cache invalidation will not work unless 'notify-keyspace-events' " +
                 "is enabled on the server. Local cache entries will still expire via their own TTL.", ex);
         }
+    }
 
-        if (!_options.EnableRedisClientTracking)
-            return;
-
+    /// <summary>
+    /// Turns on BCAST tracking for this instance's key prefix and redirects the invalidations to the
+    /// subscriber connection. Returns false (after logging) when the server or client refuses it.
+    /// </summary>
+    private bool EnableClientTracking()
+    {
         try
         {
-            var clientId = RedisDb.Execute("CLIENT", "ID");
+            var subscriberId = FindSubscriberClientId();
+            if (subscriberId is null)
+            {
+                LogMessage("Unable to enable Redis client tracking: the subscriber connection was not found in CLIENT LIST.");
+                return false;
+            }
 
-            // Enable tracking with specific key prefixes to reduce overhead
-            RedisDb.Execute($"CLIENT", "TRACKING", "ON", "REDIRECT", (long)clientId, "BCAST", "PREFIX",
-                $"{_options.InstancesSharedName}:*", "NOLOOP");
+            // OFF first: a reconnect gives the subscriber a new id, and tracking must follow it.
+            RedisDb.Execute("CLIENT", "TRACKING", "OFF");
+            RedisDb.Execute("CLIENT", "TRACKING", "ON", "REDIRECT", subscriberId.Value, "BCAST", "PREFIX",
+                _options.InstancesSharedName + ":", "NOLOOP");
+            LogMessage($"Redis client tracking enabled, redirected to subscriber client {subscriberId.Value}");
+            return true;
         }
         catch (Exception ex)
         {
-            // Client tracking is not available on every server (e.g. Redis Enterprise Cloud, issue #16).
-            LogMessage("Unable to enable Redis client tracking (CLIENT TRACKING ON).", ex);
+            // Not every server allows it (Redis < 6, ElastiCache Serverless, Redis Enterprise Cloud issue #16),
+            // and SE.Redis refuses CLIENT commands without AllowAdmin.
+            LogMessage("Unable to enable Redis client tracking (CLIENT TRACKING ON). Requires Redis 6+ and " +
+                       "AllowAdmin = true. Local cache entries will only expire via their own TTL.", ex);
+            return false;
+        }
+    }
+
+    private long? FindSubscriberClientId()
+    {
+        // Both SE.Redis connections carry our unique client name; the subscriber is the one flagged P (pub/sub).
+        var nameField = "name=" + ClientName;
+        var clients = RedisDb.Execute("CLIENT", "LIST").ToString();
+        foreach (var line in clients.Split('\n'))
+        {
+            var fields = line.Trim().Split(' ');
+            if (!fields.Contains(nameField) || !fields.Any(f => f.StartsWith("flags=", StringComparison.Ordinal) && f.Contains('P', StringComparison.Ordinal)))
+                continue;
+
+            var id = fields.First(f => f.StartsWith("id=", StringComparison.Ordinal))[3..];
+            return long.Parse(id, System.Globalization.CultureInfo.InvariantCulture);
+        }
+
+        return null;
+    }
+
+    private void OnTrackingInvalidation(RedisChannel channel, RedisValue value)
+    {
+        // A null key means the server flushed the database (or dropped tracking state): forget everything.
+        if (value.IsNull)
+        {
+            ClearLocalMemory();
+            return;
+        }
+
+        var key = (string)value;
+        _memoryCache.Remove(key);
+
+        // Key-space "del" events are not guaranteed in this mode, so lock waiters wake on the invalidation.
+        if (_lockTasks.TryRemove(key, out var tcs))
+            tcs.TrySetResult();
+    }
+
+    private async Task ReEnableClientTrackingAsync()
+    {
+        // The subscriber resubscribes shortly after ConnectionRestored, so it may not be listed yet.
+        for (var i = 0; i < TrackingRetryCount && !_disposed; i++)
+        {
+            if (EnableClientTracking())
+            {
+                // Invalidations sent while tracking was off are lost; drop what may have gone stale meanwhile.
+                ClearLocalMemory();
+                return;
+            }
+
+            await Task.Delay(TrackingRetryDelay).ConfigureAwait(false);
         }
     }
 
@@ -257,11 +344,15 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
 
     private void OnReconnect(object sender, ConnectionFailedEventArgs e)
     {
-        if (_options.FlushLocalCacheOnBusReconnection)
+        // Tracking state lives on the lost connection, so invalidations may have been missed: always clear.
+        if (_options.FlushLocalCacheOnBusReconnection || UseClientTracking)
         {
             LogMessage("Flushing local cache due to bus reconnection");
             ClearLocalMemory();
         }
+
+        if (UseClientTracking)
+            _ = Task.Run(ReEnableClientTrackingAsync);
 
         LogMessage($"Redis reconnected to {e?.EndPoint} endpoint");
     }
@@ -294,6 +385,11 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
                 // ignore the set TTL events
                 return;
             }
+
+            // In client-tracking mode invalidation comes from OnTrackingInvalidation; key-space events (if the
+            // server happens to send them) would evict our own writes, so only the bus clear message is used.
+            if (UseClientTracking && !val.Is(MessageType.ClearLocalCache))
+                return;
 
             if (val.Is(MessageType.SetCache))
             {
@@ -421,7 +517,8 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
 
         _memoryCache.Set(cacheKey, value, localExpiry ?? _options.DefaultLocalExpirationTime);
 
-        if (keepAsRecentSets)
+        // NOLOOP already skips our own writes in client-tracking mode, so no self-write window is needed.
+        if (keepAsRecentSets && !UseClientTracking)
             KeepRecentSetKey(cacheKey);
 
         return true;
