@@ -70,7 +70,7 @@ public abstract class BaseCacheTest : ContainerTest<RedisBuilder, RedisContainer
     {
         foreach (var keyValue in keyValues)
         {
-            var isExist = await Cache.ExistsAsync(keyValue.Key);
+            var isExist = await Cache.ExistsAsync(keyValue.Key, token: TestToken);
             Assert.False(isExist, $"The key {keyValue.Key} is still exist!");
         }
     }
@@ -119,12 +119,12 @@ public abstract class BaseCacheTest : ContainerTest<RedisBuilder, RedisContainer
                 .Select(_ => Guid.NewGuid().ToString("N"))
                 .ToDictionary(key => keyPrefix + key, key => key);
 
-            await Cache.SetAllAsync(noiseKeys, hybridOptions);
+            await Cache.SetAllAsync(noiseKeys, hybridOptions, TestToken);
             TestOutputHelper.WriteLine($"{noiseKeys.Count} keys added to redis as noise keys");
         }
 
         TestOutputHelper.WriteLine("Adding dummy keys...");
-        await Cache.SetAllAsync(keyValues, hybridOptions);
+        await Cache.SetAllAsync(keyValues, hybridOptions, TestToken);
         TestOutputHelper.WriteLine($"{keyValues.Count} keys added to redis as pattern searchable keys");
 
         return keyValues;
