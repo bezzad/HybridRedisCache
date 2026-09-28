@@ -177,6 +177,15 @@ public interface IHybridCache : IHybridCacheAsync
     /// <remarks><seealso href="https://redis.io/commands/ttl"/></remarks>    
     TimeSpan? GetExpiration(string key);
 
+    /// <summary>
+    /// Gets many keys in one round trip. Keys found in the local cache are not sent to Redis;
+    /// the rest are read from Redis in one pipelined round trip.
+    /// </summary>
+    /// <param name="keys">The keys to get. Duplicates are read once.</param>
+    /// <param name="localCacheEnable">Store the values read from Redis in the local cache.</param>
+    /// <returns>The found keys and their values. Missing keys are not in the result.</returns>
+    IDictionary<string, T> GetAll<T>(IEnumerable<string> keys, bool localCacheEnable = true);
+
     void FlushLocalCaches();
 
     void ClearAll(Flags flags = Flags.PreferMaster);

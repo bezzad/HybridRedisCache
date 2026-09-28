@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
@@ -1817,5 +1817,35 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         // Assert
         Assert.Equal(value1, fetchedValue);
         Assert.Null(fetchedNullValue); // read from redis, but also redis has been expired
+    }
+
+    [Fact]
+    public async Task KeyTouchAsync_ReturnsWhetherKeyExists()
+    {
+        var key = UniqueKey;
+        Assert.False(await Cache.KeyTouchAsync(key, token: TestToken));
+        await Cache.SetAsync(key, "v", token: TestToken);
+        Assert.True(await Cache.KeyTouchAsync(key, token: TestToken));
+    }
+
+    [Fact]
+    public async Task KeyRenameAsync_RemovesLocalCopiesOnOtherInstances()
+    {
+        // Arrange
+        var (key, newKey) = (UniqueKey, UniqueKey);
+        await using var other = new HybridCache(Options, LoggerFactory);
+        await Cache.SetAsync(key, "old", token: TestToken);
+        await Cache.SetAsync(newKey, "stale", token: TestToken);
+        await Task.Delay(100, TestToken);
+        Assert.Equal("old", await other.GetAsync<string>(key, token: TestToken));
+        Assert.Equal("stale", await other.GetAsync<string>(newKey, token: TestToken));
+
+        // Act
+        await Cache.KeyRenameAsync(key, newKey, token: TestToken);
+        await Task.Delay(100, TestToken);
+
+        // Assert
+        Assert.Null(await other.GetAsync<string>(key, token: TestToken));
+        Assert.Equal("old", await other.GetAsync<string>(newKey, token: TestToken));
     }
 }

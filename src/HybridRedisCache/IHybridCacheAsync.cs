@@ -100,6 +100,9 @@ public interface IHybridCacheAsync
     ValueTask<long> RemoveWithPatternAsync(string pattern, Flags flags = Flags.PreferMaster,
         int batchRemovePackSize = 1024, CancellationToken token = default);
 
+    /// <inheritdoc cref="IHybridCache.GetAll{T}(IEnumerable{string}, bool)"/>
+    Task<IDictionary<string, T>> GetAllAsync<T>(IEnumerable<string> keys, bool localCacheEnable = true, CancellationToken token = default);
+
     /// <inheritdoc cref="IHybridCache.GetExpiration(string)"/>
     Task<TimeSpan?> GetExpirationAsync(string cacheKey, CancellationToken token = default);
 
@@ -290,6 +293,128 @@ public interface IHybridCacheAsync
 
     /// <inheritdoc cref="IHybridCache.KeyExpire(string, TimeSpan, Flags, ExpireCondition)"/>
     Task KeyExpireAsync(string key, TimeSpan expiry, Flags flags = Flags.None, ExpireCondition expireWhen = ExpireCondition.Always, CancellationToken token = default);
+
+    /// <summary>
+    /// Gets the value of a key and sets a new timeout on it in one command.
+    /// </summary>
+    /// <param name="key">The key of the string.</param>
+    /// <param name="expiry">The new timeout. <see langword="null"/> removes the timeout (PERSIST).</param>
+    /// <param name="flags">The flags to use for this operation.</param>
+    /// <returns>The value of key, or default when key does not exist.</returns>
+    /// <remarks><seealso href="https://redis.io/commands/getex"/></remarks>
+    Task<T> GetAndExpireAsync<T>(string key, TimeSpan? expiry, Flags flags = Flags.None, CancellationToken token = default);
+
+    /// <summary>
+    /// Renames a key. The local copies of both keys are removed on every instance.
+    /// </summary>
+    /// <param name="key">The key to rename.</param>
+    /// <param name="newKey">The new name of the key.</param>
+    /// <param name="when"><see cref="Condition.NotExists"/> renames only when <paramref name="newKey"/> does not exist (RENAMENX).</param>
+    /// <param name="flags">The flags to use for this operation.</param>
+    /// <returns><see langword="true"/> if the key was renamed.</returns>
+    /// <remarks><seealso href="https://redis.io/commands/rename"/>, <seealso href="https://redis.io/commands/renamenx"/></remarks>
+    Task<bool> KeyRenameAsync(string key, string newKey, Condition when = Condition.Always, Flags flags = Flags.None, CancellationToken token = default);
+
+    /// <summary>
+    /// Removes the timeout of a key, so it never expires.
+    /// </summary>
+    /// <param name="key">The key to persist.</param>
+    /// <param name="flags">The flags to use for this operation.</param>
+    /// <returns><see langword="true"/> if the timeout was removed; <see langword="false"/> if the key does not exist or has no timeout.</returns>
+    /// <remarks><seealso href="https://redis.io/commands/persist"/></remarks>
+    Task<bool> KeyPersistAsync(string key, Flags flags = Flags.None, CancellationToken token = default);
+
+    /// <summary>
+    /// Updates the last access time of a key, so LRU eviction keeps it longer.
+    /// </summary>
+    /// <param name="key">The key to touch.</param>
+    /// <param name="flags">The flags to use for this operation.</param>
+    /// <returns><see langword="true"/> if the key exists.</returns>
+    /// <remarks><seealso href="https://redis.io/commands/touch"/></remarks>
+    Task<bool> KeyTouchAsync(string key, Flags flags = Flags.None, CancellationToken token = default);
+
+    /// <summary>
+    /// Adds values to a HyperLogLog. A HyperLogLog counts unique values with about 0.81% error
+    /// and at most 12 KB of memory, however many values you add (e.g. unique visitors per day).
+    /// </summary>
+    /// <param name="key">The key of the HyperLogLog.</param>
+    /// <param name="values">The values to add.</param>
+    /// <param name="flags">The flags to use for this operation.</param>
+    /// <returns><see langword="true"/> if the estimated count changed.</returns>
+    /// <remarks><seealso href="https://redis.io/commands/pfadd"/></remarks>
+    Task<bool> HyperLogLogAddAsync(string key, string[] values, Flags flags = Flags.None, CancellationToken token = default);
+
+    /// <summary>
+    /// Returns the estimated number of unique values added to a HyperLogLog.
+    /// </summary>
+    /// <param name="key">The key of the HyperLogLog.</param>
+    /// <param name="flags">The flags to use for this operation.</param>
+    /// <returns>The estimated count, or 0 when key does not exist.</returns>
+    /// <remarks><seealso href="https://redis.io/commands/pfcount"/></remarks>
+    Task<long> HyperLogLogLengthAsync(string key, Flags flags = Flags.None, CancellationToken token = default);
+
+    /// <summary>
+    /// Sets or clears the bit at <paramref name="offset"/> in the string stored at key.
+    /// The local copy of the key is removed.
+    /// </summary>
+    /// <param name="key">The key of the string.</param>
+    /// <param name="offset">The bit offset.</param>
+    /// <param name="bit">The bit value.</param>
+    /// <param name="flags">The flags to use for this operation.</param>
+    /// <returns>The old bit value.</returns>
+    /// <remarks><seealso href="https://redis.io/commands/setbit"/></remarks>
+    Task<bool> StringSetBitAsync(string key, long offset, bool bit, Flags flags = Flags.None, CancellationToken token = default);
+
+    /// <summary>
+    /// Returns the bit value at <paramref name="offset"/> in the string stored at key.
+    /// </summary>
+    /// <param name="key">The key of the string.</param>
+    /// <param name="offset">The bit offset.</param>
+    /// <param name="flags">The flags to use for this operation.</param>
+    /// <returns>The bit value, or <see langword="false"/> when key does not exist.</returns>
+    /// <remarks><seealso href="https://redis.io/commands/getbit"/></remarks>
+    Task<bool> StringGetBitAsync(string key, long offset, Flags flags = Flags.None, CancellationToken token = default);
+
+    /// <summary>
+    /// Counts the set bits (1s) in the string stored at key, between byte <paramref name="start"/> and byte <paramref name="end"/>.
+    /// </summary>
+    /// <param name="key">The key of the string.</param>
+    /// <param name="start">The first byte (defaults to 0).</param>
+    /// <param name="end">The last byte (defaults to -1, the last byte).</param>
+    /// <param name="flags">The flags to use for this operation.</param>
+    /// <returns>The number of set bits.</returns>
+    /// <remarks><seealso href="https://redis.io/commands/bitcount"/></remarks>
+    Task<long> StringBitCountAsync(string key, long start = 0, long end = -1, Flags flags = Flags.None, CancellationToken token = default);
+
+    /// <summary>
+    /// Returns the raw INFO text of the first matching server.
+    /// </summary>
+    /// <param name="section">The INFO section (e.g. "memory"), or <see langword="null"/> for the default sections.</param>
+    /// <param name="flags">The flags to use for this operation.</param>
+    /// <remarks><seealso href="https://redis.io/commands/info"/></remarks>
+    Task<string> ServerInfoAsync(string section = null, Flags flags = Flags.None, CancellationToken token = default);
+
+    /// <summary>
+    /// Returns the slow log entries of the first matching server. Needs <c>AllowAdmin</c>.
+    /// </summary>
+    /// <param name="count">The number of entries to return.</param>
+    /// <param name="flags">The flags to use for this operation.</param>
+    /// <remarks><seealso href="https://redis.io/commands/slowlog"/></remarks>
+    Task<CommandTrace[]> SlowlogGetAsync(int count = 10, Flags flags = Flags.None, CancellationToken token = default);
+
+    /// <summary>
+    /// Returns the clients connected to the first matching server. Needs <c>AllowAdmin</c>.
+    /// </summary>
+    /// <param name="flags">The flags to use for this operation.</param>
+    /// <remarks><seealso href="https://redis.io/commands/client-list"/></remarks>
+    Task<ClientInfo[]> ClientListAsync(Flags flags = Flags.None, CancellationToken token = default);
+
+    /// <summary>
+    /// Returns the MEMORY STATS report of the first matching server.
+    /// </summary>
+    /// <param name="flags">The flags to use for this operation.</param>
+    /// <remarks><seealso href="https://redis.io/commands/memory-stats"/></remarks>
+    Task<RedisResult> MemoryStatsAsync(Flags flags = Flags.None, CancellationToken token = default);
 
     /// <summary>
     /// Gets the values of the specified hash fields and sets their expiration times.

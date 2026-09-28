@@ -311,7 +311,8 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
             }
 
             if (val.Is(MessageType.RemoveKey) ||
-                val.Is(MessageType.ExpiredKey))
+                val.Is(MessageType.ExpiredKey) ||
+                val.GetMessageType() == MessageType.RenameKey)
             {
                 _memoryCache.Remove(key);
                 _recentlySetKeys.Remove(key);
@@ -482,6 +483,41 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
         activity?.SetCacheHitActivity(CacheResultType.Hit, cacheKey);
 
         return true;
+    }
+
+    private (Dictionary<string, T> found, List<string> missed) GetAllFromLocalMemory<T>(IEnumerable<string> keys,
+        Activity activity)
+    {
+        var found = new Dictionary<string, T>();
+        var missed = new List<string>();
+        foreach (var key in keys.Distinct())
+        {
+            if (TryGetMemoryValue(GetCacheKey(key), activity, out T value))
+                found[key] = value;
+            else
+                missed.Add(key);
+        }
+
+        return (found, missed);
+    }
+
+    private void AddRedisValues<T>(Dictionary<string, T> found, List<string> missed,
+        Task<RedisValueWithExpiry>[] redisTasks, bool localCacheEnable, Activity activity)
+    {
+        for (var i = 0; i < missed.Count; i++)
+        {
+            try
+            {
+                if (TryUpdateRedisValueOnLocalCache(GetCacheKey(missed[i]), redisTasks[i].Result, localCacheEnable,
+                        activity, out T value))
+                    found[missed[i]] = value;
+            }
+            catch (JsonSerializationException ex)
+            {
+                LogMessage($"Redis cache deserialization error, [{missed[i]}]", ex);
+                _keyMeter.RecordLookup(KeyMeter.RedisLayer, hit: false);
+            }
+        }
     }
 
     private IServer[] GetServers(Flags flags)

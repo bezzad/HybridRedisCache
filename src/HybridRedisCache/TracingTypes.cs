@@ -44,7 +44,15 @@ internal enum OperationTypes
     GetSentinelInfo,
     GetServerVersion,
     SetCacheWithDataRetriever,
-    KeyExpire
+    KeyExpire,
+    GetBatchCache,
+    GetAndExpire,
+    KeyRename,
+    KeyPersist,
+    KeyTouch,
+    HyperLogLog,
+    BitOperation,
+    ServerAdmin
 }
 
 internal enum RetrievalStrategy

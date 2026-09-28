@@ -194,6 +194,11 @@ Other features of `HybridCache` include:
   performance for non-critical cache operations.
 * Asynchronous caching operations: Provides asynchronous cache operations to enhance application responsiveness and
   scalability.
+* Batch reads: `GetAll` / `GetAllAsync` read many keys at once; keys already in the local cache are not sent to Redis.
+* Redis helpers: `GetAndExpireAsync` (GETEX), `KeyRenameAsync`, `KeyPersistAsync`, `KeyTouchAsync`,
+  HyperLogLog (`HyperLogLogAddAsync`, `HyperLogLogLengthAsync`), bits (`StringSetBitAsync`, `StringGetBitAsync`,
+  `StringBitCountAsync`) and server admin (`ServerInfoAsync`, `SlowlogGetAsync`, `ClientListAsync`, `MemoryStatsAsync`).
+  For "set only if missing" (SETNX) use `SetAsync(..., when: Condition.NotExists)`.
 * Distributed key locking: Ensures control over race conditions across multiple services, preventing conflicts with
   shared resources.
 * Client synchronization with Redis messages: Keeps all clients in sync through Redis bus messages. For example, if a
