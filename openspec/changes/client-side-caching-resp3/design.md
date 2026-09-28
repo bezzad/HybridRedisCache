@@ -22,11 +22,13 @@ interactive connection.
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Find out, with a spike, whether SE.Redis 3.x can receive tracking invalidations in a reliable way.
 - Pick one mode (default or BCAST, RESP2 or RESP3) and document why.
 - Keep key-space mode as the default; the new mode is opt-in.
 
 **Non-Goals:**
+
 - Removing key-space mode.
 - Tracking for hash fields or other data types (tracking works per key, which is enough).
 - Cluster-wide `REDIRECT` across shards in the first version.
@@ -34,6 +36,7 @@ interactive connection.
 ## Decisions
 
 ### D1. Use RESP2 + `REDIRECT` to the subscriber connection (first choice)
+
 - The subscriber connection subscribes to `__redis__:invalidate`, like any channel. SE.Redis already
   handles this well, including resubscribe on reconnect.
 - The interactive connection runs `CLIENT TRACKING ON REDIRECT <subscriber-id> ...`.
@@ -45,6 +48,7 @@ interactive connection.
   (b) run `CLIENT ID` through the subscriber connection if SE.Redis allows it.
 
 ### D2. Use BCAST with the instance prefix
+
 - Default mode only tracks keys read by **that connection**. SE.Redis multiplexes all commands of the
   process on it, so it works, but the server memory grows with the number of tracked keys.
 - BCAST with `PREFIX <InstancesSharedName>` needs no server memory per key and also matches how the
@@ -53,10 +57,12 @@ interactive connection.
 - The spike measures both; BCAST is the default choice for simplicity.
 
 ### D3. Use `NOLOOP` and remove the time window in this mode
+
 `NOLOOP` makes the server skip our own writes, so `SelfWriteNotificationWindow` is not needed in this mode.
 This fixes the known "another write inside the window is ignored" problem.
 
 ### D4. Reconnect = clear local cache + re-enable tracking
+
 Tracking state belongs to one connection. After any reconnect of the interactive or subscriber connection,
 run `CLIENT TRACKING` again (with the new subscriber id) and clear the local cache
 (`FlushLocalCacheOnBusReconnection` logic already exists).

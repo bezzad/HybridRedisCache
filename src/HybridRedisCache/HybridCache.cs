@@ -569,7 +569,7 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
         // caller invoke it (no de-duplication at all) and made losers of the race run the winner's
         // delegate. Lazy gives one execution even when several callers reach Value together.
         var inFlight = _dataRetrieverTasks.GetOrAdd(key,
-            _ => new Lazy<Task>(() => dataRetriever(key), LazyThreadSafetyMode.ExecutionAndPublication));
+            k => new Lazy<Task>(() => dataRetriever(k), LazyThreadSafetyMode.ExecutionAndPublication));
 
         try
         {

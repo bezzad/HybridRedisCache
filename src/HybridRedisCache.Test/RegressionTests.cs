@@ -119,7 +119,8 @@ public class RegressionTests(InProcessRedisFixture fixture, ITestOutputHelper ou
         }, TestToken);
 
         // Any ObjectDisposedException from the racing reads surfaces here.
-        await Task.WhenAll(readers.Append(clearer));
+        var error = await Record.ExceptionAsync(() => Task.WhenAll(readers.Append(clearer)));
+        Assert.Null(error);
     }
 
     /// <summary>

@@ -29,6 +29,7 @@ and sends an invalidation message only for those keys. `NOLOOP` skips the client
 ## Capabilities
 
 ### New Capabilities
+
 - `client-side-invalidation`: Keeping each instance's local cache correct with Redis client tracking
   instead of key-space notifications.
 

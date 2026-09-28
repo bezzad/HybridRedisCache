@@ -1127,7 +1127,7 @@ public partial class HybridCache
         using var activity = PopulateActivity(OperationTypes.ServerAdmin);
         token.ThrowIfCancellationRequested();
         var servers = GetServers(flags);
-        return await servers.First().InfoRawAsync(section, (CommandFlags)flags).Cancelable(token).ConfigureAwait(false);
+        return await servers[0].InfoRawAsync(section, (CommandFlags)flags).Cancelable(token).ConfigureAwait(false);
     }
 
     public async Task<CommandTrace[]> SlowlogGetAsync(int count = 10, Flags flags = Flags.None,
@@ -1136,7 +1136,7 @@ public partial class HybridCache
         using var activity = PopulateActivity(OperationTypes.ServerAdmin);
         token.ThrowIfCancellationRequested();
         var servers = GetServers(flags);
-        return await servers.First().SlowlogGetAsync(count, (CommandFlags)flags).Cancelable(token).ConfigureAwait(false);
+        return await servers[0].SlowlogGetAsync(count, (CommandFlags)flags).Cancelable(token).ConfigureAwait(false);
     }
 
     public async Task<ClientInfo[]> ClientListAsync(Flags flags = Flags.None, CancellationToken token = default)
@@ -1144,7 +1144,7 @@ public partial class HybridCache
         using var activity = PopulateActivity(OperationTypes.ServerAdmin);
         token.ThrowIfCancellationRequested();
         var servers = GetServers(flags);
-        return await servers.First().ClientListAsync((CommandFlags)flags).Cancelable(token).ConfigureAwait(false);
+        return await servers[0].ClientListAsync((CommandFlags)flags).Cancelable(token).ConfigureAwait(false);
     }
 
     public async Task<RedisResult> MemoryStatsAsync(Flags flags = Flags.None, CancellationToken token = default)
@@ -1152,7 +1152,7 @@ public partial class HybridCache
         using var activity = PopulateActivity(OperationTypes.ServerAdmin);
         token.ThrowIfCancellationRequested();
         var servers = GetServers(flags);
-        return await servers.First().MemoryStatsAsync((CommandFlags)flags).Cancelable(token).ConfigureAwait(false);
+        return await servers[0].MemoryStatsAsync((CommandFlags)flags).Cancelable(token).ConfigureAwait(false);
     }
 
     public async ValueTask RemoveWithPatternOnRedisAsync(string pattern, Flags flags = Flags.None,

@@ -32,9 +32,12 @@ public class InProcessNewCommandsTests(InProcessRedisFixture fixture, ITestOutpu
     {
         var (k1, k2) = (UniqueKey, UniqueKey);
         await Cache.SetAllAsync(new Dictionary<string, int> { [k1] = 1, [k2] = 2 }, token: TestToken);
-        Cache.FlushLocalCaches();
+        await Cache.FlushLocalCachesAsync(TestToken);
 
+        // Covers the sync API on purpose.
+#pragma warning disable S6966
         var result = Cache.GetAll<int>([k1, k2]);
+#pragma warning restore S6966
 
         Assert.Equal(1, result[k1]);
         Assert.Equal(2, result[k2]);

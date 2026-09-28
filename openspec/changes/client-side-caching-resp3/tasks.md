@@ -1,3 +1,4 @@
+<!-- markdownlint-disable MD013 - OpenSpec reads each task from one line -->
 # Tasks
 
 ## 1. Spike (R&D) - decide go / no-go

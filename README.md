@@ -279,8 +279,8 @@ Install docker on your OS.
 Open bash and type below commands:
 
 ```cmd
-$ docker pull redis:8.2
-$ docker run --name redis -p 6379:6379 -d redis:8.2
+docker pull redis:8.2
+docker run --name redis -p 6379:6379 -d redis:8.2
 ```
 
 > Use a **Redis 8.x** tag. `HashSetAsync(key, IDictionary<string, string>, ...)` issues `HSETEX` and
@@ -291,8 +291,8 @@ $ docker run --name redis -p 6379:6379 -d redis:8.2
 Test is redis running:
 
 ```cmd
-$ docker exec -it redis redis-cli
-$ ping
+docker exec -it redis redis-cli
+ping
 ```
 
 ## Building and testing
@@ -347,13 +347,13 @@ sudo usermod -aG docker $USER
 Then **log out and back in** — group membership is applied at login, so an existing shell or IDE will keep
 failing until you start a new session. Symptoms of missing this step:
 
-```
+```text
 Docker is either not running or misconfigured. Please ensure that Docker is running
 and that the endpoint is properly configured.
   Details: Failed to connect to Docker endpoint at 'unix:///var/run/docker.sock'.
 ```
 
-```
+```text
 permission denied while trying to connect to the docker API at unix:///var/run/docker.sock
 ```
 
