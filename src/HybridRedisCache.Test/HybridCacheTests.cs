@@ -1849,4 +1849,33 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         Assert.Null(await other.GetAsync<string>(key, token: TestToken));
         Assert.Equal("old", await other.GetAsync<string>(newKey, token: TestToken));
     }
+
+    [Fact]
+    public async Task SlowlogGetAsync_ReturnsEntries()
+    {
+        // Log every command, so the slow log is not empty.
+        var server = Cache.RedisDb.Multiplexer.GetServers()[0];
+        await server.ConfigSetAsync("slowlog-log-slower-than", "0");
+        try
+        {
+            await Cache.SetAsync(UniqueKey, "v", token: TestToken);
+
+            var entries = await Cache.SlowlogGetAsync(10, token: TestToken);
+
+            Assert.NotEmpty(entries);
+        }
+        finally
+        {
+            await server.ConfigSetAsync("slowlog-log-slower-than", "10000");
+        }
+    }
+
+    [Fact]
+    public async Task MemoryStatsAsync_ReturnsReport()
+    {
+        var stats = await Cache.MemoryStatsAsync(token: TestToken);
+
+        Assert.False(stats.IsNull);
+        Assert.Contains("peak.allocated", stats.ToDictionary().Keys);
+    }
 }
