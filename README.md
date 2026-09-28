@@ -75,6 +75,7 @@ var options = new HybridCachingOptions()
     EnableRedisClientTracking = true,
     EnableMeterData = true,
     WarningHeavyDataThresholdBytes = 20 * 1024, // 20KB
+    SelfWriteNotificationWindow = TimeSpan.FromSeconds(5), // see "Server requirements"
     DataSizeHistogramMetricName = "my_app_keys_data_size_histogram_metric",
     SerializerType = SerializerType.Bson, // Bson, MessagePack, MemoryPack, or custom
     // Serializer = new CustomBinarySerializer(),
@@ -155,6 +156,47 @@ public sealed class WeatherForecastController : ControllerBase
 }
 ```
 
+### More Redis commands
+
+These methods talk to Redis directly. The ones that change a key also remove its local copy, on this
+instance and (through key-space notifications) on every other instance.
+
+| Method | Redis command | What it does |
+| --- | --- | --- |
+| `GetAll` / `GetAllAsync` | `GET` (pipelined) | Reads many keys. Keys in the local cache are not sent to Redis. |
+| `GetAndExpireAsync` | `GETEX` | Reads a key and sets a new TTL (`null` removes the TTL). |
+| `KeyRenameAsync` | `RENAME` / `RENAMENX` | Renames a key. `Condition.NotExists` renames only if the new key is free. |
+| `KeyPersistAsync` | `PERSIST` | Removes the TTL, so the key never expires. |
+| `KeyTouchAsync` | `TOUCH` | Marks a key as used, so LRU eviction keeps it longer. |
+| `HyperLogLogAddAsync`, `HyperLogLogLengthAsync` | `PFADD`, `PFCOUNT` | Counts unique values with ~0.81% error in at most 12 KB. |
+| `StringSetBitAsync`, `StringGetBitAsync`, `StringBitCountAsync` | `SETBIT`, `GETBIT`, `BITCOUNT` | Bit flags and counts. |
+| `ServerInfoAsync`, `SlowlogGetAsync`, `ClientListAsync`, `MemoryStatsAsync` | `INFO`, `SLOWLOG`, `CLIENT LIST`, `MEMORY STATS` | Server monitoring (slow log and client list need `AllowAdmin`). |
+
+```csharp
+// Read many keys at once; missing keys are not in the result
+IDictionary<string, User> users = await cache.GetAllAsync<User>(["user:1", "user:2", "user:3"]);
+
+// Read a session and extend it by 20 minutes in one command
+var session = await cache.GetAndExpireAsync<Session>("session:42", TimeSpan.FromMinutes(20));
+
+// Rename only if "report:final" does not exist yet
+bool renamed = await cache.KeyRenameAsync("report:draft", "report:final", Condition.NotExists);
+
+// Unique visitors per day
+await cache.HyperLogLogAddAsync("visitors:2026-09-28", ["10.0.0.1", "10.0.0.2", "10.0.0.1"]);
+long uniqueVisitors = await cache.HyperLogLogLengthAsync("visitors:2026-09-28"); // 2
+
+// Daily check-in flags: bit N = day N
+await cache.StringSetBitAsync("checkin:user:7", offset: 3, bit: true);
+long daysCheckedIn = await cache.StringBitCountAsync("checkin:user:7");
+
+// Monitoring
+string memoryInfo = await cache.ServerInfoAsync("memory");
+CommandTrace[] slowCommands = await cache.SlowlogGetAsync(count: 10);
+```
+
+"Set only if the key is missing" (`SETNX`) is not a new method: use `SetAsync(key, value, when: Condition.NotExists)`.
+
 ## Features
 
 `HybridCache` is a caching library that provides a number of advantages over traditional `in-memory` caching solutions.
@@ -172,11 +214,19 @@ window in which another instance could serve stale local data.
 Other features of `HybridCache` include:
 
 * Multiple cache layers: Supports both in-memory and Redis caching layers, allowing for flexible caching strategies.
-* Automatic expiration: Cached data can automatically expire based on time-to-live (TTL) or sliding expiration policies.
+* Automatic expiration: Cached data expires based on an absolute time-to-live (TTL).
+* Single-flight data retrieval: When many callers miss the same key at once, `GetAsync` with a data retriever runs
+  the retriever only once and all callers share its result. The key names the value, so callers that pass different
+  retrievers for the same key still get one shared value.
 * Fire-and-forget caching: Enables quickly setting a value in the cache without waiting for a response, improving
   performance for non-critical cache operations.
 * Asynchronous caching operations: Provides asynchronous cache operations to enhance application responsiveness and
   scalability.
+* Batch reads: `GetAll` / `GetAllAsync` read many keys at once; keys already in the local cache are not sent to Redis.
+* Redis helpers: `GetAndExpireAsync` (GETEX), `KeyRenameAsync`, `KeyPersistAsync`, `KeyTouchAsync`,
+  HyperLogLog (`HyperLogLogAddAsync`, `HyperLogLogLengthAsync`), bits (`StringSetBitAsync`, `StringGetBitAsync`,
+  `StringBitCountAsync`) and server admin (`ServerInfoAsync`, `SlowlogGetAsync`, `ClientListAsync`, `MemoryStatsAsync`).
+  For "set only if missing" (SETNX) use `SetAsync(..., when: Condition.NotExists)`.
 * Distributed key locking: Ensures control over race conditions across multiple services, preventing conflicts with
   shared resources.
 * Client synchronization with Redis messages: Keeps all clients in sync through Redis bus messages. For example, if a
@@ -238,6 +288,25 @@ var value = await cache.GetAsync<string>("mykey", token: cts.Token);
 > the command has already been handed to the multiplexer and the server may still apply it. Use the token to
 > bound how long a caller waits, not to guarantee a write never lands.
 
+## Metrics
+
+Metrics are published through `System.Diagnostics.Metrics` (no `prometheus-net` dependency), so they flow to
+OpenTelemetry, `dotnet-counters` or any `MeterListener`. Set `EnableMeterData = true` **and** register the
+meter on the host — without the registration nothing is collected:
+
+```csharp
+builder.Services.AddOpenTelemetry().WithMetrics(m => m
+    .AddMeter(HybridRedisCache.KeyMeter.MeterName)   // "HybridRedisCache"
+    .AddPrometheusExporter());                       // or any other exporter
+```
+
+| Instrument | Type | Tags | Meaning |
+| --- | --- | --- | --- |
+| `hybrid_cache_lookups` | counter | `cache`, `layer` (`local`, `redis`), `result` (`hit`, `miss`) | One measurement per layer touched by a read. A local miss falls through to Redis, so one read can produce a `local`/`miss` **and** a `redis`/`hit`. |
+| `hybrid_cache_data_bytes` (`DataSizeHistogramMetricName`) | histogram, unit `By` | `cache` | Size of each payload written to Redis. |
+
+The `cache` tag carries `InstancesSharedName`, so several caches in one process stay distinguishable.
+
 ## Server requirements
 
 * **Redis 6.0+** for general use.
@@ -248,6 +317,11 @@ var value = await cache.GetAsync<string>("mykey", token: cts.Token);
   **Azure Cache for Redis** and **AWS ElastiCache** block `CONFIG SET`; there the call is logged as an error
   and startup continues. Enable `notify-keyspace-events` through the provider's own configuration, otherwise
   local cache entries only expire via their own TTL and may serve stale data until then.
+* **An instance ignores the notification for its own write** for `SelfWriteNotificationWindow`
+  (default 5 seconds), so caching a value does not immediately invalidate it again. Raise it only
+  with care: a write by another instance that lands inside the window looks like our own and is
+  ignored, which serves a stale local value until its TTL. A window that is too short only costs a
+  local miss, so err on the short side.
 
 ## When should I enable caching?
 
@@ -269,8 +343,8 @@ Install docker on your OS.
 Open bash and type below commands:
 
 ```cmd
-$ docker pull redis:8.2
-$ docker run --name redis -p 6379:6379 -d redis:8.2
+docker pull redis:8.2
+docker run --name redis -p 6379:6379 -d redis:8.2
 ```
 
 > Use a **Redis 8.x** tag. `HashSetAsync(key, IDictionary<string, string>, ...)` issues `HSETEX` and
@@ -281,8 +355,8 @@ $ docker run --name redis -p 6379:6379 -d redis:8.2
 Verify that Redis is running:
 
 ```cmd
-$ docker exec -it redis redis-cli
-$ ping
+docker exec -it redis redis-cli
+ping
 ```
 
 ## Building and testing
@@ -306,8 +380,16 @@ The **in-process** suite runs [Microsoft Garnet](https://github.com/microsoft/ga
 server, inside the test process. No daemon, no image pull. Run it anywhere with:
 
 ```bash
-dotnet test src/HybridRedisCache.Test --filter "FullyQualifiedName~InProcess|FullyQualifiedName~SerializerTests|FullyQualifiedName~ArgumentCheckTest|FullyQualifiedName~ObjectHelperTest|FullyQualifiedName~SetAllBehaviorTests|FullyQualifiedName~CancellationTokenTests"
+dotnet run --project src/HybridRedisCache.Test -- \
+  -filter "/*/*/InProcess*/*" -filter "/*/*/SerializerTests/*" -filter "/*/*/ArgumentCheckTest/*" \
+  -filter "/*/*/ObjectHelperTest/*" -filter "/*/*/SetAllBehaviorTests/*" \
+  -filter "/*/*/CancellationTokenTests/*" -filter "/*/*/CacheLookupMeteringTests/*"
 ```
+
+> **Why `dotnet run` and `-filter`.** The suite is xunit v3, which runs on Microsoft.Testing.Platform.
+> `dotnet run` starts xunit's own runner, whose [query filter
+> language](https://xunit.net/docs/query-filter-language) takes `/assembly/namespace/class/method`
+> (repeat `-filter` to OR them) in place of VSTest's `--filter "FullyQualifiedName~..."`.
 
 The **container-backed** suite uses [Testcontainers](https://dotnet.testcontainers.org/) to start a real
 Redis. It exists because Garnet does not implement everything this library uses — key-space notifications
@@ -329,13 +411,13 @@ sudo usermod -aG docker $USER
 Then **log out and back in** — group membership is applied at login, so an existing shell or IDE will keep
 failing until you start a new session. Symptoms of missing this step:
 
-```
+```text
 Docker is either not running or misconfigured. Please ensure that Docker is running
 and that the endpoint is properly configured.
   Details: Failed to connect to Docker endpoint at 'unix:///var/run/docker.sock'.
 ```
 
-```
+```text
 permission denied while trying to connect to the docker API at unix:///var/run/docker.sock
 ```
 
@@ -365,8 +447,11 @@ random port. The image tag is pinned in `BaseCacheTest.RedisImage` and must stay
 Once the above is in place, run everything:
 
 ```bash
-dotnet test src/HybridRedisCache.sln
+dotnet test --solution src/HybridRedisCache.sln
 ```
+
+The `--solution` flag is required: `global.json` opts this repo into the Microsoft.Testing.Platform
+runner that xunit v3 uses, and it takes the solution through a flag rather than as a bare path.
 
 ## Contributing
 

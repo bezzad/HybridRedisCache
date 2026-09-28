@@ -23,22 +23,35 @@ internal static class ObjectHelper
         return duration;
     }
 
+    /// <summary>
+    /// Reports whether the server answers a PING, retrying up to <paramref name="retryCount"/> times.
+    /// </summary>
+    /// <remarks>
+    /// A reply means the server is reachable, however slowly: latency is not a verdict here. Judging
+    /// it (this used to call a reply over two seconds a failure) turned a loaded-but-healthy server
+    /// into a full reconnect, which is the more expensive outcome.
+    /// </remarks>
     public static async Task<bool> PingAsync(this IDatabase redisDb, int retryCount)
     {
         if (redisDb is null)
             return false;
 
-        for (var i = 0; i < retryCount; i++)
+        // Always try at least once: a caller configuring ConnectRetry = 0 was reported as "down"
+        // without a single PING being sent.
+        var attempts = Math.Max(1, retryCount);
+
+        for (var i = 0; i < attempts; i++)
         {
             try
             {
-                var ping = await redisDb.PingAsync().ConfigureAwait(false);
-                return ping < TimeSpan.FromSeconds(2);
+                await redisDb.PingAsync().ConfigureAwait(false);
+                return true;
             }
             catch
             {
-                // Swallow and retry
-                await Task.Delay(500).ConfigureAwait(false);
+                // Swallow and retry, but do not sleep after the final attempt.
+                if (i < attempts - 1)
+                    await Task.Delay(500).ConfigureAwait(false);
             }
         }
 

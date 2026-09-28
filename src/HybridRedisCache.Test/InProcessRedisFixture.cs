@@ -42,7 +42,7 @@ public sealed class InProcessRedisFixture : IAsyncLifetime
 
     public string ConnectionString { get; private set; }
 
-    public Task InitializeAsync()
+    public ValueTask InitializeAsync()
     {
         var port = GetFreeTcpPort();
 
@@ -57,13 +57,13 @@ public sealed class InProcessRedisFixture : IAsyncLifetime
 
         _server.Start();
         ConnectionString = $"127.0.0.1:{port}";
-        return Task.CompletedTask;
+        return ValueTask.CompletedTask;
     }
 
-    public Task DisposeAsync()
+    public ValueTask DisposeAsync()
     {
         _server?.Dispose();
-        return Task.CompletedTask;
+        return ValueTask.CompletedTask;
     }
 
     private static int GetFreeTcpPort()

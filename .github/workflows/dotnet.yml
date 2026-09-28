@@ -46,16 +46,20 @@ jobs:
     - name: Build solution
       run: dotnet build -c Release ./src/HybridRedisCache.sln --verbosity minimal
 
+    # xunit v3 runs on Microsoft.Testing.Platform (opted in via global.json), so the solution
+    # goes through --solution and coverage comes from Microsoft.Testing.Extensions.CodeCoverage
+    # instead of the VSTest "XPlat Code Coverage" collector.
     - name: Run tests and collect coverage
       run: |
-        dotnet test -c Release ./src/HybridRedisCache.sln --verbosity normal --no-build --no-restore \
-          --collect:"XPlat Code Coverage" --results-directory ./TestResults/
+        dotnet test --solution ./src/HybridRedisCache.sln -c Release --verbosity normal --no-build --no-restore \
+          --results-directory ./TestResults/ \
+          -- --coverage --coverage-output-format cobertura --coverage-output coverage.cobertura.xml
 
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v5
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
-        files: ./TestResults/**/coverage.cobertura.xml
+        files: ./TestResults/coverage.cobertura.xml
         name: codecov-umbrella
         fail_ci_if_error: false
 

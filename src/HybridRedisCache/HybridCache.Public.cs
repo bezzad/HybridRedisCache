@@ -462,12 +462,14 @@ public partial class HybridCache
         catch (JsonSerializationException ex)
         {
             LogMessage($"Redis cache deserialization error, [{key}]", ex);
+            _keyMeter.RecordLookup(KeyMeter.RedisLayer, hit: false);
             activity?.SetCacheHitActivity(CacheResultType.Miss, cacheKey);
             return false;
         }
         catch (Exception ex)
         {
             LogMessage($"Redis cache get error, [{key}]", ex);
+            _keyMeter.RecordLookup(KeyMeter.RedisLayer, hit: false);
             if (_options.ThrowIfDistributedCacheError)
                 throw;
         }
@@ -496,12 +498,14 @@ public partial class HybridCache
         catch (JsonSerializationException ex)
         {
             LogMessage($"Redis cache deserialization error, [{key}]", ex);
+            _keyMeter.RecordLookup(KeyMeter.RedisLayer, hit: false);
             activity?.SetCacheHitActivity(CacheResultType.Miss, cacheKey);
             return (false, default);
         }
         catch (Exception ex)
         {
             LogMessage($"Redis cache get error, [{key}]", ex);
+            _keyMeter.RecordLookup(KeyMeter.RedisLayer, hit: false);
             if (_options.ThrowIfDistributedCacheError)
                 throw;
         }
@@ -951,6 +955,204 @@ public partial class HybridCache
     {
         using var activity = PopulateActivity(OperationTypes.KeyExpire);
         RedisDb.KeyExpire(GetCacheKey(key), expiry, (ExpireWhen)expireWhen, (CommandFlags)flags);
+    }
+
+    public IDictionary<string, T> GetAll<T>(IEnumerable<string> keys, bool localCacheEnable = true)
+    {
+        using var activity = PopulateActivity(OperationTypes.GetBatchCache);
+        keys.NotNullAndCountGtZero(nameof(keys));
+        var (found, missed) = GetAllFromLocalMemory<T>(keys, activity);
+        if (missed.Count == 0)
+            return found;
+
+        try
+        {
+            // Sync callers read one key at a time: blocking on pipelined tasks can starve the thread pool.
+            var redisValues = missed.Select(key => RedisDb.StringGetWithExpiry(GetCacheKey(key))).ToArray();
+            AddRedisValues(found, missed, redisValues, localCacheEnable, activity);
+        }
+        catch (Exception ex)
+        {
+            LogMessage("Redis cache get all error", ex);
+            if (_options.ThrowIfDistributedCacheError)
+                throw;
+        }
+
+        return found;
+    }
+
+    public async Task<IDictionary<string, T>> GetAllAsync<T>(IEnumerable<string> keys, bool localCacheEnable = true,
+        CancellationToken token = default)
+    {
+        using var activity = PopulateActivity(OperationTypes.GetBatchCache);
+        token.ThrowIfCancellationRequested();
+        keys.NotNullAndCountGtZero(nameof(keys));
+        var (found, missed) = GetAllFromLocalMemory<T>(keys, activity);
+        if (missed.Count == 0)
+            return found;
+
+        try
+        {
+            // The multiplexer pipelines these commands, so all keys go to Redis in one round trip.
+            var redisTasks = missed.Select(key => RedisDb.StringGetWithExpiryAsync(GetCacheKey(key))).ToArray();
+            var redisValues = await Task.WhenAll(redisTasks).Cancelable(token).ConfigureAwait(false);
+            AddRedisValues(found, missed, redisValues, localCacheEnable, activity);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            LogMessage("Redis cache get all error", ex);
+            if (_options.ThrowIfDistributedCacheError)
+                throw;
+        }
+
+        return found;
+    }
+
+    public async Task<T> GetAndExpireAsync<T>(string key, TimeSpan? expiry, Flags flags = Flags.None,
+        CancellationToken token = default)
+    {
+        using var activity = PopulateActivity(OperationTypes.GetAndExpire);
+        token.ThrowIfCancellationRequested();
+        var cacheKey = GetCacheKey(key);
+        var redisValue = await RedisDb.StringGetSetExpiryAsync(cacheKey, expiry, (CommandFlags)flags)
+            .Cancelable(token).ConfigureAwait(false);
+        if (!redisValue.HasValue)
+        {
+            _memoryCache.Remove(cacheKey);
+            return default;
+        }
+
+        var value = _options.Serializer.Deserialize<T>(redisValue);
+
+        // Keep the local copy in line with the new Redis TTL. Without a TTL the key is
+        // persisted in Redis, so the local copy falls back to the default local expiry.
+        SetLocalMemory(cacheKey, value, expiry, Condition.Always, false);
+        return value;
+    }
+
+    public async Task<bool> KeyRenameAsync(string key, string newKey, Condition when = Condition.Always,
+        Flags flags = Flags.None, CancellationToken token = default)
+    {
+        using var activity = PopulateActivity(OperationTypes.KeyRename);
+        token.ThrowIfCancellationRequested();
+        newKey.NotNullOrWhiteSpace(nameof(newKey));
+        var cacheKey = GetCacheKey(key);
+        var newCacheKey = GetCacheKey(newKey);
+        var renamed = await RedisDb.KeyRenameAsync(cacheKey, newCacheKey, (When)when, (CommandFlags)flags)
+            .Cancelable(token).ConfigureAwait(false);
+
+        // Other instances drop both keys on the rename_from / rename_to notifications.
+        if (renamed)
+        {
+            _memoryCache.Remove(cacheKey);
+            _memoryCache.Remove(newCacheKey);
+        }
+
+        return renamed;
+    }
+
+    public async Task<bool> KeyPersistAsync(string key, Flags flags = Flags.None, CancellationToken token = default)
+    {
+        using var activity = PopulateActivity(OperationTypes.KeyPersist);
+        token.ThrowIfCancellationRequested();
+        return await RedisDb.KeyPersistAsync(GetCacheKey(key), (CommandFlags)flags).Cancelable(token).ConfigureAwait(false);
+    }
+
+    public async Task<bool> KeyTouchAsync(string key, Flags flags = Flags.None, CancellationToken token = default)
+    {
+        using var activity = PopulateActivity(OperationTypes.KeyTouch);
+        token.ThrowIfCancellationRequested();
+        return await RedisDb.KeyTouchAsync(GetCacheKey(key), (CommandFlags)flags).Cancelable(token).ConfigureAwait(false);
+    }
+
+    public async Task<bool> HyperLogLogAddAsync(string key, string[] values, Flags flags = Flags.None,
+        CancellationToken token = default)
+    {
+        using var activity = PopulateActivity(OperationTypes.HyperLogLog);
+        token.ThrowIfCancellationRequested();
+        values.NotNullAndCountGtZero(nameof(values));
+        var redisValues = values.Select(v => (RedisValue)v).ToArray();
+        return await RedisDb.HyperLogLogAddAsync(GetCacheKey(key), redisValues, (CommandFlags)flags)
+            .Cancelable(token).ConfigureAwait(false);
+    }
+
+    public async Task<long> HyperLogLogLengthAsync(string key, Flags flags = Flags.None,
+        CancellationToken token = default)
+    {
+        using var activity = PopulateActivity(OperationTypes.HyperLogLog);
+        token.ThrowIfCancellationRequested();
+        return await RedisDb.HyperLogLogLengthAsync(GetCacheKey(key), (CommandFlags)flags)
+            .Cancelable(token).ConfigureAwait(false);
+    }
+
+    public async Task<bool> StringSetBitAsync(string key, long offset, bool bit, Flags flags = Flags.None,
+        CancellationToken token = default)
+    {
+        using var activity = PopulateActivity(OperationTypes.BitOperation);
+        token.ThrowIfCancellationRequested();
+        var cacheKey = GetCacheKey(key);
+        var previous = await RedisDb.StringSetBitAsync(cacheKey, offset, bit, (CommandFlags)flags)
+            .Cancelable(token).ConfigureAwait(false);
+
+        // The raw bytes changed, so a local copy of this key is stale now.
+        _memoryCache.Remove(cacheKey);
+        return previous;
+    }
+
+    public async Task<bool> StringGetBitAsync(string key, long offset, Flags flags = Flags.None,
+        CancellationToken token = default)
+    {
+        using var activity = PopulateActivity(OperationTypes.BitOperation);
+        token.ThrowIfCancellationRequested();
+        return await RedisDb.StringGetBitAsync(GetCacheKey(key), offset, (CommandFlags)flags)
+            .Cancelable(token).ConfigureAwait(false);
+    }
+
+    public async Task<long> StringBitCountAsync(string key, long start = 0, long end = -1, Flags flags = Flags.None,
+        CancellationToken token = default)
+    {
+        using var activity = PopulateActivity(OperationTypes.BitOperation);
+        token.ThrowIfCancellationRequested();
+        return await RedisDb.StringBitCountAsync(GetCacheKey(key), start, end, StringIndexType.Byte, (CommandFlags)flags)
+            .Cancelable(token).ConfigureAwait(false);
+    }
+
+    public async Task<string> ServerInfoAsync(string section = null, Flags flags = Flags.None,
+        CancellationToken token = default)
+    {
+        using var activity = PopulateActivity(OperationTypes.ServerAdmin);
+        token.ThrowIfCancellationRequested();
+        var servers = GetServers(flags);
+        return await servers[0].InfoRawAsync(section, (CommandFlags)flags).Cancelable(token).ConfigureAwait(false);
+    }
+
+    public async Task<CommandTrace[]> SlowlogGetAsync(int count = 10, Flags flags = Flags.None,
+        CancellationToken token = default)
+    {
+        using var activity = PopulateActivity(OperationTypes.ServerAdmin);
+        token.ThrowIfCancellationRequested();
+        var servers = GetServers(flags);
+        return await servers[0].SlowlogGetAsync(count, (CommandFlags)flags).Cancelable(token).ConfigureAwait(false);
+    }
+
+    public async Task<ClientInfo[]> ClientListAsync(Flags flags = Flags.None, CancellationToken token = default)
+    {
+        using var activity = PopulateActivity(OperationTypes.ServerAdmin);
+        token.ThrowIfCancellationRequested();
+        var servers = GetServers(flags);
+        return await servers[0].ClientListAsync((CommandFlags)flags).Cancelable(token).ConfigureAwait(false);
+    }
+
+    public async Task<RedisResult> MemoryStatsAsync(Flags flags = Flags.None, CancellationToken token = default)
+    {
+        using var activity = PopulateActivity(OperationTypes.ServerAdmin);
+        token.ThrowIfCancellationRequested();
+        var servers = GetServers(flags);
+        return await servers[0].MemoryStatsAsync((CommandFlags)flags).Cancelable(token).ConfigureAwait(false);
     }
 
     public async ValueTask RemoveWithPatternOnRedisAsync(string pattern, Flags flags = Flags.None,

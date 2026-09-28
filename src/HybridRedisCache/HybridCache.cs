@@ -7,7 +7,7 @@
 public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
 {
     private readonly ConcurrentDictionary<string, TaskCompletionSource> _lockTasks = new();
-    private readonly ConcurrentDictionary<string, Func<string, Task>> _dataRetrieverTasks = new();
+    private readonly ConcurrentDictionary<string, Lazy<Task>> _dataRetrieverTasks = new();
     private readonly ActivitySource _activity;
     private readonly string _instanceId;
     private readonly SemaphoreSlim _reconnectSemaphore = new(1, 1);
@@ -17,13 +17,15 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
     private bool _disposed;
     private ConnectionMultiplexer _connection;
     private ISubscriber _redisSubscriber;
-    private IMemoryCache _memoryCache;
-    private IMemoryCache _recentlySetKeys;
+    // Concrete MemoryCache, and readonly: clearing used to dispose these and reassign the fields,
+    // which raced with every unsynchronised read of them. Clear() empties an instance in place, so
+    // the references never change and readers cannot land on a disposed cache.
+    private readonly MemoryCache _memoryCache = new(new MemoryCacheOptions());
+    private readonly MemoryCache _recentlySetKeys = new(new MemoryCacheOptions());
     private int _reconfigureAttemptCount;
 
     private static readonly TimeSpan ReconnectBackOff = TimeSpan.FromMilliseconds(500);
 
-    private readonly TimeSpan _timeWindow = TimeSpan.FromSeconds(5); // Expiration time window
     private readonly KeyMeter _keyMeter;
     public IDatabase RedisDb { get; private set; }
 
@@ -46,7 +48,6 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
         _keyMeter = new KeyMeter(loggerFactory?.CreateLogger<KeyMeter>(), option);
         _options.Serializer ??= option.GetDefaultSerializer();
 
-        CreateLocalCache();
         var redisConfig = GetConfigurationOptions();
         Connect(redisConfig);
     }
@@ -89,8 +90,10 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
         _connection = ConnectionMultiplexer.Connect(redisConfig);
         if (!_connection.IsConnected)
         {
+            // No command is in flight at connect time, hence CommandFlags.None.
             throw new RedisConnectionException(ConnectionFailureType.UnableToConnect,
-                "Unable to connect Redis in initializing!");
+                CommandFlags.None, "Unable to connect Redis in initializing!",
+                innerException: null, commandStatus: CommandStatus.Unknown);
         }
 
         _connection.ConnectionRestored += OnReconnect;
@@ -263,12 +266,6 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
         LogMessage($"Redis reconnected to {e?.EndPoint} endpoint");
     }
 
-    private void CreateLocalCache()
-    {
-        _memoryCache = new MemoryCache(new MemoryCacheOptions());
-        _recentlySetKeys = new MemoryCache(new MemoryCacheOptions());
-    }
-
     private Activity PopulateActivity(OperationTypes operationType)
     {
         if (!_options.EnableTracing)
@@ -314,7 +311,8 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
             }
 
             if (val.Is(MessageType.RemoveKey) ||
-                val.Is(MessageType.ExpiredKey))
+                val.Is(MessageType.ExpiredKey) ||
+                val.GetMessageType() == MessageType.RenameKey)
             {
                 _memoryCache.Remove(key);
                 _recentlySetKeys.Remove(key);
@@ -342,13 +340,13 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
     private void ClearLocalMemory()
     {
         using var activity = PopulateActivity(OperationTypes.ClearLocalCache);
-        lock (_memoryCache)
-        {
-            _memoryCache.Dispose();
-            _recentlySetKeys.Dispose();
-            CreateLocalCache();
-            LogMessage($"clear all local cache");
-        }
+
+        // MemoryCache is thread-safe and Clear() empties it in place, so this needs no lock and
+        // cannot pull the cache out from under a concurrent reader. It runs on the bus thread
+        // (a ClearLocalCache message) and on reconnect, both of which race with application reads.
+        _memoryCache.Clear();
+        _recentlySetKeys.Clear();
+        LogMessage($"clear all local cache");
     }
 
     private RedisChannel GetRedisPatternChannel(string channel, string key = "*") => new(channel + ":" + key, RedisChannel.PatternMode.Auto);
@@ -372,8 +370,10 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
 
         foreach (var key in keys)
         {
-            // Add the key to the cache with an expiration policy
-            _recentlySetKeys.Set(key, DateTime.UtcNow, _timeWindow);
+            // Remembered only for a window: if the notification for this write never arrives (a
+            // server with key-space events disabled), the marker has to expire on its own or this
+            // cache grows without bound.
+            _recentlySetKeys.Set(key, DateTime.UtcNow, _options.SelfWriteNotificationWindow);
         }
     }
 
@@ -446,7 +446,9 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
 
     private bool TryGetMemoryValue<T>(string cacheKey, Activity activity, out T value)
     {
-        if (_memoryCache.TryGetValue(cacheKey, out value))
+        var hit = _memoryCache.TryGetValue(cacheKey, out value);
+        _keyMeter.RecordLookup(KeyMeter.LocalLayer, hit);
+        if (hit)
         {
             activity?.SetRetrievalStrategyActivity(RetrievalStrategy.MemoryCache);
             activity?.SetCacheHitActivity(CacheResultType.Hit, cacheKey);
@@ -459,11 +461,14 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
     private bool TryUpdateRedisValueOnLocalCache<T>(string cacheKey, RedisValueWithExpiry redisValue, bool localCacheEnable, Activity activity, out T value)
     {
         value = default;
-        if (!redisValue.Value.HasValue) return false;
+        var val = redisValue.Value;
+        if (!val.HasValue)
+        {
+            _keyMeter.RecordLookup(KeyMeter.RedisLayer, hit: false);
+            return false;
+        }
 
         var localExpiry = TimeSpan.Zero;
-        var val = redisValue.Value;
-        if (!val.HasValue) return false;
 
         if (redisValue.Expiry.HasValue) // should be cached in local memory
             localExpiry = redisValue.Expiry.Value;
@@ -473,10 +478,46 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
         if (localExpiry > TimeSpan.Zero && localCacheEnable)
             SetLocalMemory(cacheKey, value, localExpiry, Condition.Always, false);
 
+        _keyMeter.RecordLookup(KeyMeter.RedisLayer, hit: true);
         activity?.SetRetrievalStrategyActivity(RetrievalStrategy.RedisCache);
         activity?.SetCacheHitActivity(CacheResultType.Hit, cacheKey);
 
         return true;
+    }
+
+    private (Dictionary<string, T> found, List<string> missed) GetAllFromLocalMemory<T>(IEnumerable<string> keys,
+        Activity activity)
+    {
+        var found = new Dictionary<string, T>();
+        var missed = new List<string>();
+        foreach (var key in keys.Distinct())
+        {
+            if (TryGetMemoryValue(GetCacheKey(key), activity, out T value))
+                found[key] = value;
+            else
+                missed.Add(key);
+        }
+
+        return (found, missed);
+    }
+
+    private void AddRedisValues<T>(Dictionary<string, T> found, List<string> missed,
+        RedisValueWithExpiry[] redisValues, bool localCacheEnable, Activity activity)
+    {
+        for (var i = 0; i < missed.Count; i++)
+        {
+            try
+            {
+                if (TryUpdateRedisValueOnLocalCache(GetCacheKey(missed[i]), redisValues[i], localCacheEnable,
+                        activity, out T value))
+                    found[missed[i]] = value;
+            }
+            catch (JsonSerializationException ex)
+            {
+                LogMessage($"Redis cache deserialization error, [{missed[i]}]", ex);
+                _keyMeter.RecordLookup(KeyMeter.RedisLayer, hit: false);
+            }
+        }
     }
 
     private IServer[] GetServers(Flags flags)
@@ -512,30 +553,39 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// Runs <paramref name="dataRetriever"/> once per key even when many callers miss the cache at
+    /// the same time: the first caller executes it and the others await that same task. Useful when
+    /// the retriever is expensive, and it keeps a cache miss from turning into a stampede.
+    /// </summary>
+    /// <remarks>
+    /// Callers that share a key therefore share one result, even if they passed different retriever
+    /// delegates — the key identifies the value, so the retriever that wins the race populates it
+    /// for everyone. Store per-caller values under different keys.
+    /// </remarks>
     private async Task<T> FetchDataSafely<T>(string key, Func<string, Task<T>> dataRetriever)
     {
-        // We don't have multiple calls to data retriever with same key.
-        // This is very useful when you have a heavy data retriever function
-        // And, you have multiple requests with same key at the same time.
-        // This will prevent multiple calls to data retriever function.
-        // So, will improve the performance of your application
-        var lastRetrieverTask = _dataRetrieverTasks.GetOrAdd(key, dataRetriever) as Func<string, Task<T>>;
+        // The dictionary holds the in-flight task, not the delegate: holding the delegate made every
+        // caller invoke it (no de-duplication at all) and made losers of the race run the winner's
+        // delegate. Lazy gives one execution even when several callers reach Value together.
+        var inFlight = _dataRetrieverTasks.GetOrAdd(key,
+            k => new Lazy<Task>(() => dataRetriever(k), LazyThreadSafetyMode.ExecutionAndPublication));
 
         try
         {
-            // This is the first request, execute the data retriever
-            if (lastRetrieverTask != null)
-            {
-                return await lastRetrieverTask(key).ConfigureAwait(false);
-            }
+            if (inFlight.Value is Task<T> shared)
+                return await shared.ConfigureAwait(false);
+
+            // A retrieval for this key is already running for a different T, so its task is not
+            // ours to await. Run our own rather than silently returning no value.
+            return await dataRetriever(key).ConfigureAwait(false);
         }
         finally
         {
-            // Remove the task from dictionary after completion to prevent memory leaks
-            _dataRetrieverTasks.TryRemove(key, out _);
+            // Remove only our own entry: a plain TryRemove(key) would let a late caller evict the
+            // task that newer callers are still awaiting.
+            _dataRetrieverTasks.TryRemove(new KeyValuePair<string, Lazy<Task>>(key, inFlight));
         }
-
-        return default;
     }
 
     private void LogMessage(string message, Exception ex = null)
@@ -570,8 +620,9 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
         _disposed = true;
 
         _redisSubscriber?.UnsubscribeAll();
-        RedisDb?.Multiplexer.Dispose();
         _memoryCache?.Dispose();
+        // Both local caches hold a timer; disposing only the main one leaked this per instance.
+        _recentlySetKeys?.Dispose();
         _connection?.Dispose();
         _reconnectSemaphore?.Dispose();
 
@@ -584,10 +635,12 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
         _disposed = true;
 
         _memoryCache?.Dispose();
+        // Both local caches hold a timer; disposing only the main one leaked this per instance.
+        _recentlySetKeys?.Dispose();
         _reconnectSemaphore?.Dispose();
 
         await (_redisSubscriber?.UnsubscribeAllAsync() ?? Task.CompletedTask);
-        await (RedisDb?.Multiplexer.DisposeAsync() ?? ValueTask.CompletedTask);
+        // RedisDb.Multiplexer is _connection, so disposing the connection is enough.
         await (_connection?.DisposeAsync() ?? ValueTask.CompletedTask);
 
         LogMessage("HybridRedisCache disposed.");

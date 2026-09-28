@@ -32,8 +32,10 @@ jobs:
 
       # Container-backed tests (BaseCacheTest) use Testcontainers; the Docker daemon on
       # ubuntu-latest runners covers them.
+      # xunit v3 runs on Microsoft.Testing.Platform (opted in via global.json), which takes the
+      # solution through --solution rather than as a bare path.
       - name: Test (Release)
-        run: dotnet test src/HybridRedisCache.sln -c Release --verbosity minimal
+        run: dotnet test --solution src/HybridRedisCache.sln -c Release --verbosity minimal
 
   publish:
     name: Pack + publish NuGet package

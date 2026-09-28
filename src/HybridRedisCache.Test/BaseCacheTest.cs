@@ -2,22 +2,27 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Testcontainers.Redis;
 using Testcontainers.Xunit;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace HybridRedisCache.Test;
 
 [Collection("Sequential")] // run tests in order
-public abstract class BaseCacheTest : ContainerTest<RedisBuilder, RedisContainer>, IAsyncLifetime
+public abstract class BaseCacheTest : ContainerTest<RedisBuilder, RedisContainer>
 {
     private HybridCache _cache;
     protected readonly ILoggerFactory LoggerFactory;
     protected readonly ITestOutputHelper TestOutputHelper;
     protected static string UniqueKey => Guid.NewGuid().ToString("N");
+
+    /// <summary>
+    /// The token xunit cancels when the run is cancelled or a test's Timeout elapses.
+    /// </summary>
+    protected static CancellationToken TestToken => TestContext.Current.CancellationToken;
 
     protected HybridCachingOptions Options => new()
     {
@@ -65,7 +70,7 @@ public abstract class BaseCacheTest : ContainerTest<RedisBuilder, RedisContainer
     {
         foreach (var keyValue in keyValues)
         {
-            var isExist = await Cache.ExistsAsync(keyValue.Key);
+            var isExist = await Cache.ExistsAsync(keyValue.Key, token: TestToken);
             Assert.False(isExist, $"The key {keyValue.Key} is still exist!");
         }
     }
@@ -114,20 +119,23 @@ public abstract class BaseCacheTest : ContainerTest<RedisBuilder, RedisContainer
                 .Select(_ => Guid.NewGuid().ToString("N"))
                 .ToDictionary(key => keyPrefix + key, key => key);
 
-            await Cache.SetAllAsync(noiseKeys, hybridOptions);
+            await Cache.SetAllAsync(noiseKeys, hybridOptions, TestToken);
             TestOutputHelper.WriteLine($"{noiseKeys.Count} keys added to redis as noise keys");
         }
 
         TestOutputHelper.WriteLine("Adding dummy keys...");
-        await Cache.SetAllAsync(keyValues, hybridOptions);
+        await Cache.SetAllAsync(keyValues, hybridOptions, TestToken);
         TestOutputHelper.WriteLine($"{keyValues.Count} keys added to redis as pattern searchable keys");
 
         return keyValues;
     }
 
-    public async Task DisposeAsync()
+    // xunit v3: ContainerTest implements IAsyncLifetime/IAsyncDisposable explicitly and hands
+    // subclasses this hook. A public DisposeAsync() here would compile and never be called,
+    // leaking the cache; the base disposes the container itself.
+    protected override async ValueTask DisposeAsyncCore()
     {
-        if (Container != null) await Container.DisposeAsync();
         if (_cache != null) await _cache.DisposeAsync();
+        await base.DisposeAsyncCore();
     }
 }

@@ -51,7 +51,7 @@ public interface IHybridCache : IHybridCacheAsync
     /// <param name="key">Cache key</param>
     /// <param name="flags">The flags to use for this operation.</param>
     /// <returns>The bool for key is exist or not.</returns>
-    bool Exists(string key, Flags flags = Flags.None);
+    bool Exists(string key, Flags flags = Flags.PreferMaster);
 
     /// <summary>
     /// Sets a value in the cache with the specified key.
@@ -176,6 +176,15 @@ public interface IHybridCache : IHybridCacheAsync
     /// <returns>TTL, or <see langword="null"/> when key does not exist or does not have a timeout.</returns>
     /// <remarks><seealso href="https://redis.io/commands/ttl"/></remarks>    
     TimeSpan? GetExpiration(string key);
+
+    /// <summary>
+    /// Gets many keys in one round trip. Keys found in the local cache are not sent to Redis;
+    /// the rest are read from Redis (the async version sends them in one pipelined round trip).
+    /// </summary>
+    /// <param name="keys">The keys to get. Duplicates are read once.</param>
+    /// <param name="localCacheEnable">Store the values read from Redis in the local cache.</param>
+    /// <returns>The found keys and their values. Missing keys are not in the result.</returns>
+    IDictionary<string, T> GetAll<T>(IEnumerable<string> keys, bool localCacheEnable = true);
 
     void FlushLocalCaches();
 

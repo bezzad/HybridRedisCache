@@ -4,23 +4,22 @@
     <IsPackable>false</IsPackable>
     <LangVersion>default</LangVersion>
     <TargetFramework>net10.0</TargetFramework>
+    <!-- xunit v3 test projects are executables. -->
+    <OutputType>Exe</OutputType>
+    <!-- xunit v3 runs on Microsoft.Testing.Platform. The .NET 10 SDK dropped the VSTest bridge
+         for it, so `dotnet test` must use the MTP runner. -->
+    <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.10" />
-    <PackageReference Include="Microsoft.Garnet" Version="1.1.10" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.8.1" />
-    <PackageReference Include="Testcontainers.Redis" Version="4.13.0" />
-    <PackageReference Include="Testcontainers.Xunit" Version="4.13.0" />
-    <PackageReference Include="xunit" Version="2.9.3" />
-    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5">
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-      <PrivateAssets>all</PrivateAssets>
-    </PackageReference>
-    <PackageReference Include="coverlet.collector" Version="10.0.1">
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-      <PrivateAssets>all</PrivateAssets>
-    </PackageReference>
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.12" />
+    <PackageReference Include="Microsoft.Garnet" Version="2.1.8" />
+    <PackageReference Include="Testcontainers.Redis" Version="4.15.0" />
+    <PackageReference Include="Testcontainers.XunitV3" Version="4.15.0" />
+    <PackageReference Include="xunit.v3" Version="4.0.1" />
+    <!-- Coverage under Microsoft.Testing.Platform: coverlet.collector and the VSTest
+         "XPlat Code Coverage" data collector do not apply here. -->
+    <PackageReference Include="Microsoft.Testing.Extensions.CodeCoverage" Version="18.11.2" />
   </ItemGroup>
 
   <ItemGroup>

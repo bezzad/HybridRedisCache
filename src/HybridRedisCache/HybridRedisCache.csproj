@@ -2,7 +2,7 @@
 
     <PropertyGroup>
         <TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>
-        <Version>6.0.0</Version>
+        <Version>6.1.0</Version>
         <LangVersion>default</LangVersion>
         <ImplicitUsings>enable</ImplicitUsings>
         <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
@@ -21,20 +21,26 @@
         <PackageTags>redis; cache; in-memory; memcache; RedisMemoryCache; HybridCachePlus; InRedisCache; MemRedisCache; RedisFusionCache; RedisMemCache; RedisInMemoryCache; MemHybridCache; RedisHybridStore; HybridRedisCache</PackageTags>
         <PackageReleaseNotes>
 ### Breaking
-- Upgraded to StackExchange.Redis 3.x. Consumers must also move to 3.x.
-- `HybridCachingOptions.ThreadPoolSocketManagerEnable` is obsolete and ignored: StackExchange.Redis 3.x removed SocketManager and always schedules socket work itself.
-- Async APIs gained a trailing optional `CancellationToken` parameter (source compatible, binary breaking).
+- Metrics moved from prometheus-net to `System.Diagnostics.Metrics`. The `prometheus-net` dependency is gone; hosts now collect through OpenTelemetry (or any `MeterListener`) by registering the meter: `AddMeter(HybridRedisCache.KeyMeter.MeterName)`.
+
+### Added
+- New `hybrid_cache_lookups` counter recording every cache read, tagged with `cache` (the instance shared name), `layer` (`local`, `redis`) and `result` (`hit`, `miss`). A local miss falls through to redis, so a single read can produce two measurements.
+- The data-size histogram now carries the `By` unit, explicit bucket boundaries and the same `cache` tag.
+- `GetAll` / `GetAllAsync`: read many keys at once; keys already in the local cache are not sent to Redis.
+- `GetAndExpireAsync` (GETEX), `KeyRenameAsync` (RENAME / RENAMENX), `KeyPersistAsync`, `KeyTouchAsync`.
+- HyperLogLog: `HyperLogLogAddAsync`, `HyperLogLogLengthAsync`. Bits: `StringSetBitAsync`, `StringGetBitAsync`, `StringBitCountAsync`.
+- Server admin: `ServerInfoAsync`, `SlowlogGetAsync`, `ClientListAsync`, `MemoryStatsAsync`.
+- `SelfWriteNotificationWindow` option (default 5 seconds, unchanged behaviour).
 
 ### Fixed
-- `SetAll`/`SetAllAsync` wrote the whole dictionary into the local cache under every key instead of that key's own value. With `RedisCacheEnable=false` this lost the data outright; otherwise it bloated memory and made every local read miss.
-- Startup no longer fails when the server rejects `CONFIG SET notify-keyspace-events` (Azure Cache for Redis, AWS ElastiCache and other managed/compatible servers). The error is logged and startup continues.
-- Reconnect no longer spins the CPU in a tight loop while Redis is unreachable.
-- `RemoveWithPatternAsync` logged a removed-key count that was always 0.
-- `ExistsAsync`'s interface default flag (`None`) disagreed with the implementation (`PreferMaster`).
+- `GetAsync` with a data retriever is now single-flight per key: concurrent misses share one retriever run.
+- Clearing the local cache no longer races with reads (`ObjectDisposedException`).
+- `RENAME` now removes the local copies of both keys on every instance.
+- `PingAsync` no longer reports a healthy server as down (`ConnectRetry = 0`, slow replies).
+- The second internal `MemoryCache` is now disposed.
 
-### CI / tooling
-- New one-shot release routine (`scripts/release.sh`) and tag-triggered release workflow publishing to nuget.org via Trusted Publishing (OIDC, no stored API key).
-- Test coverage is now uploaded to Codecov.
+### Dependencies
+- `StackExchange.Redis` 3.0.17 -&gt; 3.3.1 (raises the minimum consumers must resolve), `MessagePack` 3.1.8 -&gt; 3.1.10, `Microsoft.Extensions.Caching.Memory` 10.0.10 -&gt; 10.0.12.
         </PackageReleaseNotes>
         <IncludeSymbols>True</IncludeSymbols>
         <PackageLicenseFile>LICENSE</PackageLicenseFile>
@@ -53,11 +59,10 @@
 
     <ItemGroup>
         <PackageReference Include="MemoryPack" Version="1.21.4" />
-        <PackageReference Include="MessagePack" Version="3.1.8" />
-        <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="10.0.10" />
+        <PackageReference Include="MessagePack" Version="3.1.10" />
+        <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="10.0.12" />
         <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
-        <PackageReference Include="prometheus-net" Version="8.2.1" />
-        <PackageReference Include="StackExchange.Redis" Version="3.0.17" />
+        <PackageReference Include="StackExchange.Redis" Version="3.3.1" />
     </ItemGroup>
 
 </Project>

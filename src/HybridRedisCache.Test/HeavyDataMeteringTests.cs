@@ -3,7 +3,6 @@ using System.Text;
 using System.Threading.Tasks;
 using HybridRedisCache.Test.Models;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace HybridRedisCache.Test;
 
@@ -32,7 +31,7 @@ public class HeavyDataMeteringTests(ITestOutputHelper testOutputHelper) : BaseCa
         await using var cache = new HybridCache(options, LoggerFactory);
 
         // Act
-        await cache.SetAsync(key, largeData, TimeSpan.FromMinutes(1));
+        await cache.SetAsync(key, largeData, TimeSpan.FromMinutes(1), token: TestToken);
 
         // Assert
         if (shouldLogAndMeter)
@@ -45,7 +44,7 @@ public class HeavyDataMeteringTests(ITestOutputHelper testOutputHelper) : BaseCa
         }
         
         // Note: In integration tests, we verify the behavior by checking the actual cached data
-        var retrievedData = await cache.GetAsync<string>(key);
+        var retrievedData = await cache.GetAsync<string>(key, token: TestToken);
         Assert.Equal(largeData, retrievedData);
     }
 
@@ -70,10 +69,10 @@ public class HeavyDataMeteringTests(ITestOutputHelper testOutputHelper) : BaseCa
         TestOutputHelper.WriteLine($"Testing with data: '{testData}', expected byte count: {expectedByteCount}");
 
         // Act
-        await cache.SetAsync(key, testData, TimeSpan.FromMinutes(1));
+        await cache.SetAsync(key, testData, TimeSpan.FromMinutes(1), token: TestToken);
 
         // Assert - Verify the data was stored correctly
-        var retrievedData = await cache.GetAsync<string>(key);
+        var retrievedData = await cache.GetAsync<string>(key, token: TestToken);
         Assert.Equal(testData, retrievedData);
         
         TestOutputHelper.WriteLine($"Data successfully stored and retrieved. Size should have triggered logging.");
@@ -99,10 +98,10 @@ public class HeavyDataMeteringTests(ITestOutputHelper testOutputHelper) : BaseCa
         TestOutputHelper.WriteLine($"Testing with metering disabled. Large data size: {largeData.Length} chars");
 
         // Act
-        await cache.SetAsync(key, largeData, TimeSpan.FromMinutes(1));
+        await cache.SetAsync(key, largeData, TimeSpan.FromMinutes(1), token: TestToken);
 
         // Assert - Verify data was stored even with metering disabled
-        var retrievedData = await cache.GetAsync<string>(key);
+        var retrievedData = await cache.GetAsync<string>(key, token: TestToken);
         Assert.Equal(largeData, retrievedData);
         
         TestOutputHelper.WriteLine("No heavy data logging should occur when metering is disabled");
@@ -131,10 +130,10 @@ public class HeavyDataMeteringTests(ITestOutputHelper testOutputHelper) : BaseCa
         TestOutputHelper.WriteLine($"Testing key: {key}, data size: {dataSize} bytes, threshold: {threshold} bytes");
 
         // Act
-        await cache.SetAsync(key, data, TimeSpan.FromMinutes(1));
+        await cache.SetAsync(key, data, TimeSpan.FromMinutes(1), token: TestToken);
 
         // Assert - Verify data was stored correctly
-        var retrievedData = await cache.GetAsync<string>(key);
+        var retrievedData = await cache.GetAsync<string>(key, token: TestToken);
         Assert.Equal(data, retrievedData);
         
         if (dataSize > threshold)
@@ -179,10 +178,10 @@ public class HeavyDataMeteringTests(ITestOutputHelper testOutputHelper) : BaseCa
         TestOutputHelper.WriteLine($"Testing complex object with large data. Name length: {complexObject.Name.Length}, Street length: {complexObject.Address.Street.Length}");
 
         // Act
-        await cache.SetAsync(key, complexObject, TimeSpan.FromMinutes(1));
+        await cache.SetAsync(key, complexObject, TimeSpan.FromMinutes(1), token: TestToken);
 
         // Assert - Verify complex object was stored and retrieved correctly
-        var retrievedObject = await cache.GetAsync<ComplexObject>(key);
+        var retrievedObject = await cache.GetAsync<ComplexObject>(key, token: TestToken);
         Assert.NotNull(retrievedObject);
         Assert.Equal(complexObject.Name, retrievedObject.Name);
         Assert.Equal(complexObject.Age, retrievedObject.Age);
@@ -213,12 +212,12 @@ public class HeavyDataMeteringTests(ITestOutputHelper testOutputHelper) : BaseCa
         TestOutputHelper.WriteLine($"Testing multiple keys: {key1} ({largeData1.Length} chars), {key2} ({largeData2.Length} chars)");
 
         // Act
-        await cache.SetAsync(key1, largeData1, TimeSpan.FromMinutes(1));
-        await cache.SetAsync(key2, largeData2, TimeSpan.FromMinutes(1));
+        await cache.SetAsync(key1, largeData1, TimeSpan.FromMinutes(1), token: TestToken);
+        await cache.SetAsync(key2, largeData2, TimeSpan.FromMinutes(1), token: TestToken);
 
         // Assert - Verify both keys were stored correctly
-        var retrievedData1 = await cache.GetAsync<string>(key1);
-        var retrievedData2 = await cache.GetAsync<string>(key2);
+        var retrievedData1 = await cache.GetAsync<string>(key1, token: TestToken);
+        var retrievedData2 = await cache.GetAsync<string>(key2, token: TestToken);
         
         Assert.Equal(largeData1, retrievedData1);
         Assert.Equal(largeData2, retrievedData2);
@@ -249,10 +248,10 @@ public class HeavyDataMeteringTests(ITestOutputHelper testOutputHelper) : BaseCa
         TestOutputHelper.WriteLine($"UTF-8 byte count: {expectedBytes} bytes");
 
         // Act
-        await cache.SetAsync(key, testString, TimeSpan.FromMinutes(1));
+        await cache.SetAsync(key, testString, TimeSpan.FromMinutes(1), token: TestToken);
 
         // Assert
-        var retrievedData = await cache.GetAsync<string>(key);
+        var retrievedData = await cache.GetAsync<string>(key, token: TestToken);
         Assert.Equal(testString, retrievedData);
         
         TestOutputHelper.WriteLine($"Data stored and retrieved successfully. Expected {expectedBytes} bytes to be logged.");

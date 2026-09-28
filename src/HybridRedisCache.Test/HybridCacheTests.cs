@@ -1,4 +1,5 @@
-using System;
+﻿using System;
+using System.Globalization;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
@@ -9,7 +10,6 @@ using HybridRedisCache.Test.Models;
 using Newtonsoft.Json;
 using StackExchange.Redis;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace HybridRedisCache.Test;
 
@@ -52,9 +52,9 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         const string value = "cache value";
 
         // Act
-        await Cache.SetAsync(key, value, TimeSpan.FromMilliseconds(1), TimeSpan.FromSeconds(10));
-        await Task.Delay(100);
-        var result = await Cache.GetAsync<string>(key);
+        await Cache.SetAsync(key, value, TimeSpan.FromMilliseconds(1), TimeSpan.FromSeconds(10), token: TestToken);
+        await Task.Delay(100, TestToken);
+        var result = await Cache.GetAsync<string>(key, token: TestToken);
 
         // Assert
         Assert.Equal(value, result);
@@ -68,9 +68,9 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         var value = 12345679.5;
 
         // Act
-        await Cache.SetAsync(key, value, TimeSpan.FromTicks(1), TimeSpan.FromSeconds(600));
-        await Task.Delay(100);
-        var result = await Cache.GetAsync<double>(key);
+        await Cache.SetAsync(key, value, TimeSpan.FromTicks(1), TimeSpan.FromSeconds(600), token: TestToken);
+        await Task.Delay(100, TestToken);
+        var result = await Cache.GetAsync<double>(key, token: TestToken);
 
         // Assert
         Assert.Equal(value, result);
@@ -111,8 +111,8 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         const string value = "Value";
 
         // Act
-        await Cache.SetAsync(key, value, TimeSpan.FromMilliseconds(100), TimeSpan.FromMilliseconds(100));
-        await Task.Delay(TimeSpan.FromSeconds(2));
+        await Cache.SetAsync(key, value, TimeSpan.FromMilliseconds(100), TimeSpan.FromMilliseconds(100), token: TestToken);
+        await Task.Delay(TimeSpan.FromSeconds(2), TestToken);
         var result = Cache.Get<string>(key);
 
         // Assert
@@ -143,8 +143,8 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         const string value = "Value";
 
         // Act
-        await Cache.SetAsync(key, value);
-        var result = await Cache.GetAsync<string>(key);
+        await Cache.SetAsync(key, value, token: TestToken);
+        var result = await Cache.GetAsync<string>(key, token: TestToken);
 
         // Assert
         Assert.Equal(value, result);
@@ -157,7 +157,7 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         var key = UniqueKey;
 
         // Act
-        var result = await Cache.GetAsync<string>(key);
+        var result = await Cache.GetAsync<string>(key, token: TestToken);
 
         // Assert
         Assert.Null(result);
@@ -175,9 +175,9 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
 
         // Act
         await Cache.SetAsync(key, value, TimeSpan.FromSeconds(localExpiry),
-            TimeSpan.FromSeconds(redisExpiry));
-        await Task.Delay(redisExpiry * 1050);
-        var result = await Cache.GetAsync<string>(key);
+            TimeSpan.FromSeconds(redisExpiry), token: TestToken);
+        await Task.Delay(redisExpiry * 1050, TestToken);
+        var result = await Cache.GetAsync<string>(key, token: TestToken);
 
         // Assert
         Assert.Null(result);
@@ -202,18 +202,18 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
 
         // Act
         await Cache.SetAsync(key, value, localExp, redisExp,
-            localCacheEnable: true, redisCacheEnable: true);
+            localCacheEnable: true, redisCacheEnable: true, token: TestToken);
 
-        var exp = await Cache.GetExpirationAsync(key);
+        var exp = await Cache.GetExpirationAsync(key, token: TestToken);
         var delay = Stopwatch.StartNew();
-        await Task.Delay(redisExpiry + 20); // wait for redis expiration
+        await Task.Delay(redisExpiry + 20, TestToken); // wait for redis expiration
         delay.Stop();
-        var exp2 = await Cache.GetExpirationAsync(key);
+        var exp2 = await Cache.GetExpirationAsync(key, token: TestToken);
         TestOutputHelper.WriteLine($"Exp1: {exp?.TotalMilliseconds}, " +
                                    $"Delay: {delay.Elapsed.TotalMilliseconds}" +
                                    $"Exp2: {exp2?.TotalMilliseconds}, ");
 
-        var valueAfterRedisExpiration = await Cache.GetAsync<string>(key);
+        var valueAfterRedisExpiration = await Cache.GetAsync<string>(key, token: TestToken);
 
         // Assert
         Assert.Null(valueAfterRedisExpiration);
@@ -228,8 +228,8 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         var expiryTimeMin = 2;
 
         // Act
-        await Cache.SetAsync(key, value, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(expiryTimeMin));
-        var expiration = await Cache.GetExpirationAsync(key);
+        await Cache.SetAsync(key, value, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(expiryTimeMin), token: TestToken);
+        var expiration = await Cache.GetExpirationAsync(key, token: TestToken);
 
         // Assert
         Assert.Equal(expiryTimeMin, Math.Round(expiration?.TotalMinutes ?? 0));
@@ -260,9 +260,9 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         const string value = "Value";
 
         // Act
-        await Cache.SetAsync(key, value);
-        await Cache.RemoveAsync(key);
-        var result = await Cache.GetAsync<string>(key);
+        await Cache.SetAsync(key, value, token: TestToken);
+        await Cache.RemoveAsync(key, token: TestToken);
+        var result = await Cache.GetAsync<string>(key, token: TestToken);
 
         // Assert
         Assert.Null(result);
@@ -375,8 +375,8 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         };
 
         // Act
-        await Cache.SetAsync(key, complexValue, TimeSpan.FromTicks(1), TimeSpan.FromSeconds(60));
-        await Task.Delay(100);
+        await Cache.SetAsync(key, complexValue, TimeSpan.FromTicks(1), TimeSpan.FromSeconds(60), token: TestToken);
+        await Task.Delay(100, TestToken);
         var retrievedObject = Cache.Get<IComplexObject>(key);
 
         // Assert
@@ -451,8 +451,8 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         const string value = "Value";
 
         // Act
-        await Cache.SetAsync(key, value);
-        var result = await Cache.ExistsAsync(key);
+        await Cache.SetAsync(key, value, token: TestToken);
+        var result = await Cache.ExistsAsync(key, token: TestToken);
 
         // Assert
         Assert.True(result);
@@ -497,9 +497,9 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         }
 
         // Act
-        var firstResult = await Cache.GetAsync<string>(cacheKey);
-        var retrievedResult = await Cache.GetAsync(cacheKey, DataRetriever);
-        var isExist = await Cache.ExistsAsync(cacheKey);
+        var firstResult = await Cache.GetAsync<string>(cacheKey, token: TestToken);
+        var retrievedResult = await Cache.GetAsync(cacheKey, DataRetriever, token: TestToken);
+        var isExist = await Cache.ExistsAsync(cacheKey, token: TestToken);
 
         // Assert
         Assert.Null(firstResult);
@@ -542,12 +542,12 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         };
 
         // Act
-        await Cache.SetAllAsync(keyValues, TimeSpan.FromMinutes(10));
+        await Cache.SetAllAsync(keyValues, TimeSpan.FromMinutes(10), token: TestToken);
 
         // Assert
         foreach (var kvp in keyValues)
         {
-            var value = await Cache.GetAsync<string>(kvp.Key);
+            var value = await Cache.GetAsync<string>(kvp.Key, token: TestToken);
             Assert.Equal(kvp.Value, value);
         }
     }
@@ -582,11 +582,11 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         var value1 = "value1";
         var value2 = "value2";
 
-        await Cache.SetAsync(key1, value1);
-        await Cache.SetAsync(key2, value2);
+        await Cache.SetAsync(key1, value1, token: TestToken);
+        await Cache.SetAsync(key2, value2, token: TestToken);
 
         // Act
-        await Cache.RemoveAsync([key1, key2]);
+        await Cache.RemoveAsync([key1, key2], token: TestToken);
 
         // Assert
         Assert.Null(Cache.Get<string>(key1));
@@ -626,19 +626,19 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         var value1 = "value1";
         var value2 = "value2";
 
-        await Cache.SetAsync(key1, value1);
-        await Cache.SetAsync(key2, value2);
+        await Cache.SetAsync(key1, value1, token: TestToken);
+        await Cache.SetAsync(key2, value2, token: TestToken);
 
         // Act
-        var value1B = await Cache.GetAsync<string>(key1);
-        var value2B = await Cache.GetAsync<string>(key2);
-        await Cache.ClearAllAsync();
+        var value1B = await Cache.GetAsync<string>(key1, token: TestToken);
+        var value2B = await Cache.GetAsync<string>(key2, token: TestToken);
+        await Cache.ClearAllAsync(token: TestToken);
 
         // Assert
         Assert.Equal(value1, value1B);
         Assert.Equal(value2, value2B);
-        Assert.Null(await Cache.GetAsync<string>(key1));
-        Assert.Null(await Cache.GetAsync<string>(key2));
+        Assert.Null(await Cache.GetAsync<string>(key1, token: TestToken));
+        Assert.Null(await Cache.GetAsync<string>(key2, token: TestToken));
     }
 
     [Fact]
@@ -651,16 +651,16 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         var value2 = "value2";
 
         await Cache.SetAsync(key1, value1, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(1),
-            redisCacheEnable: false); // without redis caching
-        await Cache.SetAsync(key2, value2, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(1));
+            redisCacheEnable: false, token: TestToken); // without redis caching
+        await Cache.SetAsync(key2, value2, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(1), token: TestToken);
 
         // Act
-        var value1B = await Cache.GetAsync<string>(key1);
-        var value2B = await Cache.GetAsync<string>(key2);
-        await Cache.FlushLocalCachesAsync();
-        await Task.Delay(50);
-        var value1A = await Cache.GetAsync<string>(key1);
-        var value2A = await Cache.GetAsync<string>(key2);
+        var value1B = await Cache.GetAsync<string>(key1, token: TestToken);
+        var value2B = await Cache.GetAsync<string>(key2, token: TestToken);
+        await Cache.FlushLocalCachesAsync(token: TestToken);
+        await Task.Delay(50, TestToken);
+        var value1A = await Cache.GetAsync<string>(key1, token: TestToken);
+        var value2A = await Cache.GetAsync<string>(key2, token: TestToken);
 
         // Assert
         Assert.Equal(value1, value1B);
@@ -686,7 +686,7 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         var value1B = Cache.Get<string>(key1);
         var value2B = Cache.Get<string>(key2);
         Cache.FlushLocalCaches(); // Just test Sync method
-        await Task.Delay(100);
+        await Task.Delay(100, TestToken);
         var value1A = Cache.Get<string>(key1);
         var value2A = Cache.Get<string>(key2);
 
@@ -715,12 +715,12 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
             RedisExpiry = TimeSpan.FromMinutes(1),
             FireAndForget = false,
             LocalCacheEnable = false
-        });
+        }, token: TestToken);
 
         // Assert
         for (int i = 0; i < 1000; i++)
         {
-            var value = await Cache.GetAsync<string>(keyPattern + i);
+            var value = await Cache.GetAsync<string>(keyPattern + i, token: TestToken);
             Assert.Equal(valuePattern + i, value);
         }
     }
@@ -743,7 +743,7 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
             FireAndForget = false,
             LocalCacheEnable = true,
             RedisCacheEnable = false
-        });
+        }, token: TestToken);
 
         await Cache.SetAsync(key, redisValue, new HybridCacheEntry
         {
@@ -752,11 +752,11 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
             FireAndForget = false,
             LocalCacheEnable = false,
             RedisCacheEnable = true
-        });
+        }, token: TestToken);
 
-        var local = await Cache.GetAsync<string>(key); // get local value
-        await Task.Delay(localExpiry * 2); // wait to expire local cache
-        var redis = await Cache.GetAsync<string>(key); // Now, get Redis cache
+        var local = await Cache.GetAsync<string>(key, token: TestToken); // get local value
+        await Task.Delay(localExpiry * 2, TestToken); // wait to expire local cache
+        var redis = await Cache.GetAsync<string>(key, token: TestToken); // Now, get Redis cache
 
         // Assert
         Assert.Equal(localValue, local);
@@ -779,10 +779,10 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
                 FireAndForget = false,
                 LocalCacheEnable = false,
                 RedisCacheEnable = true
-            });
+            }, token: TestToken);
         }
 
-        await foreach (var key in Cache.KeysAsync(keyPattern + "*"))
+        await foreach (var key in Cache.KeysAsync(keyPattern + "*", token: TestToken))
         {
             // Search with a pattern
             foundKeys.Add(key);
@@ -810,10 +810,10 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
                 FireAndForget = false,
                 LocalCacheEnable = false,
                 RedisCacheEnable = true
-            });
+            }, token: TestToken);
         }
 
-        await foreach (var key in Cache.KeysAsync("*" + string.Format(keyPattern, "*"))) // "*keyPattern_*_X"
+        await foreach (var key in Cache.KeysAsync("*" + string.Format(CultureInfo.InvariantCulture, keyPattern, "*"), token: TestToken)) // "*keyPattern_*_X"
         {
             // Search with a pattern
             foundKeys.Add(key);
@@ -841,15 +841,15 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
                 FireAndForget = false,
                 LocalCacheEnable = false,
                 RedisCacheEnable = true
-            });
+            }, token: TestToken);
         }
 
-        await Cache.RemoveWithPatternAsync(keyPattern);
+        await Cache.RemoveWithPatternAsync(keyPattern, token: TestToken);
 
         // Assert
         for (var i = 0; i < 10; i++)
         {
-            var result = await Cache.GetAsync<string>(key + i);
+            var result = await Cache.GetAsync<string>(key + i, token: TestToken);
             Assert.Null(result);
         }
     }
@@ -861,8 +861,8 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         var key = "key_" + Guid.NewGuid().ToString("N");
 
         // Act
-        await Cache.RemoveWithPatternAsync(key);
-        var result = await Cache.GetAsync<string>(key);
+        await Cache.RemoveWithPatternAsync(key, token: TestToken);
+        var result = await Cache.GetAsync<string>(key, token: TestToken);
 
         // Assert
         Assert.Null(result);
@@ -872,7 +872,7 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
     public async Task PingAsyncTest()
     {
         // act
-        var duration = await Cache.PingAsync();
+        var duration = await Cache.PingAsync(token: TestToken);
 
         // assert
         Assert.True(duration.TotalMilliseconds > 0);
@@ -885,7 +885,7 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         const int value = 12345;
 
         // act
-        var cachedValue = await Cache.GetAsync(key, _ => Task.FromResult(value));
+        var cachedValue = await Cache.GetAsync(key, _ => Task.FromResult(value), token: TestToken);
 
         // assert
         Assert.Equal(value, cachedValue);
@@ -907,7 +907,7 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
     public async Task ShouldRetryOnConnectionFailure()
     {
         // act
-        var dur = await Cache.PingAsync();
+        var dur = await Cache.PingAsync(token: TestToken);
 
         // assert
         Assert.True(dur.TotalMilliseconds > 0, $"Actual value {dur.TotalMilliseconds}");
@@ -923,17 +923,17 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         var redisExpire = nearToRedisExpire * 2; // 4sec
 
         // act
-        await Cache.SetAsync(key, value, localExpire, redisExpire);
+        await Cache.SetAsync(key, value, localExpire, redisExpire, token: TestToken);
 
         // wait 3 sec to near to redis expiry time (local cache expired)
-        await Task.Delay(nearToRedisExpire);
+        await Task.Delay(nearToRedisExpire, TestToken);
 
         // fetch redis value and update local cache with new expiration time
         var canFetchRedisValue = Cache.TryGetValue(key, out int fetchedValue);
 
         // Wait 1.5 second to make sure that Redis has also expired and
         // the local cache should not be alive.
-        await Task.Delay(nearToRedisExpire.Add(TimeSpan.FromMilliseconds(500)));
+        await Task.Delay(nearToRedisExpire.Add(TimeSpan.FromMilliseconds(500)), TestToken);
         var canFetchLocalValue = Cache.TryGetValue(key, out int _);
 
         // assert
@@ -956,10 +956,10 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         entry.SetRedisExpiryUtcTime(DateTime.UtcNow.AddSeconds(1).ToString("T"));
 
         // act
-        await Cache.SetAsync(key, value, entry);
+        await Cache.SetAsync(key, value, entry, token: TestToken);
 
         // wait 1 sec 
-        await Task.Delay(TimeSpan.FromSeconds(1));
+        await Task.Delay(TimeSpan.FromSeconds(1), TestToken);
         var isSuccess = Cache.TryGetValue(key, out int _);
 
         // assert
@@ -996,7 +996,7 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
 
         // Act
         // Clear database first
-        await Cache.ClearAllAsync();
+        await Cache.ClearAllAsync(token: TestToken);
 
         // Insert Keys
         await Cache.SetAllAsync(keyValues, new HybridCacheEntry
@@ -1008,11 +1008,11 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
             KeepTtl = false,
             Flags = Flags.PreferMaster,
             When = Condition.Always
-        });
+        }, token: TestToken);
 
         // Get Keys
         var keys = new List<string>();
-        await foreach (var key in Cache.KeysAsync(keyPattern))
+        await foreach (var key in Cache.KeysAsync(keyPattern, token: TestToken))
         {
             keys.Add(key);
         }
@@ -1045,11 +1045,11 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         };
 
         // Action
-        await Cache.SetAsync(key, key, option);
+        await Cache.SetAsync(key, key, option, token: TestToken);
         option.RedisExpiry = expiryTime2;
         option.KeepTtl = true; // keep Redis expire time in the old time: 20
-        await Cache.SetAsync(key, key, option);
-        var actualTime = await Cache.GetExpirationAsync(key);
+        await Cache.SetAsync(key, key, option, token: TestToken);
+        var actualTime = await Cache.GetExpirationAsync(key, token: TestToken);
 
         // Assert
         Assert.True(actualTime <= expiryTime, $"This actual expire time is: {actualTime}");
@@ -1073,12 +1073,12 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
             Flags = Flags.DemandMaster,
             When = Condition.NotExists
         };
-        await Cache.ClearAllAsync();
+        await Cache.ClearAllAsync(token: TestToken);
 
         // Action
-        var inserted = await Cache.SetAsync(key, expectedValue, option);
-        var secondInsert = await Cache.SetAsync(key, "second value", option);
-        var actualValue = await Cache.GetAsync<string>(key);
+        var inserted = await Cache.SetAsync(key, expectedValue, option, token: TestToken);
+        var secondInsert = await Cache.SetAsync(key, "second value", option, token: TestToken);
+        var actualValue = await Cache.GetAsync<string>(key, token: TestToken);
 
         // Assert
         Assert.True(inserted);
@@ -1105,15 +1105,15 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
             Flags = Flags.DemandMaster,
             When = Condition.Always
         };
-        await Cache.ClearAllAsync();
+        await Cache.ClearAllAsync(token: TestToken);
 
         // Action
-        var inserted = await Cache.SetAsync(key, "value1", option);
+        var inserted = await Cache.SetAsync(key, "value1", option, token: TestToken);
         option.When = Condition.Exists;
-        var insertWhenExistKey = await Cache.SetAsync(key, expectedValue, option);
-        var insertWhenNotExistKey = await Cache.SetAsync(key2, expectedValue, option);
-        var actualValue = await Cache.GetAsync<string>(key);
-        var newValue = await Cache.GetAsync<string>(key2);
+        var insertWhenExistKey = await Cache.SetAsync(key, expectedValue, option, token: TestToken);
+        var insertWhenNotExistKey = await Cache.SetAsync(key2, expectedValue, option, token: TestToken);
+        var actualValue = await Cache.GetAsync<string>(key, token: TestToken);
+        var newValue = await Cache.GetAsync<string>(key2, token: TestToken);
 
         // Assert
         Assert.True(inserted);
@@ -1184,21 +1184,21 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         };
 
         // Action
-        await Task.Delay(100);
+        await Task.Delay(100, TestToken);
         await Task.Yield();
 
         var sw = Stopwatch.StartNew();
-        var inserted = await Cache.SetAsync(key, "init value", option);
-        var newInsertWithFalseExpectation = await Cache.SetAsync(key, expectedValue, option);
+        var inserted = await Cache.SetAsync(key, "init value", option, token: TestToken);
+        var newInsertWithFalseExpectation = await Cache.SetAsync(key, expectedValue, option, token: TestToken);
         sw.Stop();
 
         var durationBeforeExpiry = sw.ElapsedMilliseconds;
-        await Task.Delay(expiry.Add(TimeSpan.FromMilliseconds(100)));
-        while (Cache.TryGetValue<string>(key, out _)) await Task.Delay(2); // wait until the key is expired
+        await Task.Delay(expiry.Add(TimeSpan.FromMilliseconds(100)), TestToken);
+        while (Cache.TryGetValue<string>(key, out _)) await Task.Delay(2, TestToken); // wait until the key is expired
 
         sw.Restart();
-        var newInsertWithTrueExpectation = await Cache.SetAsync(key, expectedValue, option);
-        var actualValue = await Cache.GetAsync<string>(key);
+        var newInsertWithTrueExpectation = await Cache.SetAsync(key, expectedValue, option, token: TestToken);
+        var actualValue = await Cache.GetAsync<string>(key, token: TestToken);
         sw.Stop();
         var durationAfterExpiry = sw.ElapsedMilliseconds;
 
@@ -1224,7 +1224,7 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         var now = DateTime.Now.ToUniversalTime();
 
         // Act
-        var redisTime = (await Cache.TimeAsync(Flags.DemandMaster)).ToUniversalTime();
+        var redisTime = (await Cache.TimeAsync(Flags.DemandMaster, token: TestToken)).ToUniversalTime();
         var diffTime = Math.Abs((now.ToUniversalTime() - redisTime.ToUniversalTime()).TotalMilliseconds);
 
         // Assert
@@ -1245,18 +1245,18 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
     public async Task TestDatabaseSizeAsync(int count)
     {
         // Arrange 
-        await Cache.ClearAllAsync();
+        await Cache.ClearAllAsync(token: TestToken);
         if (count > 0)
         {
             var keyValues = Enumerable.Range(0, count)
                 .Select(_ => UniqueKey)
                 .ToDictionary(key => key, _ => "0");
 
-            await Cache.SetAllAsync(keyValues, redisExpiry: TimeSpan.FromSeconds(10), localCacheEnable: false);
+            await Cache.SetAllAsync(keyValues, redisExpiry: TimeSpan.FromSeconds(10), localCacheEnable: false, token: TestToken);
         }
 
         // Act
-        var size = await Cache.DatabaseSizeAsync(flags: Flags.DemandMaster);
+        var size = await Cache.DatabaseSizeAsync(flags: Flags.DemandMaster, token: TestToken);
 
         // Assert 
         Assert.Equal(count, size);
@@ -1269,7 +1269,7 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         var message = UniqueKey;
 
         // Act
-        var echo = await Cache.EchoAsync(message, flags: Flags.DemandMaster);
+        var echo = await Cache.EchoAsync(message, flags: Flags.DemandMaster, token: TestToken);
 
         // Assert
         Assert.Equal(message, echo.Single());
@@ -1282,13 +1282,13 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         var key = UniqueKey;
         var uniqueToken = "value of locking";
         var expiry = TimeSpan.FromMilliseconds(500);
-        await Cache.ClearAllAsync();
+        await Cache.ClearAllAsync(token: TestToken);
 
         // Act
-        var locked = await Cache.TryLockKeyAsync(key, uniqueToken, expiry);
-        var lockedTwice = await Cache.TryLockKeyAsync(key, uniqueToken, expiry);
-        await Task.Delay(expiry.Add(TimeSpan.FromMilliseconds(50))); // wait until the lock expired
-        var lockedExpiredKey = await Cache.TryLockKeyAsync(key, uniqueToken, expiry);
+        var locked = await Cache.TryLockKeyAsync(key, uniqueToken, expiry, cancellationToken: TestToken);
+        var lockedTwice = await Cache.TryLockKeyAsync(key, uniqueToken, expiry, cancellationToken: TestToken);
+        await Task.Delay(expiry.Add(TimeSpan.FromMilliseconds(50)), TestToken); // wait until the lock expired
+        var lockedExpiredKey = await Cache.TryLockKeyAsync(key, uniqueToken, expiry, cancellationToken: TestToken);
 
         // Assert
         Assert.True(locked);
@@ -1315,22 +1315,22 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
             Flags = Flags.PreferMaster,
             When = Condition.Always
         };
-        await Cache.ClearAllAsync();
+        await Cache.ClearAllAsync(token: TestToken);
 
         // Act
         // Lock an existed key and token is not possible
         // Set a locked key with difference or same value is possible
 
-        await Cache.SetAsync(key, token1, options); // set a value with the same lock key
-        var lockExistKey = await Cache.TryLockKeyAsync(key, token1, expiry); // False
-        var valueOnLocking = await Cache.GetAsync<string>(key); // get token1
-        await Task.Delay(expiryPlus1); // wait until the lock expired
-        var expiredValue = await Cache.GetAsync<string>(key); // get null
-        var lockAfterExpire = await Cache.TryLockKeyAsync(key, token2, expiry); // try lock key with token2
-        var valueOfToken2 = await Cache.GetAsync<string>(key); // the locked key changed first value
-        var setNewValueWithSameKey = await Cache.SetAsync(key, token3, expiry, expiry);
-        var lastValue = await Cache.GetAsync<string>(key); // the last value is token3 
-        var lockAfterChangedToken = await Cache.TryLockKeyAsync(key, token2, expiry); // try lock key with token2
+        await Cache.SetAsync(key, token1, options, token: TestToken); // set a value with the same lock key
+        var lockExistKey = await Cache.TryLockKeyAsync(key, token1, expiry, cancellationToken: TestToken); // False
+        var valueOnLocking = await Cache.GetAsync<string>(key, token: TestToken); // get token1
+        await Task.Delay(expiryPlus1, TestToken); // wait until the lock expired
+        var expiredValue = await Cache.GetAsync<string>(key, token: TestToken); // get null
+        var lockAfterExpire = await Cache.TryLockKeyAsync(key, token2, expiry, cancellationToken: TestToken); // try lock key with token2
+        var valueOfToken2 = await Cache.GetAsync<string>(key, token: TestToken); // the locked key changed first value
+        var setNewValueWithSameKey = await Cache.SetAsync(key, token3, expiry, expiry, token: TestToken);
+        var lastValue = await Cache.GetAsync<string>(key, token: TestToken); // the last value is token3 
+        var lockAfterChangedToken = await Cache.TryLockKeyAsync(key, token2, expiry, cancellationToken: TestToken); // try lock key with token2
 
         // Assert
         Assert.False(lockExistKey);
@@ -1351,15 +1351,15 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         var token1 = "token";
         var token2 = "token2";
         var expiry = TimeSpan.FromSeconds(10);
-        await Cache.ClearAllAsync();
+        await Cache.ClearAllAsync(token: TestToken);
 
         // Act
-        var lockedToken1 = await Cache.TryLockKeyAsync(key, token1, expiry); // true
-        var releasedToken2 = await Cache.TryReleaseLockAsync(key, token2); // false
-        var releasedToken1 = await Cache.TryReleaseLockAsync(key, token1); // true
-        var keyValue = await Cache.GetAsync<string>(key); // null
-        var lockedT1Again = await Cache.TryLockKeyAsync(key, token1, expiry); // true
-        var lockedT2Again = await Cache.TryLockKeyAsync(key, token2, expiry); // false
+        var lockedToken1 = await Cache.TryLockKeyAsync(key, token1, expiry, cancellationToken: TestToken); // true
+        var releasedToken2 = await Cache.TryReleaseLockAsync(key, token2, cancellationToken: TestToken); // false
+        var releasedToken1 = await Cache.TryReleaseLockAsync(key, token1, cancellationToken: TestToken); // true
+        var keyValue = await Cache.GetAsync<string>(key, token: TestToken); // null
+        var lockedT1Again = await Cache.TryLockKeyAsync(key, token1, expiry, cancellationToken: TestToken); // true
+        var lockedT2Again = await Cache.TryLockKeyAsync(key, token2, expiry, cancellationToken: TestToken); // false
 
         // Assert
         Assert.True(lockedToken1);
@@ -1380,18 +1380,18 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         bool cantLockSameKey;
         bool setSameKey;
         var expiry = TimeSpan.FromSeconds(1);
-        await Cache.ClearAllAsync();
+        await Cache.ClearAllAsync(token: TestToken);
 
         // Act
-        await using (await Cache.LockKeyAsync(key))
+        await using (await Cache.LockKeyAsync(key, cancellationToken: TestToken))
         {
-            await Task.Delay(1000);
-            cantLockSameKey = await Cache.TryLockKeyAsync(key, token);
-            setSameKey = await Cache.SetAsync(key, token, expiry, expiry);
+            await Task.Delay(1000, TestToken);
+            cantLockSameKey = await Cache.TryLockKeyAsync(key, token, cancellationToken: TestToken);
+            setSameKey = await Cache.SetAsync(key, token, expiry, expiry, token: TestToken);
         }
 
-        await Task.Delay(expiry.Add(TimeSpan.FromMilliseconds(50)));
-        var locked = await Cache.TryLockKeyAsync(key, token, expiry);
+        await Task.Delay(expiry.Add(TimeSpan.FromMilliseconds(50)), TestToken);
+        var locked = await Cache.TryLockKeyAsync(key, token, expiry, cancellationToken: TestToken);
 
         // Assert
         Assert.False(cantLockSameKey);
@@ -1407,13 +1407,15 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         var key = UniqueKey;
         var raceConditionKeyOnRedis = UniqueKey;
         var expiry = TimeSpan.FromMilliseconds(100);
+        // v3 enforces Timeout by cancelling this token, so the waits below must observe it.
+        var ct = TestContext.Current.CancellationToken;
         var tasks = Enumerable.Range(0, numberOfConcurrency).Select(LockAndWait);
-        await Cache.ClearAllAsync();
+        await Cache.ClearAllAsync(token: TestToken);
 
         // Action
-        await Cache.SetAsync(raceConditionKeyOnRedis, 0); // init race condition value
+        await Cache.SetAsync(raceConditionKeyOnRedis, 0, token: TestToken); // init race condition value
         await Task.WhenAll(tasks);
-        var raceCount = await Cache.GetAsync<int>(raceConditionKeyOnRedis);
+        var raceCount = await Cache.GetAsync<int>(raceConditionKeyOnRedis, token: TestToken);
 
         // Assert
         Assert.Equal(numberOfConcurrency, raceCount);
@@ -1429,7 +1431,7 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
                 TestOutputHelper.WriteLine($"Task {id} locked the {key}");
                 var count = await Cache.GetAsync<int>(raceConditionKeyOnRedis);
                 await Cache.SetAsync(raceConditionKeyOnRedis, count + 1);
-                await Task.Delay(expiry);
+                await Task.Delay(expiry, ct);
             }
 
             TestOutputHelper.WriteLine($"Task {id} released the key {key}");
@@ -1444,15 +1446,15 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         var uniqueToken = UniqueKey;
         var expiry = TimeSpan.FromSeconds(1);
         var expiry10S = TimeSpan.FromSeconds(2);
-        await Cache.ClearAllAsync();
+        await Cache.ClearAllAsync(token: TestToken);
 
         // Action
-        var locked = await Cache.TryLockKeyAsync(key, uniqueToken, expiry); // true
-        var extendLocked = await Cache.TryExtendLockAsync(key, uniqueToken, expiry10S); // true
-        await Task.Delay(expiry); // after first locking expiration, still locked with extend method
-        var lockAgain = await Cache.TryLockKeyAsync(key, uniqueToken, expiry); // false
-        await Task.Delay(expiry.Add(TimeSpan.FromMilliseconds(50))); // now the key release with extended expiration
-        var lastValue = await Cache.GetAsync<string>(key); // null
+        var locked = await Cache.TryLockKeyAsync(key, uniqueToken, expiry, cancellationToken: TestToken); // true
+        var extendLocked = await Cache.TryExtendLockAsync(key, uniqueToken, expiry10S, cancellationToken: TestToken); // true
+        await Task.Delay(expiry, TestToken); // after first locking expiration, still locked with extend method
+        var lockAgain = await Cache.TryLockKeyAsync(key, uniqueToken, expiry, cancellationToken: TestToken); // false
+        await Task.Delay(expiry.Add(TimeSpan.FromMilliseconds(50)), TestToken); // now the key release with extended expiration
+        var lastValue = await Cache.GetAsync<string>(key, token: TestToken); // null
 
         // Assert
         Assert.True(locked);
@@ -1492,9 +1494,9 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         var redisExpiry = TimeSpan.FromMilliseconds(500);
 
         // Act
-        var inserted = await Cache.SetAsync(key, "test value", localExpiry, redisExpiry, Flags.DemandMaster);
+        var inserted = await Cache.SetAsync(key, "test value", localExpiry, redisExpiry, Flags.DemandMaster, token: TestToken);
         var canRead = Cache.TryGetValue<string>(key, out var _);
-        await Task.Delay(TimeSpan.FromSeconds(1));
+        await Task.Delay(TimeSpan.FromSeconds(1), TestToken);
         var canReadAfterRedisExpiration = Cache.TryGetValue<string>(key, out _);
 
         // Assert
@@ -1528,9 +1530,11 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
             LocalCacheEnable = false,
             RedisExpiry = TimeSpan.FromMilliseconds(1),
             When = Condition.NotExists
-        });
+        }, token: TestToken);
 
-        await semaphore.WaitAsync();
+        // v3 enforces Timeout by cancelling this token, so the wait must observe it or the
+        // test hangs the whole run instead of failing.
+        await semaphore.WaitAsync(TestContext.Current.CancellationToken);
 
         // Assert
         Assert.True(list.Count == 0);
@@ -1552,8 +1556,8 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         };
 
         // Act
-        await Cache.FlushLocalCachesAsync();
-        await semaphore.WaitAsync();
+        await Cache.FlushLocalCachesAsync(token: TestToken);
+        await semaphore.WaitAsync(TestContext.Current.CancellationToken);
 
         // Assert
         Assert.True(clearSignalReceived);
@@ -1564,9 +1568,9 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
     {
         var key = UniqueKey;
 
-        await Cache.ValueIncrementAsync(key); //set a custom key with value -1 as expiration
-        await Cache.KeyExpireAsync(key, TimeSpan.FromSeconds(2));
-        var keyExpiration = await Cache.GetExpirationAsync(key);
+        await Cache.ValueIncrementAsync(key, token: TestToken); //set a custom key with value -1 as expiration
+        await Cache.KeyExpireAsync(key, TimeSpan.FromSeconds(2), token: TestToken);
+        var keyExpiration = await Cache.GetExpirationAsync(key, token: TestToken);
         TestOutputHelper.WriteLine($"Total expiration milliseconds: {keyExpiration?.TotalMilliseconds}");
 
         Assert.True(keyExpiration?.TotalMilliseconds > 1000);
@@ -1577,10 +1581,10 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
     {
         var key = UniqueKey;
 
-        await Cache.ValueIncrementAsync(key); //set a custom key with value -1 as expiration
-        await Cache.KeyExpireAsync(key, TimeSpan.FromSeconds(1));
-        await Task.Delay(1100);
-        Assert.False(await Cache.ExistsAsync(key));
+        await Cache.ValueIncrementAsync(key, token: TestToken); //set a custom key with value -1 as expiration
+        await Cache.KeyExpireAsync(key, TimeSpan.FromSeconds(1), token: TestToken);
+        await Task.Delay(1100, TestToken);
+        Assert.False(await Cache.ExistsAsync(key, token: TestToken));
     }
 
     [Fact]
@@ -1589,12 +1593,12 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         var key = UniqueKey;
 
         //set a custom key with value 1 hour as expiration
-        await Cache.SetAsync(key, key, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(1));
-        var cachedValueBeforeExpiration = await Cache.GetAsync<string>(key);
+        await Cache.SetAsync(key, key, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(1), token: TestToken);
+        var cachedValueBeforeExpiration = await Cache.GetAsync<string>(key, token: TestToken);
         TestOutputHelper.WriteLine($"Cached Value Before expiration: {cachedValueBeforeExpiration}");
-        await Cache.KeyExpireAsync(key, TimeSpan.FromSeconds(1), Flags.DemandMaster);
-        await Task.Delay(1100);
-        var cachedValueAfterExpiration = await Cache.GetAsync<string>(key);
+        await Cache.KeyExpireAsync(key, TimeSpan.FromSeconds(1), Flags.DemandMaster, token: TestToken);
+        await Task.Delay(1100, TestToken);
+        var cachedValueAfterExpiration = await Cache.GetAsync<string>(key, token: TestToken);
 
         Assert.Null(cachedValueAfterExpiration);
     }
@@ -1605,9 +1609,9 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         const long init = 10L;
         var key = UniqueKey;
 
-        var value = await Cache.ValueIncrementAsync(key, init);
-        await Cache.ValueIncrementAsync(key);
-        var secondValue = await Cache.ValueIncrementAsync(key);
+        var value = await Cache.ValueIncrementAsync(key, init, token: TestToken);
+        await Cache.ValueIncrementAsync(key, token: TestToken);
+        var secondValue = await Cache.ValueIncrementAsync(key, token: TestToken);
 
         Assert.Equal(init, value);
         Assert.Equal(init + 2, secondValue);
@@ -1620,9 +1624,9 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         const long init = 10L;
         var key = UniqueKey;
 
-        var value = await Cache.ValueIncrementAsync(key, init);
+        var value = await Cache.ValueIncrementAsync(key, init, token: TestToken);
 
-        var get = await Cache.GetAsync<long>(key);
+        var get = await Cache.GetAsync<long>(key, token: TestToken);
 
         Assert.Equal(get, value);
     }
@@ -1633,11 +1637,11 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         var key = UniqueKey;
         var callCount = 0;
 
-        var value1 = await Cache.GetAsync(key, Retriever);
-        var value2 = await Cache.GetAsync(key, Retriever);
-        var value3 = await Cache.GetAsync(key, Retriever);
-        var value4 = await Cache.GetAsync(key, Retriever);
-        var value5 = await Cache.GetAsync(key, Retriever);
+        var value1 = await Cache.GetAsync(key, Retriever, token: TestToken);
+        var value2 = await Cache.GetAsync(key, Retriever, token: TestToken);
+        var value3 = await Cache.GetAsync(key, Retriever, token: TestToken);
+        var value4 = await Cache.GetAsync(key, Retriever, token: TestToken);
+        var value5 = await Cache.GetAsync(key, Retriever, token: TestToken);
 
         Assert.Equal(1, value1);
         Assert.Equal(1, value2);
@@ -1676,17 +1680,17 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
                 LocalCacheEnable = false,
                 RedisCacheEnable = true,
                 RedisExpiry = TimeSpan.FromHours(1)
-            });
+            }, token: TestToken);
         }
 
-        await Task.Delay(100);
-        await Cache.RemoveWithPatternOnRedisAsync(keyPattern, Flags.DemandMaster);
-        await Task.Delay(1000);
+        await Task.Delay(100, TestToken);
+        await Cache.RemoveWithPatternOnRedisAsync(keyPattern, Flags.DemandMaster, token: TestToken);
+        await Task.Delay(1000, TestToken);
 
         // Assert
         foreach (var key in keys)
         {
-            var isExist = await Cache.ExistsAsync(key);
+            var isExist = await Cache.ExistsAsync(key, token: TestToken);
             Assert.False(isExist);
         }
     }
@@ -1701,7 +1705,7 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         var expiry = TimeSpan.FromSeconds(1);
         var counter = 0;
         var tasks = new List<Task>();
-        await Cache.ClearAllAsync();
+        await Cache.ClearAllAsync(token: TestToken);
         var timeWatcher = Stopwatch.StartNew();
 
         // Act
@@ -1713,8 +1717,8 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         await Task.WhenAll(tasks);
         timeWatcher.Stop();
 
-        await Task.Delay(expiry.Add(TimeSpan.FromMilliseconds(50)));
-        var locked = await Cache.TryLockKeyAsync(key, token, expiry);
+        await Task.Delay(expiry.Add(TimeSpan.FromMilliseconds(50)), TestToken);
+        var locked = await Cache.TryLockKeyAsync(key, token, expiry, cancellationToken: TestToken);
 
         // Assert
         Assert.True(locked);
@@ -1732,6 +1736,21 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         }
     }
 
+    // MemoryCache checks absolute expiry lazily against its own clock, which can lag Task.Delay
+    // by a few milliseconds — poll past the expiry instead of racing it with a fixed delay.
+    private async Task<string> GetAfterLocalExpiryAsync(string key)
+    {
+        string value = null;
+        for (var i = 0; i < 50; i++)
+        {
+            await Task.Delay(50);
+            value = await Cache.GetAsync<string>(key);
+            if (value is null) break;
+        }
+
+        return value;
+    }
+
     [Fact]
     public async Task Cache_On_Local_Without_Redis_Set_Option_Test()
     {
@@ -1743,10 +1762,9 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         await Cache.SetAsync(key1, value1,
             TimeSpan.FromMilliseconds(100),
             TimeSpan.FromMinutes(10),
-            redisCacheEnable: false); // without redis caching
-        var fetchedValue = await Cache.GetAsync<string>(key1);
-        await Task.Delay(100);
-        var fetchedNullValue = await Cache.GetAsync<string>(key1);
+            redisCacheEnable: false, token: TestToken); // without redis caching
+        var fetchedValue = await Cache.GetAsync<string>(key1, token: TestToken);
+        var fetchedNullValue = await GetAfterLocalExpiryAsync(key1);
 
         // Assert
         Assert.Equal(value1, fetchedValue);
@@ -1769,10 +1787,9 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         };
 
         // Act
-        await Cache.SetAsync(key1, value1, opt);
-        var fetchedValue = await Cache.GetAsync<string>(key1);
-        await Task.Delay(100);
-        var fetchedNullValue = await Cache.GetAsync<string>(key1);
+        await Cache.SetAsync(key1, value1, opt, token: TestToken);
+        var fetchedValue = await Cache.GetAsync<string>(key1, token: TestToken);
+        var fetchedNullValue = await GetAfterLocalExpiryAsync(key1);
 
         // Assert
         Assert.Equal(value1, fetchedValue);
@@ -1795,12 +1812,70 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
         };
 
         // Act
-        var fetchedValue = await Cache.GetAsync(key1, _ => Task.FromResult(value1), opt);
-        await Task.Delay(110);
-        var fetchedNullValue = await Cache.GetAsync<string>(key1);
+        var fetchedValue = await Cache.GetAsync(key1, _ => Task.FromResult(value1), opt, token: TestToken);
+        var fetchedNullValue = await GetAfterLocalExpiryAsync(key1);
 
         // Assert
         Assert.Equal(value1, fetchedValue);
         Assert.Null(fetchedNullValue); // read from redis, but also redis has been expired
+    }
+
+    [Fact]
+    public async Task KeyTouchAsync_ReturnsWhetherKeyExists()
+    {
+        var key = UniqueKey;
+        Assert.False(await Cache.KeyTouchAsync(key, token: TestToken));
+        await Cache.SetAsync(key, "v", token: TestToken);
+        Assert.True(await Cache.KeyTouchAsync(key, token: TestToken));
+    }
+
+    [Fact]
+    public async Task KeyRenameAsync_RemovesLocalCopiesOnOtherInstances()
+    {
+        // Arrange
+        var (key, newKey) = (UniqueKey, UniqueKey);
+        await using var other = new HybridCache(Options, LoggerFactory);
+        await Cache.SetAsync(key, "old", token: TestToken);
+        await Cache.SetAsync(newKey, "stale", token: TestToken);
+        await Task.Delay(100, TestToken);
+        Assert.Equal("old", await other.GetAsync<string>(key, token: TestToken));
+        Assert.Equal("stale", await other.GetAsync<string>(newKey, token: TestToken));
+
+        // Act
+        await Cache.KeyRenameAsync(key, newKey, token: TestToken);
+        await Task.Delay(100, TestToken);
+
+        // Assert
+        Assert.Null(await other.GetAsync<string>(key, token: TestToken));
+        Assert.Equal("old", await other.GetAsync<string>(newKey, token: TestToken));
+    }
+
+    [Fact]
+    public async Task SlowlogGetAsync_ReturnsEntries()
+    {
+        // Log every command, so the slow log is not empty.
+        var server = Cache.RedisDb.Multiplexer.GetServers()[0];
+        await server.ConfigSetAsync("slowlog-log-slower-than", "0");
+        try
+        {
+            await Cache.SetAsync(UniqueKey, "v", token: TestToken);
+
+            var entries = await Cache.SlowlogGetAsync(10, token: TestToken);
+
+            Assert.NotEmpty(entries);
+        }
+        finally
+        {
+            await server.ConfigSetAsync("slowlog-log-slower-than", "10000");
+        }
+    }
+
+    [Fact]
+    public async Task MemoryStatsAsync_ReturnsReport()
+    {
+        var stats = await Cache.MemoryStatsAsync(token: TestToken);
+
+        Assert.False(stats.IsNull);
+        Assert.Contains("peak.allocated", stats.ToDictionary().Keys);
     }
 }

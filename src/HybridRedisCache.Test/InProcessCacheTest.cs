@@ -1,8 +1,8 @@
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace HybridRedisCache.Test;
 
@@ -18,6 +18,11 @@ public abstract class InProcessCacheTest : IAsyncDisposable
 
     protected readonly ILoggerFactory LoggerFactory;
     protected static string UniqueKey => Guid.NewGuid().ToString("N");
+
+    /// <summary>
+    /// The token xunit cancels when the run is cancelled or a test's Timeout elapses.
+    /// </summary>
+    protected static CancellationToken TestToken => TestContext.Current.CancellationToken;
 
     protected InProcessCacheTest(InProcessRedisFixture fixture, ITestOutputHelper testOutputHelper)
     {

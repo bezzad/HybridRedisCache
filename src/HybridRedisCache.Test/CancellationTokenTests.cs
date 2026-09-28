@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace HybridRedisCache.Test;
 
@@ -146,8 +145,12 @@ public class CancellationTokenTests(InProcessRedisFixture fixture, ITestOutputHe
     public async Task AsyncMethods_WithDefaultToken_CompleteNormally()
     {
         // default(CancellationToken) cannot be cancelled, so the fast path skips WaitAsync entirely.
+        // Passing TestToken here would exercise the WaitAsync path instead and test nothing, so this
+        // is the one place that deliberately keeps the default token.
+#pragma warning disable xUnit1051
         var key = UniqueKey;
         Assert.True(await Cache.SetAsync(key, 7));
         Assert.Equal(7, await Cache.GetAsync<int>(key));
+#pragma warning restore xUnit1051
     }
 }

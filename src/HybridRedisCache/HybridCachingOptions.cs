@@ -132,14 +132,17 @@ public record HybridCachingOptions
     public bool EnableRedisClientTracking { get; set; } = false;
 
     /// <summary>
-    /// Enable metering and logging of data writes to Redis.
-    /// When enabled, any data write exceeding the specified threshold will be logged as a warning
-    /// and recorded in Prometheus metrics for monitoring purposes.
+    /// Enable metering of cache reads and of data writes to Redis, and logging of heavy writes.
+    /// When enabled, every read is counted on the <see cref="KeyMeter.LookupsMetricName"/> counter per layer
+    /// and result, payload sizes are recorded on the <see cref="DataSizeHistogramMetricName"/> histogram, and
+    /// any write exceeding <see cref="WarningHeavyDataThresholdBytes"/> is logged as a warning.
+    /// Both instruments live on the <see cref="KeyMeter.MeterName"/> meter, which the host must register
+    /// (for example <c>AddMeter(KeyMeter.MeterName)</c>) for anything to be collected.
     /// </summary>
     public bool EnableMeterData { get; set; } = false;
 
     /// <summary>
-    /// Set name of the Prometheus histogram metric for data size tracking.
+    /// Set name of the histogram instrument for data size tracking.
     /// Default metric name is "hybrid_cache_data_bytes".
     /// </summary>
     public string DataSizeHistogramMetricName { get; set; } = "hybrid_cache_data_bytes";
@@ -154,6 +157,19 @@ public record HybridCachingOptions
     /// Custom serializer for distributed cache
     /// </summary>
     public ICachingSerializer Serializer { get; set; }
+
+    /// <summary>
+    /// How long a key this instance just wrote is remembered, so that the key-space notification for
+    /// that write does not make the instance drop the copy it just cached. Default is 5 seconds.
+    /// </summary>
+    /// <remarks>
+    /// Both directions cost something, which is why this is a knob and not a constant. Too short and a
+    /// notification delayed past the window (a loaded server, a pub/sub backlog) evicts the instance's
+    /// own fresh entry — a wasted local miss, never stale data. Too long and a write by *another*
+    /// instance inside the window is mistaken for our own and ignored, which serves a stale local
+    /// value until its TTL. Prefer the short end: a miss is cheaper than a lie.
+    /// </remarks>
+    public TimeSpan SelfWriteNotificationWindow { get; set; } = TimeSpan.FromSeconds(5);
 
     /// <summary>
     /// Set default serializer type for distributed cache

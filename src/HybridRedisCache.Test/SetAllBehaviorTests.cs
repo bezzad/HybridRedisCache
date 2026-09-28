@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace HybridRedisCache.Test;
 
@@ -26,11 +25,11 @@ public class SetAllBehaviorTests(InProcessRedisFixture fixture, ITestOutputHelpe
 
         // With Redis disabled the local cache is the only store, so a bad write is unrecoverable
         // rather than being masked by a Redis read.
-        var result = await Cache.SetAllAsync(data, localCacheEnable: true, redisCacheEnable: false);
+        var result = await Cache.SetAllAsync(data, localCacheEnable: true, redisCacheEnable: false, token: TestToken);
 
         Assert.True(result);
         foreach (var kvp in data)
-            Assert.Equal(kvp.Value, await Cache.GetAsync<string>(kvp.Key));
+            Assert.Equal(kvp.Value, await Cache.GetAsync<string>(kvp.Key, token: TestToken));
     }
 
     [Fact]
@@ -60,10 +59,10 @@ public class SetAllBehaviorTests(InProcessRedisFixture fixture, ITestOutputHelpe
             [prefix + "y"] = "value-y",
         };
 
-        Assert.True(await Cache.SetAllAsync(data));
+        Assert.True(await Cache.SetAllAsync(data, token: TestToken));
 
         foreach (var kvp in data)
-            Assert.Equal(kvp.Value, await Cache.GetAsync<string>(kvp.Key));
+            Assert.Equal(kvp.Value, await Cache.GetAsync<string>(kvp.Key, token: TestToken));
     }
 
     [Fact]
@@ -71,11 +70,11 @@ public class SetAllBehaviorTests(InProcessRedisFixture fixture, ITestOutputHelpe
     {
         var key = UniqueKey;
         await Cache.SetAllAsync(new Dictionary<string, int> { [key] = 42 },
-            localCacheEnable: true, redisCacheEnable: false);
+            localCacheEnable: true, redisCacheEnable: false, token: TestToken);
 
         // Reading as the element type must succeed; if the dictionary itself had been stored, the
         // typed local lookup would miss and (with Redis disabled) return default.
-        var (success, value) = await Cache.TryGetValueAsync<int>(key);
+        var (success, value) = await Cache.TryGetValueAsync<int>(key, token: TestToken);
 
         Assert.True(success);
         Assert.Equal(42, value);
@@ -91,11 +90,11 @@ public class SetAllBehaviorTests(InProcessRedisFixture fixture, ITestOutputHelpe
             [prefix + "2"] = new() { Id = 2, Name = "second" },
         };
 
-        Assert.True(await Cache.SetAllAsync(data));
+        Assert.True(await Cache.SetAllAsync(data, token: TestToken));
 
         foreach (var kvp in data)
         {
-            var actual = await Cache.GetAsync<ComplexModel>(kvp.Key);
+            var actual = await Cache.GetAsync<ComplexModel>(kvp.Key, token: TestToken);
             Assert.NotNull(actual);
             Assert.Equal(kvp.Value.Id, actual.Id);
             Assert.Equal(kvp.Value.Name, actual.Name);
