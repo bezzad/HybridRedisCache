@@ -186,7 +186,10 @@ instances.
 Other features of `HybridCache` include:
 
 * Multiple cache layers: Supports both in-memory and Redis caching layers, allowing for flexible caching strategies.
-* Automatic expiration: Cached data can automatically expire based on time-to-live (TTL) or sliding expiration policies.
+* Automatic expiration: Cached data expires based on an absolute time-to-live (TTL).
+* Single-flight data retrieval: When many callers miss the same key at once, `GetAsync` with a data retriever runs
+  the retriever only once and all callers share its result. The key names the value, so callers that pass different
+  retrievers for the same key still get one shared value.
 * Fire-and-forget caching: Enables quickly setting a value in the cache without waiting for a response, improving
   performance for non-critical cache operations.
 * Asynchronous caching operations: Provides asynchronous cache operations to enhance application responsiveness and
