@@ -26,7 +26,6 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
 
     private static readonly TimeSpan ReconnectBackOff = TimeSpan.FromMilliseconds(500);
 
-    private readonly TimeSpan _timeWindow = TimeSpan.FromSeconds(5); // Expiration time window
     private readonly KeyMeter _keyMeter;
     public IDatabase RedisDb { get; private set; }
 
@@ -370,8 +369,10 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
 
         foreach (var key in keys)
         {
-            // Add the key to the cache with an expiration policy
-            _recentlySetKeys.Set(key, DateTime.UtcNow, _timeWindow);
+            // Remembered only for a window: if the notification for this write never arrives (a
+            // server with key-space events disabled), the marker has to expire on its own or this
+            // cache grows without bound.
+            _recentlySetKeys.Set(key, DateTime.UtcNow, _options.SelfWriteNotificationWindow);
         }
     }
 

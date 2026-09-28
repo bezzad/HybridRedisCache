@@ -159,6 +159,19 @@ public record HybridCachingOptions
     public ICachingSerializer Serializer { get; set; }
 
     /// <summary>
+    /// How long a key this instance just wrote is remembered, so that the key-space notification for
+    /// that write does not make the instance drop the copy it just cached. Default is 5 seconds.
+    /// </summary>
+    /// <remarks>
+    /// Both directions cost something, which is why this is a knob and not a constant. Too short and a
+    /// notification delayed past the window (a loaded server, a pub/sub backlog) evicts the instance's
+    /// own fresh entry — a wasted local miss, never stale data. Too long and a write by *another*
+    /// instance inside the window is mistaken for our own and ignored, which serves a stale local
+    /// value until its TTL. Prefer the short end: a miss is cheaper than a lie.
+    /// </remarks>
+    public TimeSpan SelfWriteNotificationWindow { get; set; } = TimeSpan.FromSeconds(5);
+
+    /// <summary>
     /// Set default serializer type for distributed cache
     /// </summary>
     public SerializerType SerializerType { get; set; } = SerializerType.Bson;

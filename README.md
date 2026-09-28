@@ -84,6 +84,7 @@ var options = new HybridCachingOptions()
     EnableRedisClientTracking = true,
     EnableMeterData = true,
     WarningHeavyDataThresholdBytes = 20 * 1024, // 20KB
+    SelfWriteNotificationWindow = TimeSpan.FromSeconds(5), // see "Server requirements"
     DataSizeHistogramMetricName = "my_app_keys_data_size_histogram_metric",
     SerializerType = SerializerType.Bason, // Bson, MessagePack, MemoryPack, Or Custom
     // Serializer = new CustomBinarySerializer(),
@@ -244,6 +245,11 @@ The `cache` tag carries `InstancesSharedName`, so several caches in one process 
   **Azure Cache for Redis** and **AWS ElastiCache** block `CONFIG SET`; there the call is logged as an error
   and startup continues. Enable `notify-keyspace-events` through the provider's own configuration, otherwise
   local cache entries only expire via their own TTL and may serve stale data until then.
+* **An instance ignores the notification for its own write** for `SelfWriteNotificationWindow`
+  (default 5 seconds), so caching a value does not immediately invalidate it again. Raise it only
+  with care: a write by another instance that lands inside the window looks like our own and is
+  ignored, which serves a stale local value until its TTL. A window that is too short only costs a
+  local miss, so err on the short side.
 
 ## When should I enable caching?
 
