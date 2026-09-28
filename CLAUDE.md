@@ -220,3 +220,26 @@ default token, since a cancellable one would skip the fast path it exists to cov
   runtime, so an interface/implementation "mismatch" between those two is cosmetic. Real drift in an
   optional argument's default *is* a bug (the call site bakes it in), and
   `RegressionTests.InterfaceOptionalArguments_MatchTheImplementation` guards the whole surface.
+
+## Code quality gate (Codacy)
+
+Codacy reviews every PR (BestPractice + CodeStyle). `app.codacy.com` is not reachable from the cloud
+sandbox, so check locally **before every push** with the same kind of rules:
+
+```bash
+cd src && dotnet build HybridRedisCache/HybridRedisCache.csproj -f net10.0 --no-incremental \
+  -p:AnalysisMode=All -p:EnforceCodeStyleInBuild=true 2>&1 | grep warning
+```
+
+Only warnings on lines you changed matter. Rules for new library code:
+
+* **No sync-over-async.** Never `.Result`, `.Wait()`, `WaitAll` or `GetAwaiter().GetResult()` in the library
+  (SER308, CA1849). A sync method calls the sync StackExchange.Redis API; an async method awaits.
+* **`ConfigureAwait(false)` on every `await` in the library** (CA2007). Not in tests: xunit v3 flags it.
+* **Culture-safe formatting.** `string.Format`, `ToString`, `Parse` take `CultureInfo.InvariantCulture` (CA1305).
+* **Validate public arguments** with the `ArgumentCheck` helpers (CA1062).
+* **No constant arrays in hot paths**; use a `static readonly` field (CA1861).
+* **Keep new code small and flat.** Reuse private helpers instead of copy-paste between the sync and async
+  version (Codacy counts duplication and complexity).
+* **Accepted on purpose (do not "fix"):** CA1716 on `when`/`end` parameter names (they match the existing
+  API and StackExchange.Redis); CA1707 underscores in test method names (repo test naming).

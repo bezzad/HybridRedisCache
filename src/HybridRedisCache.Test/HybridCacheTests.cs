@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Globalization;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
@@ -812,7 +813,7 @@ public class HybridCacheTests(ITestOutputHelper testOutputHelper) : BaseCacheTes
             }, token: TestToken);
         }
 
-        await foreach (var key in Cache.KeysAsync("*" + string.Format(keyPattern, "*"), token: TestToken)) // "*keyPattern_*_X"
+        await foreach (var key in Cache.KeysAsync("*" + string.Format(CultureInfo.InvariantCulture, keyPattern, "*"), token: TestToken)) // "*keyPattern_*_X"
         {
             // Search with a pattern
             foundKeys.Add(key);

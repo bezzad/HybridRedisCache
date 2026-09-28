@@ -502,13 +502,13 @@ public partial class HybridCache : IHybridCache, IDisposable, IAsyncDisposable
     }
 
     private void AddRedisValues<T>(Dictionary<string, T> found, List<string> missed,
-        Task<RedisValueWithExpiry>[] redisTasks, bool localCacheEnable, Activity activity)
+        RedisValueWithExpiry[] redisValues, bool localCacheEnable, Activity activity)
     {
         for (var i = 0; i < missed.Count; i++)
         {
             try
             {
-                if (TryUpdateRedisValueOnLocalCache(GetCacheKey(missed[i]), redisTasks[i].Result, localCacheEnable,
+                if (TryUpdateRedisValueOnLocalCache(GetCacheKey(missed[i]), redisValues[i], localCacheEnable,
                         activity, out T value))
                     found[missed[i]] = value;
             }

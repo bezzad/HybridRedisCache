@@ -967,10 +967,9 @@ public partial class HybridCache
 
         try
         {
-            // The multiplexer pipelines these commands, so all keys go to Redis in one round trip.
-            var redisTasks = missed.Select(key => RedisDb.StringGetWithExpiryAsync(GetCacheKey(key))).ToArray();
-            RedisDb.WaitAll(redisTasks);
-            AddRedisValues(found, missed, redisTasks, localCacheEnable, activity);
+            // Sync callers read one key at a time: blocking on pipelined tasks can starve the thread pool.
+            var redisValues = missed.Select(key => RedisDb.StringGetWithExpiry(GetCacheKey(key))).ToArray();
+            AddRedisValues(found, missed, redisValues, localCacheEnable, activity);
         }
         catch (Exception ex)
         {
@@ -996,8 +995,8 @@ public partial class HybridCache
         {
             // The multiplexer pipelines these commands, so all keys go to Redis in one round trip.
             var redisTasks = missed.Select(key => RedisDb.StringGetWithExpiryAsync(GetCacheKey(key))).ToArray();
-            await Task.WhenAll(redisTasks).Cancelable(token).ConfigureAwait(false);
-            AddRedisValues(found, missed, redisTasks, localCacheEnable, activity);
+            var redisValues = await Task.WhenAll(redisTasks).Cancelable(token).ConfigureAwait(false);
+            AddRedisValues(found, missed, redisValues, localCacheEnable, activity);
         }
         catch (OperationCanceledException)
         {
